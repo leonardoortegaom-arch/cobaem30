@@ -1,0 +1,197 @@
+{
+  "versionFormato": 1,
+  "algoritmoChecksum": "sha256-utf8-lf-v1",
+  "descripcion": "Manifiesto estático y explícito de migraciones de COBAEM 30 desde el baseline v008.",
+  "migraciones": [
+    {
+      "version": 0,
+      "identificador": "000",
+      "estado": "BOOTSTRAP",
+      "archivo": "000_create_schema_migrations.sql",
+      "checksumSha256": "413fd0888304919f30672f8381a638a6149650115d79b8205d38150a040a81fc",
+      "descripcion": "Crea únicamente la tabla de control de migraciones.",
+      "razonEstado": "Bootstrap administrado exclusivamente por el runner futuro."
+    },
+    {
+      "version": 1,
+      "identificador": "001",
+      "estado": "ACTIVE",
+      "archivo": "001_create_auth_tables.sql",
+      "checksumSha256": "ad68e724862da643efd18a6c3207e765a611685714ea2168ccee71068011855e",
+      "descripcion": "Crea roles y usuarios."
+    },
+    {
+      "version": 2,
+      "identificador": "002",
+      "estado": "ACTIVE",
+      "archivo": "002_create_sessions_table.sql",
+      "checksumSha256": "9cb3e17ad5e06ea599588b8d8da53839b28fbdd046f3dcf9256612406f9a8822",
+      "descripcion": "Crea almacenamiento de sesiones."
+    },
+    {
+      "version": 3,
+      "identificador": "003",
+      "estado": "ACTIVE",
+      "archivo": "003_add_credential_version.sql",
+      "checksumSha256": "fd8eb58fc5395a9158b44f9d69758648db9d59114ab85ac025d7eb0a195eb9b5",
+      "descripcion": "Agrega control de versión de credenciales."
+    },
+    {
+      "version": 4,
+      "identificador": "004",
+      "estado": "ACTIVE",
+      "archivo": "004_create_groups_tables.sql",
+      "checksumSha256": "3f4e4aa150eee70cc6a66b2c13d36e1ca4691cac0e6e0f8c69f4619b399426a8",
+      "descripcion": "Crea turnos y grupos bajo el contrato legado."
+    },
+    {
+      "version": 5,
+      "identificador": "005",
+      "estado": "ACTIVE",
+      "archivo": "005_create_students_table.sql",
+      "checksumSha256": "2bdc73446aadaaadea1b3f7d359215eb87bdfcf6a0b2cfee6e5e5b8ce904b683",
+      "descripcion": "Crea perfiles académicos de alumnos."
+    },
+    {
+      "version": 6,
+      "identificador": "006",
+      "estado": "ACTIVE",
+      "archivo": "006_create_orientation_tracking_tables.sql",
+      "checksumSha256": "d4f2260bd3d2eef8a95d43098d77a51deb96629d529ad55d6067a2666c589a85",
+      "descripcion": "Crea seguimiento y actividades de orientación."
+    },
+    {
+      "version": 7,
+      "identificador": "007",
+      "estado": "ACTIVE",
+      "archivo": "007_create_orientation_activity_attachments.sql",
+      "checksumSha256": "2582c11f32d2771476df4a937bf2c4f1af2afe4229fcdd19c8f47db52cab269a",
+      "descripcion": "Crea metadatos de evidencias de actividades."
+    },
+    {
+      "version": 8,
+      "identificador": "008",
+      "estado": "ACTIVE",
+      "archivo": "008_create_written_orientation_reports.sql",
+      "checksumSha256": "f9dfa55c7ab1fe412bb749e986b2354813322664fe90201daed9247b719d4abe",
+      "descripcion": "Crea reportes redactados de orientación."
+    },
+    {
+      "version": 9,
+      "identificador": "009",
+      "estado": "SUPERSEDED_NOT_APPLIED",
+      "archivo": "009_add_group_staff_assignments.sql",
+      "checksumSha256": "5105a76fce5bb367854b860b93ddc626f4317192ea9a622cfbbf684c48b8d872",
+      "descripcion": "Propuesta anterior de asignación directa de personal a grupos.",
+      "razonEstado": "Nunca aplicada y sustituida por asignaciones con vigencia e historial."
+    },
+    {
+      "version": 10,
+      "identificador": "010",
+      "estado": "RESERVED_MISSING",
+      "archivo": null,
+      "checksumSha256": null,
+      "descripcion": "Número ausente conservado explícitamente.",
+      "razonEstado": "No existe archivo 010 y el número no debe reutilizarse."
+    },
+    {
+      "version": 11,
+      "identificador": "011",
+      "estado": "SUPERSEDED_NOT_APPLIED",
+      "archivo": "011_add_generation_to_groups.sql",
+      "checksumSha256": "04fedb9fe6c2fcd37deb236d13db1418b2091222ffe675a5f80333b8cdad196b",
+      "descripcion": "Propuesta anterior para reinterpretar generación y ciclo escolar.",
+      "razonEstado": "Nunca aplicada y no compatible con la preservación literal del dato heredado."
+    },
+    {
+      "version": 12,
+      "identificador": "012",
+      "estado": "SUPERSEDED_NOT_APPLIED",
+      "archivo": "012_add_semester_period_to_groups.sql",
+      "checksumSha256": "f8caf707a2874a504d20f59742387e46b95d91fa5aaddd3f54e6d35cdb027e78",
+      "descripcion": "Propuesta anterior de periodo semestral mediante ENUM.",
+      "razonEstado": "Nunca aplicada y sustituida por periodos académicos administrables."
+    },
+    {
+      "version": 13,
+      "identificador": "013",
+      "estado": "SUPERSEDED_NOT_APPLIED",
+      "archivo": "013_create_group_schedules_table.sql",
+      "checksumSha256": "4de494101134cf246d2fcb212379ac01c50f9f4ad8a17a9e4731a9ba7306efb1",
+      "descripcion": "Propuesta anterior de horario independiente por grupo.",
+      "razonEstado": "Nunca aplicada y sustituida por clases programadas como fuente única."
+    },
+    {
+      "version": 14,
+      "identificador": "014",
+      "estado": "SUPERSEDED_NOT_APPLIED",
+      "archivo": "014_create_teacher_schedules_table.sql",
+      "checksumSha256": "01cc8aee631d4ad22842ea19a2127e5213a8c7a55ea62fc19404454d13f5f7b3",
+      "descripcion": "Propuesta anterior de horario independiente por docente.",
+      "razonEstado": "Nunca aplicada y sustituida por la proyección docente de clases programadas."
+    },
+    {
+      "version": 15,
+      "identificador": "015",
+      "estado": "PLANNED",
+      "archivo": null,
+      "checksumSha256": null,
+      "descripcion": "Crear catálogos de calendario académico.",
+      "razonEstado": "Contrato aprobado; SQL aún no creado."
+    },
+    {
+      "version": 16,
+      "identificador": "016",
+      "estado": "PLANNED",
+      "archivo": null,
+      "checksumSha256": null,
+      "descripcion": "Agregar referencias académicas normalizadas y nullable a grupos.",
+      "razonEstado": "Contrato aprobado; SQL aún no creado."
+    },
+    {
+      "version": 17,
+      "identificador": "017",
+      "estado": "PLANNED",
+      "archivo": null,
+      "checksumSha256": null,
+      "descripcion": "Crear historial de asignaciones de orientador y tutor.",
+      "razonEstado": "Contrato aprobado; SQL aún no creado."
+    },
+    {
+      "version": 18,
+      "identificador": "018",
+      "estado": "PLANNED",
+      "archivo": null,
+      "checksumSha256": null,
+      "descripcion": "Crear catálogos de materias y aulas.",
+      "razonEstado": "Contrato aprobado; SQL aún no creado."
+    },
+    {
+      "version": 19,
+      "identificador": "019",
+      "estado": "PLANNED",
+      "archivo": null,
+      "checksumSha256": null,
+      "descripcion": "Crear importaciones y versiones de horario.",
+      "razonEstado": "Contrato aprobado; SQL aún no creado."
+    },
+    {
+      "version": 20,
+      "identificador": "020",
+      "estado": "PLANNED",
+      "archivo": null,
+      "checksumSha256": null,
+      "descripcion": "Crear clases programadas como fuente única de horarios.",
+      "razonEstado": "Contrato aprobado; SQL aún no creado."
+    },
+    {
+      "version": 21,
+      "identificador": "021",
+      "estado": "PLANNED",
+      "archivo": null,
+      "checksumSha256": null,
+      "descripcion": "Crear actividades docentes no lectivas.",
+      "razonEstado": "Contrato aprobado; SQL aún no creado."
+    }
+  ]
+}

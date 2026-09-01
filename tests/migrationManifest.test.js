@@ -1,0 +1,221 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const crypto = require('crypto');
+
+const manifestModule = require('../scripts/migrationManifest');
+
+function cargarClonReal() {
+    return JSON.parse(JSON.stringify(manifestModule.cargarManifiesto()));
+}
+
+function checksumDeTexto(texto) {
+    return crypto.createHash('sha256')
+        .update(manifestModule.normalizarContenidoParaChecksum(texto), 'utf8')
+        .digest('hex');
+}
+
+function conDirectorioTemporal(callback) {
+    const directorio = fs.mkdtempSync(path.join(os.tmpdir(), 'cobaem30-manifest-'));
+    try {
+        return callback(directorio);
+    } finally {
+        fs.rmSync(directorio, { recursive: true, force: true });
+    }
+}
+
+function manifiestoMinimo(archivo, checksum) {
+    return {
+        versionFormato: 1,
+        algoritmoChecksum: 'sha256-utf8-lf-v1',
+        descripcion: 'Manifiesto temporal de prueba.',
+        migraciones: [{
+            version: 1,
+            identificador: '001',
+            estado: 'ACTIVE',
+            archivo,
+            checksumSha256: checksum,
+            descripcion: 'Migración temporal.'
+        }]
+    };
+}
+
+test('1. el manifiesto real tiene estructura válida', () => {
+    assert.equal(manifestModule.validarEstructuraManifiesto(manifestModule.cargarManifiesto()), true);
+});
+
+test('2. todos los SQL físicos están manifestados', () => {
+    const manifiesto = manifestModule.cargarManifiesto();
+    const fisicos = manifestModule.listarArchivosSql();
+    const declarados = manifiesto.migraciones.filter((item) => item.archivo).map((item) => item.archivo).sort();
+    assert.deepEqual(fisicos, declarados);
+});
+
+test('3. los checksums reales coinciden', () => {
+    const resultado = manifestModule.validarArchivosYChecksums(manifestModule.cargarManifiesto());
+    assert.equal(resultado.totalArchivosSql, 14);
+});
+
+test('4. LF y CRLF producen el mismo checksum', () => {
+    assert.equal(checksumDeTexto('uno\ndos\n'), checksumDeTexto('uno\r\ndos\r\n'));
+});
+
+test('5. un cambio real en SQL cambia el checksum', () => {
+    assert.notEqual(checksumDeTexto('SELECT 1;\n'), checksumDeTexto('SELECT 2;\n'));
+});
+
+test('6. un BOM UTF-8 inicial no cambia el checksum', () => {
+    const sinBom = Buffer.from('texto\n', 'utf8');
+    const conBom = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), sinBom]);
+    assert.equal(checksumDeTexto(sinBom), checksumDeTexto(conBom));
+});
+
+test('7. espacios significativos cambian el checksum', () => {
+    assert.notEqual(checksumDeTexto('valor\n'), checksumDeTexto('valor \n'));
+});
+
+test('8. una versión duplicada es rechazada', () => {
+    const manifiesto = cargarClonReal();
+    manifiesto.migraciones.splice(2, 0, { ...manifiesto.migraciones[1] });
+    assert.throws(() => manifestModule.validarEstructuraManifiesto(manifiesto));
+});
+
+test('9. un archivo duplicado es rechazado', () => {
+    const manifiesto = cargarClonReal();
+    manifiesto.migraciones[2].archivo = manifiesto.migraciones[1].archivo;
+    assert.throws(() => manifestModule.validarEstructuraManifiesto(manifiesto), /Archivo duplicado/);
+});
+
+test('10. un estado desconocido es rechazado', () => {
+    const manifiesto = cargarClonReal();
+    manifiesto.migraciones[1].estado = 'INVENTADO';
+    assert.throws(() => manifestModule.validarEstructuraManifiesto(manifiesto), /Estado desconocido/);
+});
+
+test('11. ACTIVE sin archivo es rechazazada', () => {
+    const manifiesto = cargarClonReal();
+    manifiesto.migraciones[1].archivo = null;
+    manifiesto.migraciones[1].checksumSha256 = null;
+    assert.throws(() => manifestModule.validarEstructuraManifiesto(manifiesto));
+});
+
+test('12. SUPERSEDED sin checksum es rechazazada', () => {
+    const manifiesto = cargarClonReal();
+    manifiesto.migraciones.find((item) => item.version === 9).checksumSha256 = null;
+    assert.throws(() => manifestModule.validarEstructuraManifiesto(manifiesto), /Checksum inválido/);
+});
+
+test('13. RESERVED_MISSING con archivo es rechazazada', () => {
+    const manifiesto = cargarClonReal();
+    const entrada = manifiesto.migraciones.find((item) => item.version === 10);
+    entrada.archivo = '010_invalida.sql';
+    entrada.checksumSha256 = '0'.repeat(64);
+    assert.throws(() => manifestModule.validarEstructuraManifiesto(manifiesto));
+});
+
+test('14. PLANNED con archivo es rechazazada', () => {
+    const manifiesto = cargarClonReal();
+    const entrada = manifiesto.migraciones.find((item) => item.version === 15);
+    entrada.archivo = '015_invalida.sql';
+    entrada.checksumSha256 = '0'.repeat(64);
+    assert.throws(() => manifestModule.validarEstructuraManifiesto(manifiesto));
+});
+
+test('15. una ruta con .. es rechazada', () => {
+    const manifiesto = cargarClonReal();
+    manifiesto.migraciones[1].archivo = '../001.sql';
+    assert.throws(() => manifestModule.validarEstructuraManifiesto(manifiesto), /inseguro/);
+});
+
+test('16. una ruta absoluta es rechazada', () => {
+    const manifiesto = cargarClonReal();
+    manifiesto.migraciones[1].archivo = path.resolve('001.sql');
+    assert.throws(() => manifestModule.validarEstructuraManifiesto(manifiesto), /inseguro/);
+});
+
+test('17. un SQL físico no manifestado es detectado', () => {
+    conDirectorioTemporal((directorio) => {
+        fs.writeFileSync(path.join(directorio, 'extra.sql'), 'SELECT 1;\n', 'utf8');
+        assert.throws(
+            () => manifestModule.validarArchivosYChecksums(cargarClonReal(), { directorioMigraciones: directorio }),
+            /SQL físico no manifestado/
+        );
+    });
+});
+
+test('18. un archivo esperado ausente es detectado', () => {
+    conDirectorioTemporal((directorio) => {
+        const manifiesto = manifiestoMinimo('001_ausente.sql', '0'.repeat(64));
+        assert.throws(
+            () => manifestModule.validarArchivosYChecksums(manifiesto, { directorioMigraciones: directorio }),
+            /Archivo esperado ausente/
+        );
+    });
+});
+
+test('19. un checksum modificado es detectado', () => {
+    const manifiesto = cargarClonReal();
+    manifiesto.migraciones[0].checksumSha256 = '0'.repeat(64);
+    assert.throws(() => manifestModule.validarArchivosYChecksums(manifiesto), /Checksum distinto/);
+});
+
+test('20. 010 permanece reservado y sin archivo', () => {
+    const entrada = manifestModule.cargarManifiesto().migraciones.find((item) => item.version === 10);
+    assert.deepEqual(
+        { estado: entrada.estado, archivo: entrada.archivo, checksum: entrada.checksumSha256 },
+        { estado: 'RESERVED_MISSING', archivo: null, checksum: null }
+    );
+});
+
+test('21. 009 y 011–014 permanecen superseded', () => {
+    const migraciones = manifestModule.cargarManifiesto().migraciones;
+    for (const version of [9, 11, 12, 13, 14]) {
+        const entrada = migraciones.find((item) => item.version === version);
+        assert.equal(entrada.estado, 'SUPERSEDED_NOT_APPLIED');
+        assert.match(entrada.checksumSha256, /^[0-9a-f]{64}$/);
+    }
+});
+
+test('22. 015–021 permanecen planned y sin archivo', () => {
+    const migraciones = manifestModule.cargarManifiesto().migraciones;
+    for (let version = 15; version <= 21; version += 1) {
+        const entrada = migraciones.find((item) => item.version === version);
+        assert.equal(entrada.estado, 'PLANNED');
+        assert.equal(entrada.archivo, null);
+        assert.equal(entrada.checksumSha256, null);
+    }
+});
+
+test('23. el módulo no importa mysql2, dotenv ni database.js', () => {
+    const fuente = fs.readFileSync(path.join(manifestModule.PROJECT_ROOT, 'scripts', 'migrationManifest.js'), 'utf8');
+    assert.doesNotMatch(fuente, /mysql2|dotenv|config[\\/]database|child_process|\beval\s*\(/i);
+});
+
+test('24. los comandos de escritura son rechazados', () => {
+    for (const comando of ['up', 'down', 'migrate', 'apply', 'baseline-v008', 'status', 'rollback']) {
+        const errores = [];
+        const codigo = manifestModule.ejecutarCli([comando], { log() {}, error: (mensaje) => errores.push(mensaje) });
+        assert.notEqual(codigo, 0);
+        assert.equal(errores.length, 1);
+    }
+});
+
+test('25. plan es estático y no presenta migraciones como aplicadas', () => {
+    const salida = [];
+    const errores = [];
+    const codigo = manifestModule.ejecutarCli(['plan'], {
+        log: (mensaje) => salida.push(mensaje),
+        error: (mensaje) => errores.push(mensaje)
+    });
+    const texto = salida.join('\n');
+    assert.equal(codigo, 0);
+    assert.deepEqual(errores, []);
+    assert.match(texto, /Plan estático del manifiesto/);
+    assert.match(texto, /no hubo acceso a base de datos/);
+    assert.doesNotMatch(texto, /aplicada en MySQL|conectado a DB/i);
+    assert.equal(salida.filter((linea) => /^\d{3} \|/.test(linea)).length, 22);
+});
