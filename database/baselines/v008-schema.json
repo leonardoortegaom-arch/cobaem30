@@ -1,0 +1,263 @@
+{
+  "versionDescriptor": 1,
+  "nombreLogico": "v008",
+  "migracionesCubiertas": ["001", "002", "003", "004", "005", "006", "007", "008"],
+  "algoritmoChecksum": "sha256-utf8-lf-v1",
+  "schemaMigrationsPuedeEstarAusente": true,
+  "tablas": {
+    "roles": {
+      "engine": "innodb", "charset": "utf8mb4", "collation": "utf8mb4_0900_ai_ci",
+      "columnas": [
+        {"nombre":"id","tipo":"tinyint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"clave","tipo":"varchar(30)","unsigned":false,"nullable":false},
+        {"nombre":"nombre","tipo":"varchar(50)","unsigned":false,"nullable":false},
+        {"nombre":"descripcion","tipo":"varchar(255)","unsigned":false,"nullable":true},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey":["id"],
+      "indicesUnicos":[{"columnas":["clave"]},{"columnas":["nombre"]}], "indices":[], "foreignKeys":[], "checks":[]
+    },
+    "usuarios": {
+      "engine":"innodb","charset":"utf8mb4","collation":"utf8mb4_0900_ai_ci",
+      "columnas":[
+        {"nombre":"id","tipo":"bigint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"rol_id","tipo":"tinyint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"nombre","tipo":"varchar(100)","unsigned":false,"nullable":false},
+        {"nombre":"apellido_paterno","tipo":"varchar(80)","unsigned":false,"nullable":false},
+        {"nombre":"apellido_materno","tipo":"varchar(80)","unsigned":false,"nullable":true},
+        {"nombre":"correo","tipo":"varchar(150)","unsigned":false,"nullable":false},
+        {"nombre":"password_hash","tipo":"varchar(255)","unsigned":false,"nullable":false},
+        {"nombre":"version_credenciales","tipo":"int unsigned","unsigned":true,"nullable":false,"default":"1"},
+        {"nombre":"activo","tipo":"tinyint(1)","unsigned":false,"nullable":false,"default":"1"},
+        {"nombre":"ultimo_acceso","tipo":"datetime","unsigned":false,"nullable":true},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"},
+        {"nombre":"actualizado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP","extra":"on update CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey":["id"],
+      "indicesUnicos":[{"columnas":["correo"]}],
+      "indices":[{"columnas":["rol_id"]},{"columnas":["activo"]}],
+      "foreignKeys":[{"columnas":["rol_id"],"tablaDestino":"roles","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"}],
+      "checks":[]
+    },
+    "sessions": {
+      "engine":"innodb","charset":"utf8mb4","collation":"utf8mb4_bin",
+      "columnas":[
+        {"nombre":"session_id","tipo":"varchar(128)","unsigned":false,"nullable":false},
+        {"nombre":"expires","tipo":"int unsigned","unsigned":true,"nullable":false},
+        {"nombre":"data","tipo":"mediumtext","unsigned":false,"nullable":true}
+      ],
+      "primaryKey":["session_id"],"indicesUnicos":[],"indices":[{"columnas":["expires"]}],"foreignKeys":[],"checks":[]
+    },
+    "turnos": {
+      "engine":"innodb","charset":"utf8mb4","collation":"utf8mb4_0900_ai_ci",
+      "columnas":[
+        {"nombre":"id","tipo":"tinyint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"clave","tipo":"varchar(20)","unsigned":false,"nullable":false},
+        {"nombre":"nombre","tipo":"varchar(50)","unsigned":false,"nullable":false},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey":["id"],"indicesUnicos":[{"columnas":["clave"]},{"columnas":["nombre"]}],"indices":[],"foreignKeys":[],"checks":[]
+    },
+    "grupos": {
+      "engine":"innodb","charset":"utf8mb4","collation":"utf8mb4_0900_ai_ci",
+      "columnas":[
+        {"nombre":"id","tipo":"int unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"turno_id","tipo":"tinyint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"clave","tipo":"varchar(10)","unsigned":false,"nullable":false},
+        {"nombre":"semestre","tipo":"tinyint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"ciclo_escolar","tipo":"varchar(20)","unsigned":false,"nullable":false},
+        {"nombre":"activo","tipo":"tinyint(1)","unsigned":false,"nullable":false,"default":"1"},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"},
+        {"nombre":"actualizado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP","extra":"on update CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey":["id"],
+      "indicesUnicos":[{"columnas":["clave","ciclo_escolar","turno_id"]}],
+      "indices":[{"columnas":["turno_id"]},{"columnas":["semestre"]},{"columnas":["ciclo_escolar"]},{"columnas":["activo"]}],
+      "foreignKeys":[{"columnas":["turno_id"],"tablaDestino":"turnos","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"}],
+      "checks":[{"fragmentos":["semestre","between 1 and 6"]}]
+    },
+    "alumnos": {
+      "engine":"innodb","charset":"utf8mb4","collation":"utf8mb4_0900_ai_ci",
+      "columnas":[
+        {"nombre":"usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"grupo_id","tipo":"int unsigned","unsigned":true,"nullable":false},
+        {"nombre":"matricula","tipo":"char(9)","unsigned":false,"nullable":false},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"},
+        {"nombre":"actualizado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP","extra":"on update CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey":["usuario_id"],"indicesUnicos":[{"columnas":["matricula"]}],"indices":[{"columnas":["grupo_id"]}],
+      "foreignKeys":[
+        {"columnas":["usuario_id"],"tablaDestino":"usuarios","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"},
+        {"columnas":["grupo_id"],"tablaDestino":"grupos","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"}
+      ],
+      "checks":[{"fragmentos":["matricula","regexp","^[0-9]{9}$"]}]
+    },
+    "tipos_seguimiento": {
+      "engine":"innodb","charset":"utf8mb4","collation":"utf8mb4_0900_ai_ci",
+      "columnas":[
+        {"nombre":"id","tipo":"tinyint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"clave","tipo":"varchar(30)","unsigned":false,"nullable":false},
+        {"nombre":"nombre","tipo":"varchar(60)","unsigned":false,"nullable":false},
+        {"nombre":"descripcion","tipo":"varchar(255)","unsigned":false,"nullable":true},
+        {"nombre":"activo","tipo":"tinyint(1)","unsigned":false,"nullable":false,"default":"1"},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey":["id"],"indicesUnicos":[{"columnas":["clave"]},{"columnas":["nombre"]}],"indices":[],"foreignKeys":[],"checks":[]
+    },
+    "estados_actividad_orientacion": {
+      "engine":"innodb","charset":"utf8mb4","collation":"utf8mb4_0900_ai_ci",
+      "columnas":[
+        {"nombre":"id","tipo":"tinyint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"clave","tipo":"varchar(30)","unsigned":false,"nullable":false},
+        {"nombre":"nombre","tipo":"varchar(60)","unsigned":false,"nullable":false},
+        {"nombre":"descripcion","tipo":"varchar(255)","unsigned":false,"nullable":true},
+        {"nombre":"orden","tipo":"tinyint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"activo","tipo":"tinyint(1)","unsigned":false,"nullable":false,"default":"1"},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey":["id"],"indicesUnicos":[{"columnas":["clave"]},{"columnas":["nombre"]},{"columnas":["orden"]}],"indices":[],"foreignKeys":[],"checks":[]
+    },
+    "seguimientos": {
+      "engine":"innodb","charset":"utf8mb4","collation":"utf8mb4_0900_ai_ci",
+      "columnas":[
+        {"nombre":"id","tipo":"bigint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"alumno_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"orientador_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"tipo_id","tipo":"tinyint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"fecha_seguimiento","tipo":"date","unsigned":false,"nullable":false},
+        {"nombre":"titulo","tipo":"varchar(150)","unsigned":false,"nullable":false},
+        {"nombre":"descripcion","tipo":"text","unsigned":false,"nullable":false},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"},
+        {"nombre":"actualizado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP","extra":"on update CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey":["id"],"indicesUnicos":[],"indices":[{"columnas":["alumno_usuario_id","fecha_seguimiento"]},{"columnas":["orientador_usuario_id"]},{"columnas":["tipo_id"]}],
+      "foreignKeys":[
+        {"columnas":["alumno_usuario_id"],"tablaDestino":"alumnos","columnasDestino":["usuario_id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"},
+        {"columnas":["orientador_usuario_id"],"tablaDestino":"usuarios","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"},
+        {"columnas":["tipo_id"],"tablaDestino":"tipos_seguimiento","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"}
+      ],"checks":[]
+    },
+    "actividades_orientacion": {
+      "engine":"innodb","charset":"utf8mb4","collation":"utf8mb4_0900_ai_ci",
+      "columnas":[
+        {"nombre":"id","tipo":"bigint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"alumno_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"orientador_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"estado_id","tipo":"tinyint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"titulo","tipo":"varchar(150)","unsigned":false,"nullable":false},
+        {"nombre":"instrucciones","tipo":"text","unsigned":false,"nullable":false},
+        {"nombre":"fecha_asignacion","tipo":"date","unsigned":false,"nullable":false},
+        {"nombre":"fecha_limite","tipo":"date","unsigned":false,"nullable":true},
+        {"nombre":"fecha_realizacion","tipo":"date","unsigned":false,"nullable":true},
+        {"nombre":"observacion_resultado","tipo":"text","unsigned":false,"nullable":true},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"},
+        {"nombre":"actualizado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP","extra":"on update CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey":["id"],"indicesUnicos":[],"indices":[{"columnas":["alumno_usuario_id","fecha_asignacion"]},{"columnas":["orientador_usuario_id"]},{"columnas":["estado_id"]}],
+      "foreignKeys":[
+        {"columnas":["alumno_usuario_id"],"tablaDestino":"alumnos","columnasDestino":["usuario_id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"},
+        {"columnas":["orientador_usuario_id"],"tablaDestino":"usuarios","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"},
+        {"columnas":["estado_id"],"tablaDestino":"estados_actividad_orientacion","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"}
+      ],
+      "checks":[
+        {"fragmentos":["fecha_limite is null","fecha_limite >= fecha_asignacion"]},
+        {"fragmentos":["fecha_realizacion is null","fecha_realizacion >= fecha_asignacion"]}
+      ]
+    },
+    "adjuntos_actividad_orientacion": {
+      "engine":"innodb","charset":"utf8mb4","collation":"utf8mb4_0900_ai_ci",
+      "columnas":[
+        {"nombre":"id","tipo":"bigint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"actividad_orientacion_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"subido_por_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"nombre_original","tipo":"varchar(255)","unsigned":false,"nullable":false},
+        {"nombre":"clave_almacenamiento","tipo":"varchar(128)","unsigned":false,"nullable":false},
+        {"nombre":"extension","tipo":"varchar(15)","unsigned":false,"nullable":false},
+        {"nombre":"mime_type","tipo":"varchar(150)","unsigned":false,"nullable":false},
+        {"nombre":"tamano_bytes","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"hash_sha256","tipo":"char(64)","unsigned":false,"nullable":false},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey":["id"],"indicesUnicos":[{"columnas":["clave_almacenamiento"]}],"indices":[{"columnas":["actividad_orientacion_id","creado_en","id"]},{"columnas":["subido_por_usuario_id","creado_en"]},{"columnas":["hash_sha256"]}],
+      "foreignKeys":[
+        {"columnas":["actividad_orientacion_id"],"tablaDestino":"actividades_orientacion","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"},
+        {"columnas":["subido_por_usuario_id"],"tablaDestino":"usuarios","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"}
+      ],
+      "checks":[{"fragmentos":["tamano_bytes > 0","tamano_bytes <= 104857600"]},{"fragmentos":["hash_sha256","regexp","{64}"]}]
+    },
+    "tipos_reporte_orientacion": {
+      "engine":"innodb","charset":"utf8mb4","collation":"utf8mb4_0900_ai_ci",
+      "columnas":[
+        {"nombre":"id","tipo":"tinyint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"clave","tipo":"varchar(30)","unsigned":false,"nullable":false},
+        {"nombre":"nombre","tipo":"varchar(60)","unsigned":false,"nullable":false},
+        {"nombre":"descripcion","tipo":"varchar(255)","unsigned":false,"nullable":true},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey":["id"],"indicesUnicos":[{"columnas":["clave"]},{"columnas":["nombre"]}],"indices":[],"foreignKeys":[],"checks":[]
+    },
+    "estados_reporte_orientacion": {
+      "engine":"innodb","charset":"utf8mb4","collation":"utf8mb4_0900_ai_ci",
+      "columnas":[
+        {"nombre":"id","tipo":"tinyint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"clave","tipo":"varchar(30)","unsigned":false,"nullable":false},
+        {"nombre":"nombre","tipo":"varchar(60)","unsigned":false,"nullable":false},
+        {"nombre":"descripcion","tipo":"varchar(255)","unsigned":false,"nullable":true},
+        {"nombre":"es_terminal","tipo":"tinyint(1)","unsigned":false,"nullable":false,"default":"0"},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey":["id"],"indicesUnicos":[{"columnas":["clave"]},{"columnas":["nombre"]}],"indices":[],"foreignKeys":[],"checks":[]
+    },
+    "reportes_orientacion": {
+      "engine":"innodb","charset":"utf8mb4","collation":"utf8mb4_0900_ai_ci",
+      "columnas":[
+        {"nombre":"id","tipo":"bigint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"alumno_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"orientador_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"tipo_reporte_id","tipo":"tinyint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"estado_id","tipo":"tinyint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"fecha_reporte","tipo":"date","unsigned":false,"nullable":false},
+        {"nombre":"periodo_desde","tipo":"date","unsigned":false,"nullable":false},
+        {"nombre":"periodo_hasta","tipo":"date","unsigned":false,"nullable":false},
+        {"nombre":"motivo","tipo":"varchar(250)","unsigned":false,"nullable":false},
+        {"nombre":"contenido","tipo":"mediumtext","unsigned":false,"nullable":false},
+        {"nombre":"conclusiones","tipo":"text","unsigned":false,"nullable":true},
+        {"nombre":"recomendaciones","tipo":"text","unsigned":false,"nullable":true},
+        {"nombre":"version","tipo":"int unsigned","unsigned":true,"nullable":false,"default":"1"},
+        {"nombre":"finalizado_en","tipo":"timestamp","unsigned":false,"nullable":true,"default":null},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"},
+        {"nombre":"actualizado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP","extra":"on update CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey":["id"],"indicesUnicos":[],
+      "indices":[
+        {"columnas":["alumno_usuario_id","fecha_reporte","id"]},
+        {"columnas":["orientador_usuario_id","estado_id","actualizado_en","id"]},
+        {"columnas":["tipo_reporte_id","fecha_reporte","id"]},
+        {"columnas":["estado_id","fecha_reporte","id"]},
+        {"columnas":["periodo_desde","periodo_hasta"]}
+      ],
+      "foreignKeys":[
+        {"columnas":["alumno_usuario_id"],"tablaDestino":"usuarios","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"},
+        {"columnas":["orientador_usuario_id"],"tablaDestino":"usuarios","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"},
+        {"columnas":["tipo_reporte_id"],"tablaDestino":"tipos_reporte_orientacion","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"},
+        {"columnas":["estado_id"],"tablaDestino":"estados_reporte_orientacion","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"}
+      ],
+      "checks":[
+        {"fragmentos":["periodo_desde <= periodo_hasta","datediff","<= 365"]},
+        {"fragmentos":["version >= 1"]}
+      ]
+    }
+  },
+  "catalogosMinimos": {
+    "roles": ["ADMINISTRADOR", "DOCENTE", "ALUMNO", "ORIENTADOR"],
+    "turnos": ["MATUTINO", "VESPERTINO"],
+    "tipos_seguimiento": ["ACADEMICO", "CONDUCTUAL", "DISCIPLINARIO", "INCUMPLIMIENTO"],
+    "estados_actividad_orientacion": ["PENDIENTE", "EN_PROCESO", "REALIZADA", "NO_REALIZADA", "CANCELADA"],
+    "tipos_reporte_orientacion": ["ACADEMICO", "CONDUCTUAL"],
+    "estados_reporte_orientacion": ["BORRADOR", "FINALIZADO"]
+  },
+  "tablasProhibidas": ["grupo_horarios", "docente_horarios"],
+  "columnasProhibidas": {
+    "grupos": ["docente_id", "orientador_id", "generacion", "periodo_semestre", "generacion_id", "periodo_academico_id"]
+  }
+}

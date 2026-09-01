@@ -11,6 +11,9 @@
     "migrations:verify": "node scripts/migrationManifest.js verify",
     "migrations:plan": "node scripts/migrationManifest.js plan",
     "test:migrations": "node --test tests/migrationManifest.test.js",
+    "migrations:status": "node scripts/migrationPreflight.js status",
+    "migrations:baseline-check": "node scripts/migrationPreflight.js baseline-v008-check",
+    "test:migrations:preflight": "node --test tests/migrationPreflight.test.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
