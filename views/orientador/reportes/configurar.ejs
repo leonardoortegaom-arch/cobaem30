@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<%- include('../../partials/head', { title }) %>
+<body>
+<div class="dashboard-layout">
+  <%- include('../../partials/sidebar', { menuItems }) %>
+  <main class="dashboard-main report-preview-main report-config-main">
+    <nav class="report-breadcrumb" aria-label="Ruta de navegación">
+      <a href="/orientador/reportes">Reportes</a>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">Configurar información de apoyo</span>
+    </nav>
+
+    <ol class="report-flow-steps" aria-label="Progreso para generar el reporte">
+      <li class="active" aria-current="step"><span>1</span> Seleccionar periodo</li>
+      <li><span>2</span> Consultar información</li>
+    </ol>
+
+    <header class="report-preview-hero report-config-hero">
+      <div class="report-preview-heading">
+        <h1>Información de apoyo</h1>
+        <p>Selecciona el periodo de seguimientos y actividades que deseas consultar.</p>
+      </div>
+      <a href="/orientador/reportes" class="btn-admin-secondary report-change-student">Seleccionar otro alumno</a>
+    </header>
+
+    <div class="report-config-grid">
+      <section class="panel-card report-config-student">
+        <div class="report-section-heading">
+          <h2>Alumno seleccionado</h2>
+          <p>Verifica que corresponda al alumno cuyo reporte deseas consultar.</p>
+        </div>
+        <dl class="admin-user-summary">
+          <div><dt>Nombre completo</dt><dd><%= alumno.nombre %></dd></div>
+          <div><dt>Matrícula</dt><dd><%= alumno.matricula %></dd></div>
+          <div><dt>Grupo</dt><dd><%= alumno.grupo %></dd></div>
+          <div><dt>Semestre</dt><dd><%= alumno.semestre %></dd></div>
+          <div><dt>Turno</dt><dd><%= alumno.turno %></dd></div>
+          <div><dt>Estado de la cuenta</dt><dd><%= alumno.activo ? 'Activo' : 'Inactivo' %></dd></div>
+        </dl>
+      </section>
+
+      <section class="panel-card report-period-card report-config-period">
+        <div class="report-section-heading">
+          <h2>Configurar periodo</h2>
+          <p>Selecciona un intervalo máximo de 366 días para la consulta.</p>
+        </div>
+        <% if (error) { %><div class="alert alert-danger report-period-error" role="alert"><%= error %></div><% } %>
+        <form method="GET" action="/orientador/reportes/alumnos/<%= alumnoId %>/vista-previa" class="report-period-form">
+          <div class="report-period-fields">
+            <div class="admin-filter-field">
+              <label for="desde">Desde</label>
+              <input id="desde" name="desde" type="date" value="<%= periodo.desde %>" required>
+            </div>
+            <div class="admin-filter-field">
+              <label for="hasta">Hasta</label>
+              <input id="hasta" name="hasta" type="date" value="<%= periodo.hasta %>" required>
+            </div>
+          </div>
+          <div class="report-period-actions">
+            <button type="submit" class="btn-admin-primary">Consultar información</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </main>
+</div>
+</body>
+</html>

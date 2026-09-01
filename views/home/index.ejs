@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<%- include('../partials/head', {
+    title: 'COBAEM 30 | Plataforma Académica'
+}) %>
+
+<body>
+
+  <!-- ==========================
+       NAVBAR
+  =========================== -->
+  <nav class="navbar navbar-expand-lg navbar-light custom-navbar">
+    <div class="container">
+      <a class="navbar-brand brand" href="#">
+        <span class="brand-icon">
+          <i class="fa-solid fa-graduation-cap"></i>
+        </span>
+        COBAEM 30
+      </a>
+
+      <button 
+        class="navbar-toggler" 
+        type="button" 
+        data-bs-toggle="collapse" 
+        data-bs-target="#navbarMenu"
+      >
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse" id="navbarMenu">
+        <ul class="navbar-nav ms-auto align-items-lg-center gap-lg-3">
+          <li class="nav-item">
+            <a class="nav-link active" href="#">Inicio</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#">Plataforma</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link" href="#">Contacto</a>
+          </li>
+          <li class="nav-item">
+            <a class="btn btn-primary-custom" href="/login">
+              Iniciar sesión
+            </a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+  <!-- HERO -->
+<section class="hero-section">
+  <div class="container">
+    <div class="hero-content">
+      <span class="hero-badge">
+        <i class="fa-solid fa-school"></i>
+        Plataforma institucional
+      </span>
+
+      <h1>Plataforma Académica COBAEM 30</h1>
+
+      <p>
+        Gestiona actividades escolares, asistencia y seguimiento académico
+        desde un solo sistema web diseñado para el Plantel 30 Nezahualcóyotl.
+      </p>
+
+      <div class="hero-actions">
+        <a href="/login" class="btn btn-primary-custom">
+          Iniciar sesión
+        </a>
+
+        <a href="#platform" class="btn btn-secondary-custom">
+          Conocer más
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ¿QUÉ ES? -->
+<section id="platform" class="info-section">
+  <div class="container">
+    <div class="section-title">
+      <h2>¿Qué es la plataforma?</h2>
+      <p>
+        Es un sistema web académico que centraliza procesos escolares del COBAEM
+        Plantel 30, facilitando la organización de actividades, asistencia y
+        seguimiento estudiantil.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- FUNCIONALIDADES -->
+<section class="features-section">
+  <div class="container">
+    <div class="section-title">
+      <h2>Funcionalidades principales</h2>
+    </div>
+
+    <div class="row g-4">
+      <div class="col-md-4">
+        <div class="custom-card">
+          <div class="icon-box">
+            <i class="fa-solid fa-calendar-check"></i>
+          </div>
+          <h4>Control de asistencia</h4>
+          <p>Registro y consulta de asistencia por grupo, materia y docente.</p>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="custom-card">
+          <div class="icon-box">
+            <i class="fa-solid fa-book-open"></i>
+          </div>
+          <h4>Actividades escolares</h4>
+          <p>Asignación y seguimiento de actividades académicas por grupo.</p>
+        </div>
+      </div>
+
+      <div class="col-md-4">
+        <div class="custom-card">
+          <div class="icon-box">
+            <i class="fa-solid fa-chart-line"></i>
+          </div>
+          <h4>Seguimiento académico</h4>
+          <p>Consulta de avances, reportes y observaciones de los alumnos.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================
+     UBICACIÓN
+========================================== -->
+
+<section class="location-section">
+
+    <div class="container">
+
+        <div class="section-title">
+
+            <h2>Conoce nuestro plantel</h2>
+
+            <p>
+                La Plataforma Académica COBAEM 30 forma parte del Colegio de Bachilleres
+                del Estado de México, Plantel 30 Nezahualcóyotl, comprometido con la
+                formación integral de sus estudiantes mediante el uso de herramientas
+                tecnológicas que fortalecen la gestión escolar.
+            </p>
+
+        </div>
+
+        <div class="row align-items-center g-5">
+
+            <div class="col-lg-5">
+
+                <div class="location-info">
+
+                    <h3>
+                        <i class="fa-solid fa-location-dot"></i>
+                        COBAEM Plantel 30
+                    </h3>
+
+                    <p>
+                      Nezahualcóyotl, Estado de México.
+                    </p>
+
+                    <div class="location-item">
+
+                      <i class="fa-regular fa-clock"></i>
+
+                      <div>
+
+                        <strong>Horario</strong>
+
+                        <p>Lunes a Viernes<br>07:00 - 21:00 hrs.</p>
+
+                      </div>
+
+                    </div>
+
+                    <div class="location-item">
+
+                        <i class="fa-solid fa-graduation-cap"></i>
+
+                        <div>
+
+                            <strong>Institución</strong>
+
+                            <p>Colegio de Bachilleres del Estado de México.</p>
+
+                        </div>
+
+                    </div>
+
+                    <a
+                        href="https://maps.app.goo.gl/QnQQXG9u82gmBwcx7"
+                        target="_blank"
+                        class="btn btn-primary-custom">
+
+                        Cómo llegar
+
+                    </a>
+
+                </div>
+
+            </div>
+
+            <div class="col-lg-7">
+
+                <div class="map-container">
+
+                    <iframe
+                        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3763.362660233812!2d-98.98547702506279!3d19.396730441825937!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x85d1e31c39de99f9%3A0x37b32f45529eb6d3!2sCOBAEM!5e0!3m2!1ses-419!2smx!4v1782947076322!5m2!1ses-419!2smx"
+                        width="100%"
+                        height="420"
+                        style="border:0;"
+                        allowfullscreen=""
+                        loading="lazy"
+                        referrerpolicy="strict-origin-when-cross-origin">
+
+                    </iframe>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+<!-- ==========================================
+     ESTADÍSTICAS
+========================================== -->
+
+<section class="stats-section">
+  <div class="container">
+    <div class="row g-4 text-center">
+
+      <div class="col-md-3 col-6">
+        <div class="stat-card">
+          <i class="fa-solid fa-users"></i>
+          <h3>+250</h3>
+          <p>Estudiantes</p>
+        </div>
+      </div>
+
+      <div class="col-md-3 col-6">
+        <div class="stat-card">
+          <i class="fa-solid fa-chalkboard-user"></i>
+          <h3>+35</h3>
+          <p>Docentes</p>
+        </div>
+      </div>
+
+      <div class="col-md-3 col-6">
+        <div class="stat-card">
+          <i class="fa-solid fa-layer-group"></i>
+          <h3>+20</h3>
+          <p>Grupos</p>
+        </div>
+      </div>
+
+      <div class="col-md-3 col-6">
+        <div class="stat-card">
+          <i class="fa-solid fa-laptop-code"></i>
+          <h3>24/7</h3>
+          <p>Acceso digital</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ==========================================
+     CTA
+========================================== -->
+
+<section class="cta-section">
+
+    <div class="container">
+
+        <div class="cta-card">
+
+            <h2>¿Listo para comenzar?</h2>
+
+            <p>
+
+                Accede a la Plataforma Académica COBAEM 30 y administra
+                actividades, asistencia y seguimiento académico desde
+                cualquier lugar de forma rápida y segura.
+
+            </p>
+
+            <a href="/login" class="btn btn-light-custom">
+
+                Iniciar sesión
+
+            </a>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- ==========================================
+     FOOTER
+========================================== -->
+
+<footer>
+
+    <div class="container">
+
+        <div class="row gy-5">
+
+            <div class="col-lg-4">
+
+                <h4>COBAEM 30</h4>
+
+                <p>
+
+                    Plataforma Académica desarrollada para fortalecer la gestión
+                    escolar mediante herramientas tecnológicas que facilitan la
+                    administración, el seguimiento académico y la comunicación
+                    entre los diferentes usuarios del sistema.
+
+                </p>
+
+            </div>
+
+            <div class="col-lg-4">
+
+                <h4>Enlaces rápidos</h4>
+
+                <ul class="footer-links">
+
+                    <li><a href="#">Inicio</a></li>
+
+                    <li><a href="#platform">Plataforma</a></li>
+
+                    <li><a href="/login">Iniciar sesión</a></li>
+
+                </ul>
+
+            </div>
+
+            <div class="col-lg-4">
+
+                <h4>Contacto</h4>
+
+                <ul class="footer-contact">
+
+                    <li>
+
+                        <i class="fa-solid fa-location-dot"></i>
+
+                        COBAEM Plantel 30
+                    </li>
+
+                    <li>
+
+                        <i class="fa-solid fa-map"></i>
+
+                        <a target="_blank"
+                           href="https://maps.app.goo.gl/QnQQXG9u82gmBwcx7">
+
+                            Ver ubicación
+
+                        </a>
+
+                    </li>
+
+                    <li>
+
+                        <i class="fa-solid fa-envelope"></i>
+
+                        30nezahualcoyotl@cobaemex.edu.mx
+
+                    </li>
+
+                </ul>
+
+            </div>
+
+        </div>
+
+        <hr>
+
+        <div class="copyright">
+
+            © 2026 Plataforma Académica COBAEM 30 | Todos los derechos reservados.
+
+        </div>
+
+    </div>
+
+</footer>
+
+
+  <!-- Bootstrap JS -->
+  <script 
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js">
+  </script>
+</body>
+</html>

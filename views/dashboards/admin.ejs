@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<%- include('../partials/head', {
+    title: 'Administrador | COBAEM 30'
+}) %>
+
+<body>
+
+<div class="dashboard-layout">
+
+<%- include('../partials/sidebar', { menuItems }) %>
+
+  <main class="dashboard-main">
+
+    <header class="dashboard-header">
+      <div>
+        <h1>Panel del administrador</h1>
+        <p>Gestión general de usuarios, grupos, materias y reportes.</p>
+      </div>
+
+      <div class="user-profile">
+        <div class="user-avatar"><%= usuario.inicial %></div>
+        <div>
+          <strong><%= usuario.nombre %></strong>
+          <span><%= usuario.rolNombre %> · <%= usuario.correo %></span>
+        </div>
+      </div>
+    </header>
+
+    <section class="dashboard-stats">
+
+      <div class="dashboard-card">
+        <i class="fa-solid fa-users"></i>
+        <div>
+          <h3><%= metricas.totalUsuarios %></h3>
+          <p>Usuarios activos</p>
+        </div>
+      </div>
+
+      <div class="dashboard-card">
+        <i class="fa-solid fa-chalkboard-user"></i>
+        <div>
+          <h3><%= metricas.totalDocentes %></h3>
+          <p>Docentes activos</p>
+        </div>
+      </div>
+
+      <div class="dashboard-card">
+        <i class="fa-solid fa-user-graduate"></i>
+        <div>
+          <h3><%= metricas.totalAlumnos %></h3>
+          <p>Alumnos activos</p>
+        </div>
+      </div>
+
+      <div class="dashboard-card">
+        <i class="fa-solid fa-layer-group"></i>
+        <div>
+          <h3><%= metricas.totalGrupos %></h3>
+          <p>Grupos activos</p>
+        </div>
+      </div>
+
+    </section>
+
+    <section class="dashboard-grid">
+
+      <div class="panel-card">
+        <div class="panel-header">
+          <h3>Usuarios recientes</h3>
+          <a href="/admin/usuarios">Administrar usuarios</a>
+        </div>
+
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Rol</th>
+              <th>Estado</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr>
+              <td>Juan Pérez</td>
+              <td>Docente</td>
+              <td><span class="badge-custom success">Activo</span></td>
+            </tr>
+
+            <tr>
+              <td>Ana López</td>
+              <td>Alumno</td>
+              <td><span class="badge-custom success">Activo</span></td>
+            </tr>
+
+            <tr>
+              <td>María González</td>
+              <td>Orientador</td>
+              <td><span class="badge-custom warning">Pendiente</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel-card">
+        <div class="panel-header">
+          <h3>Acciones rápidas</h3>
+        </div>
+
+        <div class="quick-actions">
+          <button><i class="fa-solid fa-user-plus"></i> Nuevo usuario</button>
+          <button><i class="fa-solid fa-layer-group"></i> Crear grupo</button>
+          <button><i class="fa-solid fa-book"></i> Registrar materia</button>
+          <button><i class="fa-solid fa-file-lines"></i> Generar reporte</button>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<%- include('../partials/head', {
+    title: 'Iniciar sesión | COBAEM 30'
+}) %>
+
+
+<body>
+
+
+<section class="login-section">
+
+
+    <div class="login-container">
+
+
+        <!-- INFORMACIÓN -->
+
+        <div class="login-info">
+
+
+            <div class="login-logo">
+
+                <i class="fa-solid fa-graduation-cap"></i>
+
+                <span>COBAEM 30</span>
+
+            </div>
+
+
+            <h1>
+                Gestión académica inteligente
+            </h1>
+
+
+            <p>
+                Accede a la plataforma para administrar actividades,
+                asistencia y seguimiento académico.
+            </p>
+
+
+            <div class="login-benefits">
+
+
+                <div>
+
+                    <i class="fa-solid fa-check"></i>
+
+                    Control académico centralizado
+
+                </div>
+
+
+                <div>
+
+                    <i class="fa-solid fa-check"></i>
+
+                    Acceso seguro por roles
+
+                </div>
+
+
+                <div>
+
+                    <i class="fa-solid fa-check"></i>
+
+                    Información siempre disponible
+
+                </div>
+
+
+            </div>
+
+
+        </div>
+
+
+
+        <!-- FORMULARIO -->
+
+
+        <div class="login-card">
+
+
+            <h2>Bienvenido</h2>
+
+
+            <p>
+                Ingresa tus credenciales para continuar
+            </p>
+
+
+            <% if (error) { %>
+                <div class="alert alert-danger" role="alert">
+                    <%= error %>
+                </div>
+            <% } %>
+
+            <% if (typeof mensaje !== 'undefined' && mensaje) { %>
+                <div class="alert alert-success" role="alert">
+                    <%= mensaje %>
+                </div>
+            <% } %>
+
+
+            <form method="POST" action="/login">
+
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+
+                <div class="input-group-custom">
+
+                    <label>Correo electrónico</label>
+
+                    <div>
+
+                        <i class="fa-solid fa-envelope"></i>
+
+                        <input 
+                        name="correo"
+                        type="email"
+                        value="<%= correo %>"
+                        required
+                        autocomplete="username"
+                        placeholder="usuario@correo.com">
+
+                    </div>
+
+                </div>
+
+
+
+                <div class="input-group-custom">
+
+                    <label>Contraseña</label>
+
+                    <div>
+
+                        <i class="fa-solid fa-lock"></i>
+
+                        <input 
+                        name="password"
+                        type="password"
+                        required
+                        autocomplete="current-password"
+                        placeholder="********">
+
+                    </div>
+
+                </div>
+
+
+
+                <button class="btn-login">
+
+                    Iniciar sesión
+
+                </button>
+
+
+            </form>
+
+
+            <a href="/" class="back-home">
+
+                Volver al inicio
+
+            </a>
+
+
+        </div>
+
+
+    </div>
+
+
+</section>
+
+
+</body>
+</html>

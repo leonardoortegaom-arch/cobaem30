@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<%- include('../../partials/head', { title }) %>
+
+<body>
+
+<div class="dashboard-layout">
+
+  <%- include('../../partials/sidebar', { menuItems }) %>
+
+  <main class="dashboard-main">
+
+    <header class="dashboard-header">
+      <div>
+        <h1>Estado de grupo</h1>
+        <p>Confirma el cambio de disponibilidad para este grupo.</p>
+      </div>
+    </header>
+
+    <section class="panel-card admin-confirmation-card">
+      <% if (error) { %>
+        <div class="alert alert-danger" role="alert">
+          <%= error %>
+        </div>
+      <% } %>
+
+      <dl class="admin-user-summary">
+        <div>
+          <dt>Clave del grupo</dt>
+          <dd><%= grupo.clave %></dd>
+        </div>
+        <div>
+          <dt>Semestre</dt>
+          <dd><%= grupo.semestre %></dd>
+        </div>
+        <div>
+          <dt>Turno</dt>
+          <dd><%= grupo.turno_nombre %></dd>
+        </div>
+        <div>
+          <dt>Ciclo escolar</dt>
+          <dd><%= grupo.ciclo_escolar %></dd>
+        </div>
+        <div>
+          <dt>Estado actual</dt>
+          <dd><%= grupo.activo ? 'Activo' : 'Inactivo' %></dd>
+        </div>
+      </dl>
+
+      <h2>¿Deseas <%= accion %> este grupo?</h2>
+      <p>Un grupo inactivo no estará disponible para futuras asignaciones.</p>
+
+      <form method="POST" action="/admin/grupos/<%= grupo.id %>/estado">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input type="hidden" name="accion" value="<%= accion %>">
+
+        <div class="admin-form-actions">
+          <button type="submit" class="<%= accion === 'desactivar' ? 'btn-admin-danger' : 'btn-admin-activate' %>">
+            <%= accion === 'desactivar' ? 'Desactivar grupo' : 'Activar grupo' %>
+          </button>
+          <a href="/admin/grupos" class="btn-admin-secondary">Cancelar</a>
+        </div>
+      </form>
+    </section>
+
+  </main>
+
+</div>
+
+</body>
+</html>

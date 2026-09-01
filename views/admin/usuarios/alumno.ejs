@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<%- include('../../partials/head', { title }) %>
+
+<body>
+
+<div class="dashboard-layout">
+
+  <%- include('../../partials/sidebar', { menuItems }) %>
+
+  <main class="dashboard-main">
+
+    <header class="dashboard-header">
+      <div>
+        <h1>Perfil académico del alumno</h1>
+        <p>Consulta y actualiza únicamente la matrícula y el grupo actual.</p>
+      </div>
+    </header>
+
+    <section class="panel-card admin-form-card">
+      <% if (error) { %>
+        <div class="alert alert-danger" role="alert">
+          <%= error %>
+        </div>
+      <% } %>
+
+      <dl class="admin-user-summary">
+        <div>
+          <dt>Nombre completo</dt>
+          <dd><%= [usuario.nombre, usuario.apellido_paterno, usuario.apellido_materno].filter(Boolean).join(' ') %></dd>
+        </div>
+        <div>
+          <dt>Correo</dt>
+          <dd><%= usuario.correo %></dd>
+        </div>
+        <div>
+          <dt>Estado de la cuenta</dt>
+          <dd><%= usuario.activo ? 'Activo' : 'Inactivo' %></dd>
+        </div>
+        <div>
+          <dt>Matrícula</dt>
+          <dd><%= perfil.matricula %></dd>
+        </div>
+        <div>
+          <dt>Grupo actual</dt>
+          <dd><%= perfil.grupo_clave %></dd>
+        </div>
+        <div>
+          <dt>Semestre</dt>
+          <dd><%= perfil.semestre %></dd>
+        </div>
+        <div>
+          <dt>Turno</dt>
+          <dd><%= perfil.turno_nombre %></dd>
+        </div>
+        <div>
+          <dt>Ciclo escolar</dt>
+          <dd><%= perfil.ciclo_escolar %></dd>
+        </div>
+        <div>
+          <dt>Estado del grupo</dt>
+          <dd><%= perfil.grupo_activo ? 'Activo' : 'Inactivo' %></dd>
+        </div>
+      </dl>
+
+      <form method="POST" action="/admin/usuarios/<%= usuario.id %>/alumno">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+        <div class="admin-form-grid">
+          <div class="admin-form-group">
+            <label for="matricula">Matrícula</label>
+            <input id="matricula" name="matricula" type="text" inputmode="numeric" pattern="[0-9]{9}" maxlength="9" value="<%= datos.matricula %>" required autocomplete="off">
+          </div>
+
+          <div class="admin-form-group">
+            <label for="grupo_id">Grupo actual</label>
+            <select id="grupo_id" name="grupo_id" required>
+              <% if (!grupos.some((grupo) => String(grupo.id) === String(datos.grupo_id))) { %>
+                <option value="<%= datos.grupo_id %>" selected disabled>Grupo seleccionado no disponible</option>
+              <% } %>
+              <% grupos.forEach((grupo) => { %>
+                <option value="<%= grupo.id %>" <%= String(datos.grupo_id) === String(grupo.id) ? 'selected' : '' %>><%= grupo.clave %> — <%= grupo.semestre %>.<%= Number(grupo.semestre) === 1 ? 'er' : 'o' %> semestre — <%= grupo.turno_nombre %> — <%= grupo.ciclo_escolar %><%= grupo.activo ? '' : ' — Inactivo (grupo actual)' %></option>
+              <% }); %>
+            </select>
+          </div>
+        </div>
+
+        <div class="admin-form-actions">
+          <button type="submit" class="btn-admin-primary">Guardar perfil académico</button>
+          <a href="/admin/usuarios" class="btn-admin-secondary">Cancelar</a>
+        </div>
+      </form>
+    </section>
+
+  </main>
+
+</div>
+
+</body>
+</html>

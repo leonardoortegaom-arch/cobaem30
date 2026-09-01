@@ -1,0 +1,46 @@
+node_modules/
+.env
+npm-debug.log*
+storage/private/
+
+# Environment files
+.env.*
+!.env.example
+
+# Runtime logs
+logs/
+*.log
+
+# Temporary files and caches
+tmp/
+temp/
+.tmp/
+.temp/
+.cache/
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# Local database dumps
+dumps/
+database/dumps/
+backup/
+backups/
+*.dump
+*.dump.sql
+*_dump.sql
+*_backup.sql
+*.sql.gz
+*.sql.zip
+
+# Recovery backups accidentally copied into the project
+Cobaem30_Backups/
+pre_restore_*/
+post_restore_*/
+
+# Operating system metadata
+.DS_Store
+Thumbs.db
+Desktop.ini

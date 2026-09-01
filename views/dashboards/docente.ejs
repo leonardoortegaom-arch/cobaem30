@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<%- include('../partials/head', { title: 'Docente | COBAEM 30' }) %>
+<body>
+<div class="dashboard-layout">
+<%- include('../partials/sidebar', { menuItems }) %>
+	<main class="dashboard-main">
+		<header class="dashboard-header">
+			<div>
+				<h1>Panel del docente</h1>
+				<p>Consulta tu horario, grupos y actividades asignadas.</p>
+			</div>
+			<div class="user-profile">
+				<div class="user-avatar"><%= usuario.inicial %></div>
+				<div>
+					<strong><%= usuario.nombre %></strong>
+					<span><%= usuario.rolNombre %> · <%= usuario.correo %></span>
+				</div>
+			</div>
+		</header>
+		<section class="dashboard-stats">
+<div class="dashboard-card">
+
+<i class="fa-solid fa-users"></i>
+
+
+<div>
+
+<h3>180</h3>
+
+<p>Alumnos</p>
+
+</div>
+
+</div>
+
+
+
+
+<div class="dashboard-card">
+
+<i class="fa-solid fa-book-open"></i>
+
+
+<div>
+
+<h3>24</h3>
+
+<p>Actividades</p>
+
+</div>
+
+</div>
+
+
+
+
+<div class="dashboard-card">
+
+<i class="fa-solid fa-chart-simple"></i>
+
+
+<div>
+
+<h3>94%</h3>
+
+<p>Asistencia</p>
+
+</div>
+
+</div>
+
+
+
+</section>
+
+
+
+
+
+<section class="dashboard-grid">
+
+
+
+<!-- ACCIONES -->
+
+
+<div class="panel-card">
+
+
+<div class="panel-header">
+
+<h3>Acciones rápidas</h3>
+
+</div>
+
+
+
+<div class="quick-actions">
+
+
+<button>
+
+<i class="fa-solid fa-calendar-check"></i>
+
+Registrar asistencia
+
+</button>
+
+
+
+<button>
+
+<i class="fa-solid fa-plus"></i>
+
+Crear actividad
+
+</button>
+
+
+
+
+<button>
+
+<i class="fa-solid fa-user-graduate"></i>
+
+Consultar alumnos
+
+</button>
+
+
+
+<button>
+
+<i class="fa-solid fa-file-lines"></i>
+
+Generar reporte
+
+</button>
+
+
+
+</div>
+
+
+</div>
+
+
+</section>
+
+
+
+</main>
+
+
+</div>
+
+
+</body>
+
+
+</html>

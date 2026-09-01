@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<%- include('../../partials/head', { title }) %>
+
+<body>
+<div class="dashboard-layout">
+  <%- include('../../partials/sidebar', { menuItems }) %>
+
+  <main class="dashboard-main orientation-activity-detail-page">
+    <nav class="orientation-activity-detail-breadcrumb" aria-label="Ruta de navegación">
+      <a href="/orientador/alumnos">Alumnos</a>
+      <span aria-hidden="true">/</span>
+      <a href="/orientador/alumnos/<%= alumnoId %>">Detalle del alumno</a>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">Actividad</span>
+    </nav>
+
+    <header class="orientation-activity-detail-header">
+      <div class="orientation-activity-detail-heading">
+        <div class="orientation-activity-detail-badges">
+          <span class="badge-custom success"><%= actividad.estadoNombre %></span>
+          <span class="orientation-activity-detail-temporal"><%= indicadorTemporal %></span>
+        </div>
+        <h1><%= actividad.titulo %></h1>
+        <p><%= explicacionEstado %></p>
+      </div>
+      <div class="orientation-activity-detail-header-actions">
+        <% if (!cerrada) { %>
+          <a class="btn-admin-primary" href="/orientador/alumnos/<%= alumnoId %>/actividades/<%= actividad.id %>/estado">Actualizar estado</a>
+        <% } else { %>
+          <span class="orientation-activity-detail-closed">Actividad cerrada</span>
+        <% } %>
+        <a class="btn-admin-secondary" href="/orientador/alumnos/<%= alumnoId %>">Volver al alumno</a>
+      </div>
+    </header>
+
+    <div class="orientation-activity-detail-grid">
+      <div class="orientation-activity-detail-primary">
+        <section class="panel-card orientation-activity-detail-panel">
+          <h2>Instrucciones</h2>
+          <p class="orientation-activity-detail-instructions"><%= actividad.instrucciones %></p>
+        </section>
+
+        <section class="panel-card orientation-activity-evidence-panel">
+          <div class="orientation-activity-evidence-heading">
+            <div>
+              <h2>Evidencias entregadas</h2>
+              <p>Archivos adjuntados por el alumno para esta actividad.</p>
+            </div>
+            <dl class="orientation-activity-evidence-summary">
+              <div><dt>Cantidad</dt><dd><%= resumenEvidencias.cantidad %></dd></div>
+              <div><dt>Espacio utilizado</dt><dd><%= resumenEvidencias.espacioUtilizado %></dd></div>
+            </dl>
+          </div>
+
+          <% if (evidencias.length === 0) { %>
+            <div class="orientation-activity-evidence-empty">
+              <i class="fa-regular fa-folder-open" aria-hidden="true"></i>
+              <p>Este alumno todavía no ha adjuntado evidencias para esta actividad.</p>
+            </div>
+          <% } else { %>
+            <div class="orientation-activity-evidence-list">
+              <% evidencias.forEach((evidencia) => { %>
+                <article class="orientation-activity-evidence-row">
+                  <span class="orientation-activity-evidence-icon" aria-hidden="true">
+                    <i class="<%= evidencia.tipo === 'Imagen' ? 'fa-regular fa-image' : evidencia.tipo === 'Video' ? 'fa-solid fa-film' : 'fa-regular fa-file-lines' %>"></i>
+                  </span>
+                  <div class="orientation-activity-evidence-info">
+                    <h3><%= evidencia.nombreOriginal %></h3>
+                    <p><%= evidencia.tipo %> · <%= evidencia.extension.toUpperCase() %> · <%= evidencia.tamano %></p>
+                    <time datetime="<%= new Date(evidencia.creadoEn).toISOString() %>">
+                      Adjuntado el <%= new Date(evidencia.creadoEn).toLocaleString('es-MX') %>
+                    </time>
+                  </div>
+                  <a class="btn-admin-secondary orientation-activity-evidence-download" href="/orientador/alumnos/<%= alumnoId %>/actividades/<%= actividad.id %>/evidencias/<%= evidencia.id %>/descargar">
+                    <i class="fa-solid fa-download" aria-hidden="true"></i>
+                    Descargar
+                  </a>
+                </article>
+              <% }); %>
+            </div>
+          <% } %>
+        </section>
+      </div>
+
+      <aside class="orientation-activity-detail-aside">
+        <section class="panel-card orientation-activity-detail-panel">
+          <h2>Actividad</h2>
+          <dl class="orientation-activity-detail-data">
+            <div><dt>Fecha programada</dt><dd><%= actividad.fechaAsignacion %></dd></div>
+            <% if (actividad.fechaRealizacion) { %>
+              <div><dt>Fecha de realización</dt><dd><%= actividad.fechaRealizacion %></dd></div>
+            <% } %>
+            <div><dt>Estado</dt><dd><%= actividad.estadoNombre %></dd></div>
+            <div><dt>Orientador responsable</dt><dd><%= actividad.orientadorNombre %></dd></div>
+          </dl>
+        </section>
+
+        <section class="panel-card orientation-activity-detail-panel">
+          <h2>Alumno</h2>
+          <dl class="orientation-activity-detail-data">
+            <div><dt>Nombre</dt><dd><%= alumno.nombreCompleto %></dd></div>
+            <div><dt>Matrícula</dt><dd><%= alumno.matricula %></dd></div>
+            <div><dt>Grupo</dt><dd><%= alumno.grupoClave %></dd></div>
+            <div><dt>Semestre</dt><dd><%= alumno.semestre %></dd></div>
+            <div><dt>Turno</dt><dd><%= alumno.turno %></dd></div>
+            <div><dt>Estado de la cuenta</dt><dd><%= alumno.usuarioActivo ? 'Activo' : 'Inactivo' %></dd></div>
+          </dl>
+        </section>
+      </aside>
+    </div>
+  </main>
+</div>
+</body>
+</html>

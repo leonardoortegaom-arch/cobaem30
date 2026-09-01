@@ -1,0 +1,27 @@
+<fieldset class="written-report-type-fieldset">
+  <legend>Tipo de reporte</legend>
+  <div class="written-report-type-grid">
+    <% tipos.forEach((tipo) => { %>
+      <label class="written-report-type-card">
+        <input type="radio" name="tipo" value="<%= tipo.clave %>" <%= datos.tipo === tipo.clave ? 'checked' : '' %> required>
+        <span><strong><%= tipo.nombre %></strong><small><%= tipo.descripcion %></small></span>
+      </label>
+    <% }); %>
+  </div>
+</fieldset>
+<div class="written-report-period-grid">
+  <div class="admin-form-group"><label for="periodo_desde">Desde</label><input id="periodo_desde" name="periodo_desde" type="date" value="<%= datos.periodo_desde %>" required></div>
+  <div class="admin-form-group"><label for="periodo_hasta">Hasta</label><input id="periodo_hasta" name="periodo_hasta" type="date" value="<%= datos.periodo_hasta %>" required></div>
+</div>
+<div class="admin-form-group">
+  <label for="motivo">Motivo</label><input id="motivo" name="motivo" type="text" value="<%= datos.motivo %>" minlength="5" maxlength="250" required>
+  <p class="admin-form-note">Explica por qué se elabora este reporte.</p>
+</div>
+<div class="admin-form-group">
+  <label for="contenido">Contenido</label><textarea id="contenido" name="contenido" minlength="20" maxlength="20000" rows="12" required><%= datos.contenido %></textarea>
+  <p class="admin-form-note">Describe los hechos y circunstancias de manera objetiva.</p>
+</div>
+<div class="written-report-secondary-fields">
+  <div class="admin-form-group"><label for="conclusiones">Conclusiones <span>(opcional)</span></label><textarea id="conclusiones" name="conclusiones" maxlength="10000" rows="7"><%= datos.conclusiones %></textarea></div>
+  <div class="admin-form-group"><label for="recomendaciones">Recomendaciones <span>(opcional)</span></label><textarea id="recomendaciones" name="recomendaciones" maxlength="10000" rows="7"><%= datos.recomendaciones %></textarea><p class="admin-form-note">Redacta acciones de seguimiento cuando correspondan.</p></div>
+</div>

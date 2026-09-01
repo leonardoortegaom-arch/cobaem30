@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<%- include('../../partials/head', { title }) %>
+
+<body>
+
+<div class="dashboard-layout">
+
+  <%- include('../../partials/sidebar', { menuItems }) %>
+
+  <main class="dashboard-main">
+
+    <% if (mensaje) { %>
+      <div class="alert alert-success" role="status">
+        <%= mensaje %>
+      </div>
+    <% } %>
+
+    <header class="dashboard-header">
+      <div>
+        <h1>Detalle del alumno</h1>
+        <p>Consulta individual de datos personales y académicos.</p>
+      </div>
+
+      <div class="user-profile">
+        <div class="user-avatar"><%= alumno.inicial %></div>
+        <div>
+          <strong><%= alumno.nombreCompleto %></strong>
+          <span><%= alumno.matricula %></span>
+        </div>
+      </div>
+    </header>
+
+    <section class="panel-card account-card">
+      <h2>Datos personales</h2>
+      <dl class="admin-user-summary">
+        <div>
+          <dt>Nombre completo</dt>
+          <dd><%= alumno.nombreCompleto %></dd>
+        </div>
+        <div>
+          <dt>Correo</dt>
+          <dd><%= alumno.correo %></dd>
+        </div>
+        <div>
+          <dt>Matrícula</dt>
+          <dd><%= alumno.matricula %></dd>
+        </div>
+        <div>
+          <dt>Estado de la cuenta</dt>
+          <dd><%= alumno.usuarioActivo ? 'Activo' : 'Inactivo' %></dd>
+        </div>
+      </dl>
+
+      <h2>Datos académicos</h2>
+      <dl class="admin-user-summary">
+        <div>
+          <dt>Grupo</dt>
+          <dd><%= alumno.grupoClave %></dd>
+        </div>
+        <div>
+          <dt>Semestre</dt>
+          <dd><%= alumno.semestre %></dd>
+        </div>
+        <div>
+          <dt>Turno</dt>
+          <dd><%= alumno.turno %></dd>
+        </div>
+        <div>
+          <dt>Ciclo escolar</dt>
+          <dd><%= alumno.cicloEscolar %></dd>
+        </div>
+        <div>
+          <dt>Estado del grupo</dt>
+          <dd><%= alumno.grupoActivo ? 'Activo' : 'Inactivo' %></dd>
+        </div>
+      </dl>
+
+      <div class="admin-form-actions">
+        <a href="/orientador/alumnos/<%= alumno.usuarioId %>/seguimientos/nuevo" class="btn-admin-primary">Registrar seguimiento</a>
+        <a href="/orientador/reportes/alumnos/<%= alumno.usuarioId %>" class="btn-admin-secondary">Generar reporte</a>
+        <a href="/orientador/alumnos" class="btn-admin-secondary">Volver a Alumnos</a>
+      </div>
+    </section>
+
+    <section class="panel-card">
+      <div class="panel-header">
+        <h2>Actividades de orientación</h2>
+        <a href="/orientador/alumnos/<%= alumno.usuarioId %>/actividades/nueva" class="btn-admin-primary">Programar actividad</a>
+      </div>
+
+      <% if (actividadesRecientes.length === 0) { %>
+        <p class="text-center">No hay actividades de orientación programadas para este alumno.</p>
+      <% } else { %>
+        <% actividadesRecientes.forEach((actividad) => { %>
+          <article class="admin-password-warning">
+            <div class="panel-header">
+              <h3><%= actividad.titulo %></h3>
+              <span class="badge-custom success"><%= actividad.estado %></span>
+            </div>
+            <p><strong>Fecha programada:</strong> <%= new Date(actividad.fechaProgramada).toLocaleDateString('es-MX', { timeZone: 'UTC' }) %></p>
+            <% if (actividad.fechaRealizacion) { %>
+              <p><strong>Fecha de realización:</strong> <%= new Date(actividad.fechaRealizacion).toLocaleDateString('es-MX', { timeZone: 'UTC' }) %></p>
+            <% } %>
+            <p><%= actividad.descripcion %></p>
+            <p class="admin-form-note"><strong>Orientador responsable:</strong> <%= actividad.orientador %></p>
+            <div class="admin-form-actions">
+              <% if (actividad.esPropia) { %>
+                <a href="/orientador/alumnos/<%= alumno.usuarioId %>/actividades/<%= actividad.id %>" class="btn-admin-secondary">Ver actividad</a>
+              <% } %>
+              <% if (actividad.cerrada) { %>
+                <span class="admin-form-note">Actividad cerrada</span>
+              <% } else if (actividad.esPropia) { %>
+                <a href="/orientador/alumnos/<%= alumno.usuarioId %>/actividades/<%= actividad.id %>/estado" class="btn-admin-edit">Actualizar estado</a>
+              <% } %>
+            </div>
+          </article>
+        <% }); %>
+      <% } %>
+    </section>
+
+    <section class="panel-card">
+      <div class="panel-header">
+        <h2>Seguimientos recientes</h2>
+        <a href="/orientador/alumnos/<%= alumno.usuarioId %>/seguimientos" class="btn-admin-secondary">Ver historial completo</a>
+      </div>
+
+      <% if (seguimientosRecientes.length === 0) { %>
+        <p class="text-center">No hay seguimientos registrados para este alumno.</p>
+      <% } else { %>
+        <% seguimientosRecientes.forEach((seguimiento) => { %>
+          <article class="admin-password-warning">
+            <div class="panel-header">
+              <h3><%= seguimiento.titulo %></h3>
+              <span class="badge-custom success"><%= seguimiento.tipo %></span>
+            </div>
+            <p><strong>Fecha:</strong> <%= new Date(seguimiento.fecha).toLocaleDateString('es-MX', { timeZone: 'UTC' }) %></p>
+            <p><%= seguimiento.descripcion %></p>
+            <p class="admin-form-note"><strong>Orientador responsable:</strong> <%= seguimiento.orientador %></p>
+          </article>
+        <% }); %>
+      <% } %>
+    </section>
+
+  </main>
+
+</div>
+
+</body>
+</html>

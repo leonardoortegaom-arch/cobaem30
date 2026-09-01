@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="es">
+<%- include('../partials/head', { title: 'Mi horario | COBAEM 30' }) %>
+<body>
+<div class="dashboard-layout">
+  <%- include('../partials/sidebar', { menuItems }) %>
+  <main class="dashboard-main teacher-schedule-page">
+    <header class="teacher-schedule-title">
+      <div>
+        <h1>Horario de trabajo docente</h1>
+        <p><strong>Docente:</strong> <%= [usuario.nombre, usuario.apellidoPaterno, usuario.apellidoMaterno].filter(Boolean).join(' ') || usuario.nombre %></p>
+      </div>
+      <div class="teacher-schedule-logo">Logotipo<br>institucional</div>
+    </header>
+    <section class="teacher-schedule-sheet" id="horario-docente">
+      <div class="table-responsive">
+        <table class="teacher-schedule-table">
+          <thead><tr><th>Hora</th><th>Lunes</th><th>Martes</th><th>Miércoles</th><th>Jueves</th><th>Viernes</th><th>Sábado</th></tr></thead>
+          <tbody>
+            <% const dias = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO']; %>
+            <% for (let hour = 7; hour < 14; hour += 1) { const inicio = `${String(hour).padStart(2, '0')}:00:00`; const fin = `${String(hour + 1).padStart(2, '0')}:00:00`; %>
+              <tr><th><%= hour %>:00/<%= hour + 1 %>:00</th><% dias.forEach((dia) => { const clase = horarioDocente.find((item) => item.dia === dia && item.hora_inicio === inicio && item.hora_fin === fin); %><td><% if (clase) { %><strong><%= clase.materia %></strong><small><%= clase.grupo || clase.aula || '' %></small><% } %></td><% }); %></tr>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>

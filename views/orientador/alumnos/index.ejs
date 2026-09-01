@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<%- include('../../partials/head', { title }) %>
+
+<body>
+
+<div class="dashboard-layout">
+
+  <%- include('../../partials/sidebar', { menuItems }) %>
+
+  <main class="dashboard-main">
+
+    <header class="dashboard-header">
+      <div>
+        <h1>Alumnos</h1>
+        <p>Consulta de alumnos y su grupo académico actual.</p>
+      </div>
+    </header>
+
+    <section class="panel-card">
+      <form id="orientador-alumnos-filtros" method="GET" action="/orientador/alumnos" class="admin-user-filters">
+        <div class="admin-filter-field admin-filter-search">
+          <label for="orientador-alumnos-q">Buscar</label>
+          <input id="orientador-alumnos-q" name="q" type="search" value="<%= filtros.q %>" maxlength="100" placeholder="Matrícula, nombre o correo">
+        </div>
+
+        <div class="admin-filter-field">
+          <label for="orientador-alumnos-grupo">Grupo</label>
+          <select id="orientador-alumnos-grupo" name="grupo">
+            <option value="">Todos los grupos</option>
+            <% grupos.forEach((grupo) => { %>
+              <option value="<%= grupo.id %>" <%= filtros.grupo === String(grupo.id) ? 'selected' : '' %>><%= grupo.clave %> · Semestre <%= grupo.semestre %> · <%= grupo.turno_nombre %> · <%= grupo.ciclo_escolar %><%= grupo.activo ? '' : ' · Inactivo' %></option>
+            <% }); %>
+          </select>
+        </div>
+
+        <div class="admin-filter-field">
+          <label for="orientador-alumnos-estado">Estado de cuenta</label>
+          <select id="orientador-alumnos-estado" name="estado">
+            <option value="">Todos</option>
+            <option value="activo" <%= filtros.estado === 'activo' ? 'selected' : '' %>>Activos</option>
+            <option value="inactivo" <%= filtros.estado === 'inactivo' ? 'selected' : '' %>>Inactivos</option>
+          </select>
+        </div>
+
+        <div class="admin-filter-actions">
+          <button type="submit" class="btn-admin-primary">Buscar</button>
+          <a href="/orientador/alumnos" class="btn-admin-secondary">Limpiar</a>
+        </div>
+      </form>
+
+      <p class="admin-filter-hint">Los resultados se actualizan automáticamente.</p>
+      <p class="admin-results-count"><%= paginacion.totalRegistros %> alumnos encontrados</p>
+
+      <div class="table-responsive">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Matrícula</th>
+              <th>Alumno</th>
+              <th>Correo</th>
+              <th>Grupo</th>
+              <th>Semestre</th>
+              <th>Turno</th>
+              <th>Ciclo escolar</th>
+              <th>Estado</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <% if (alumnos.length === 0) { %>
+              <tr>
+                <td colspan="9" class="text-center">No se encontraron alumnos con los filtros seleccionados.</td>
+              </tr>
+            <% } else { %>
+              <% alumnos.forEach((alumno) => { %>
+                <tr>
+                  <td><%= alumno.matricula %></td>
+                  <td><%= alumno.nombre_completo %></td>
+                  <td><%= alumno.correo %></td>
+                  <td>
+                    <%= alumno.grupo_clave %>
+                    <span class="badge-custom <%= alumno.grupo_activo ? 'success' : 'warning' %>"><%= alumno.grupo_activo ? 'Activo' : 'Inactivo' %></span>
+                  </td>
+                  <td><%= alumno.semestre %></td>
+                  <td><%= alumno.turno_nombre %></td>
+                  <td><%= alumno.ciclo_escolar %></td>
+                  <td>
+                    <span class="badge-custom <%= alumno.usuario_activo ? 'success' : 'warning' %>"><%= alumno.usuario_activo ? 'Activo' : 'Inactivo' %></span>
+                  </td>
+                  <td>
+                    <a href="/orientador/alumnos/<%= alumno.usuarioId %>" class="btn-admin-edit">Ver detalle</a>
+                  </td>
+                </tr>
+              <% }); %>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+
+      <% if (paginacion.totalPaginas > 1) { %>
+        <nav class="admin-pagination" aria-label="Paginación de alumnos">
+          <% if (paginacion.tieneAnterior) { %>
+            <a href="<%= paginacion.urlAnterior %>" class="admin-page-link">Anterior</a>
+          <% } else { %>
+            <span class="admin-page-link disabled">Anterior</span>
+          <% } %>
+
+          <% paginacion.enlaces.forEach((enlace) => { %>
+            <a href="<%= enlace.url %>" class="admin-page-link <%= enlace.actual ? 'active' : '' %>" <%= enlace.actual ? 'aria-current="page"' : '' %>><%= enlace.numero %></a>
+          <% }); %>
+
+          <% if (paginacion.tieneSiguiente) { %>
+            <a href="<%= paginacion.urlSiguiente %>" class="admin-page-link">Siguiente</a>
+          <% } else { %>
+            <span class="admin-page-link disabled">Siguiente</span>
+          <% } %>
+        </nav>
+      <% } %>
+    </section>
+
+  </main>
+
+</div>
+
+<script src="/js/orientadorStudentFilters.js" defer></script>
+
+</body>
+</html>

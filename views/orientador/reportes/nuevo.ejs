@@ -1,0 +1,21 @@
+<!DOCTYPE html><html lang="es">
+<%- include('../../partials/head', { title }) %><body><div class="dashboard-layout">
+  <%- include('../../partials/sidebar', { menuItems }) %>
+  <main class="dashboard-main written-report-main">
+    <nav class="report-breadcrumb" aria-label="Ruta de navegación"><a href="/orientador/reportes">Reportes</a><span aria-hidden="true">/</span><span aria-current="page">Nuevo reporte</span></nav>
+    <header class="written-report-hero"><div><span class="written-report-eyebrow">Nuevo borrador</span><h1>Redactar reporte</h1><p>Documenta de manera clara la situación académica o conductual del alumno.</p></div><a href="/orientador/reportes" class="btn-admin-secondary">Cancelar</a></header>
+    <div class="written-report-layout">
+      <form method="POST" action="/orientador/reportes/alumnos/<%= alumnoId %>" class="panel-card written-report-form">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <% if (error) { %><div class="alert alert-danger" role="alert"><%= error %></div><% } %>
+        <%- include('_campos', { tipos, datos }) %>
+        <div class="admin-form-actions"><button type="submit" class="btn-admin-primary">Guardar borrador</button><a href="/orientador/reportes" class="btn-admin-secondary">Cancelar</a></div>
+      </form>
+      <aside class="panel-card written-report-student-card"><h2>Alumno</h2><dl class="orientation-activity-detail-data">
+        <div><dt>Nombre</dt><dd><%= alumno.nombre %></dd></div><div><dt>Matrícula</dt><dd><%= alumno.matricula %></dd></div><div><dt>Grupo</dt><dd><%= alumno.grupo %></dd></div>
+        <div><dt>Semestre</dt><dd><%= alumno.semestre %></dd></div><div><dt>Turno</dt><dd><%= alumno.turno %></dd></div><div><dt>Ciclo escolar</dt><dd><%= alumno.ciclo %></dd></div>
+        <div><dt>Estado de cuenta</dt><dd><%= alumno.activo ? 'Activo' : 'Inactivo' %></dd></div>
+      </dl></aside>
+    </div>
+  </main>
+</div></body></html>

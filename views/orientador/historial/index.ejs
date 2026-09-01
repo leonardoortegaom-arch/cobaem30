@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<%- include('../../partials/head', { title }) %>
+
+<body>
+
+<div class="dashboard-layout">
+  <%- include('../../partials/sidebar', { menuItems }) %>
+
+  <main class="dashboard-main">
+    <header class="dashboard-header">
+      <div>
+        <h1>Historial de orientación</h1>
+        <p>Reúne observaciones de seguimiento y actividades de orientación.</p>
+      </div>
+    </header>
+
+    <section class="panel-card">
+      <% if (error) { %>
+        <div class="alert alert-danger" role="alert"><%= error %></div>
+      <% } %>
+
+      <form id="historial-filtros" method="GET" action="/orientador/historial" class="admin-user-filters">
+        <div class="admin-filter-field">
+          <label for="historial-filtro-q">Buscar</label>
+          <input id="historial-filtro-q" name="q" type="search" value="<%= filtros.q %>" maxlength="100" placeholder="Matrícula, alumno, título u orientador">
+        </div>
+        <div class="admin-filter-field">
+          <label for="historial-filtro-tipo">Tipo de registro</label>
+          <select id="historial-filtro-tipo" name="tipo">
+            <option value="TODOS" <%= filtros.tipo === 'TODOS' ? 'selected' : '' %>>Todos</option>
+            <option value="SEGUIMIENTO" <%= filtros.tipo === 'SEGUIMIENTO' ? 'selected' : '' %>>Seguimientos</option>
+            <option value="ACTIVIDAD" <%= filtros.tipo === 'ACTIVIDAD' ? 'selected' : '' %>>Actividades</option>
+          </select>
+        </div>
+        <div class="admin-filter-field">
+          <label for="historial-filtro-desde">Desde</label>
+          <input id="historial-filtro-desde" name="desde" type="date" value="<%= filtros.desde %>">
+        </div>
+        <div class="admin-filter-field">
+          <label for="historial-filtro-hasta">Hasta</label>
+          <input id="historial-filtro-hasta" name="hasta" type="date" value="<%= filtros.hasta %>">
+        </div>
+        <div class="admin-filter-actions">
+          <button type="submit" class="btn-admin-primary">Buscar</button>
+          <a href="/orientador/historial" class="btn-admin-secondary">Limpiar filtros</a>
+        </div>
+      </form>
+
+      <p class="admin-filter-hint">Los resultados se actualizan automáticamente.</p>
+      <p class="admin-results-count"><%= paginacion.totalRegistros %> registros encontrados</p>
+
+      <% if (registros.length === 0) { %>
+        <p class="text-center">No se encontraron registros con los filtros seleccionados.</p>
+      <% } else { %>
+        <div class="orientation-timeline">
+          <% registros.forEach((registro) => { %>
+            <article class="orientation-timeline-item <%= registro.tipoRegistro === 'ACTIVIDAD' ? 'activity' : 'tracking' %>">
+              <div class="panel-header">
+                <h2><%= registro.titulo %></h2>
+                <span class="badge-custom <%= registro.tipoRegistro === 'ACTIVIDAD' ? 'warning' : 'success' %>"><%= registro.tipoRegistro === 'ACTIVIDAD' ? 'Actividad' : 'Seguimiento' %></span>
+              </div>
+
+              <% if (registro.tipoRegistro === 'SEGUIMIENTO') { %>
+                <p><strong>Fecha del seguimiento:</strong> <%= new Date(registro.fechaEvento).toLocaleDateString('es-MX', { timeZone: 'UTC' }) %></p>
+                <p><strong>Tipo:</strong> <%= registro.categoria %></p>
+              <% } else { %>
+                <p><strong>Fecha de asignación:</strong> <%= new Date(registro.fechaAsignacion).toLocaleDateString('es-MX', { timeZone: 'UTC' }) %></p>
+                <% if (registro.fechaRealizacion) { %>
+                  <p><strong>Fecha de realización:</strong> <%= new Date(registro.fechaRealizacion).toLocaleDateString('es-MX', { timeZone: 'UTC' }) %></p>
+                <% } %>
+                <p><strong>Estado:</strong> <%= registro.estadoNombre %></p>
+              <% } %>
+
+              <p><%= registro.contenido %></p>
+              <dl class="orientation-history-meta">
+                <div><dt>Alumno</dt><dd><%= registro.alumnoNombre %></dd></div>
+                <div><dt>Matrícula</dt><dd><%= registro.matricula %></dd></div>
+                <div><dt>Grupo</dt><dd><%= registro.grupo %> · Semestre <%= registro.semestre %> · <%= registro.turno %> · <%= registro.ciclo %></dd></div>
+                <div><dt>Orientador responsable</dt><dd><%= registro.orientadorNombre %></dd></div>
+              </dl>
+
+              <% if (registro.tipoRegistro === 'SEGUIMIENTO') { %>
+                <a href="/orientador/alumnos/<%= registro.alumnoUsuarioId %>/seguimientos" class="btn-admin-secondary">Ver historial del alumno</a>
+              <% } else { %>
+                <a href="/orientador/alumnos/<%= registro.alumnoUsuarioId %>" class="btn-admin-secondary">Ver alumno</a>
+              <% } %>
+            </article>
+          <% }); %>
+        </div>
+      <% } %>
+
+      <% if (paginacion.totalPaginas > 1) { %>
+        <nav class="admin-pagination" aria-label="Paginación del historial de orientación">
+          <% if (paginacion.tieneAnterior) { %>
+            <a href="<%= paginacion.urlAnterior %>" class="admin-page-link">Anterior</a>
+          <% } else { %>
+            <span class="admin-page-link disabled">Anterior</span>
+          <% } %>
+          <% paginacion.enlaces.forEach((enlace) => { %>
+            <a href="<%= enlace.url %>" class="admin-page-link <%= enlace.actual ? 'active' : '' %>" <% if (enlace.actual) { %>aria-current="page"<% } %>><%= enlace.numero %></a>
+          <% }); %>
+          <% if (paginacion.tieneSiguiente) { %>
+            <a href="<%= paginacion.urlSiguiente %>" class="admin-page-link">Siguiente</a>
+          <% } else { %>
+            <span class="admin-page-link disabled">Siguiente</span>
+          <% } %>
+        </nav>
+      <% } %>
+    </section>
+  </main>
+</div>
+
+<script src="/js/orientadorHistoryFilters.js" defer></script>
+
+</body>
+</html>

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<%- include('../../partials/head', { title }) %>
+
+<body>
+
+<div class="dashboard-layout">
+
+  <%- include('../../partials/sidebar', { menuItems }) %>
+
+  <main class="dashboard-main">
+
+    <header class="dashboard-header">
+      <div>
+        <h1>Editar grupo</h1>
+        <p>Actualiza los datos generales del grupo seleccionado.</p>
+      </div>
+    </header>
+
+    <section class="panel-card admin-form-card">
+      <% if (error) { %>
+        <div class="alert alert-danger" role="alert">
+          <%= error %>
+        </div>
+      <% } %>
+
+      <form method="POST" action="/admin/grupos/<%= datos.id %>/editar">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+        <div class="admin-form-grid">
+          <div class="admin-form-group">
+            <label for="clave">Clave del grupo</label>
+            <input id="clave" name="clave" type="text" inputmode="numeric" pattern="[0-9]{1,10}" maxlength="10" value="<%= datos.clave %>" required autocomplete="off">
+          </div>
+
+          <div class="admin-form-group">
+            <label for="semestre">Semestre</label>
+            <select id="semestre" name="semestre" required>
+              <% for (let semestre = 1; semestre <= 6; semestre += 1) { %>
+                <option value="<%= semestre %>" <%= String(datos.semestre) === String(semestre) ? 'selected' : '' %>><%= semestre %></option>
+              <% } %>
+            </select>
+          </div>
+
+          <div class="admin-form-group">
+            <label for="turno_id">Turno</label>
+            <select id="turno_id" name="turno_id" required>
+              <% turnos.forEach((turno) => { %>
+                <option value="<%= turno.id %>" <%= String(datos.turno_id) === String(turno.id) ? 'selected' : '' %>><%= turno.nombre %></option>
+              <% }); %>
+            </select>
+          </div>
+
+          <div class="admin-form-group">
+            <label for="ciclo_escolar">Ciclo escolar</label>
+            <input id="ciclo_escolar" name="ciclo_escolar" type="text" inputmode="numeric" pattern="[0-9]{4}-[0-9]{4}" maxlength="9" value="<%= datos.ciclo_escolar %>" placeholder="2026-2029" required autocomplete="off">
+          </div>
+        </div>
+
+        <div class="admin-form-actions">
+          <button type="submit" class="btn-admin-primary">Guardar cambios</button>
+          <a href="/admin/grupos" class="btn-admin-secondary">Cancelar</a>
+        </div>
+      </form>
+    </section>
+
+  </main>
+
+</div>
+
+</body>
+</html>

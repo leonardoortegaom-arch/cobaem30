@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+  
+<%- include('../partials/head', {
+    title: 'Alumno | COBAEM 30'
+}) %>
+
+<body>
+
+<div class="dashboard-layout">
+
+  <%- include('../partials/sidebar', { menuItems }) %>
+
+  <main class="dashboard-main">
+
+    <header class="dashboard-header">
+      <div>
+        <h1>Panel del alumno</h1>
+        <p>Consulta tus actividades, materias y avance académico.</p>
+      </div>
+
+      <div class="user-profile">
+        <div class="user-avatar"><%= usuario.inicial %></div>
+        <div>
+          <strong><%= usuario.nombre %></strong>
+          <span><%= usuario.rolNombre %> · <%= usuario.correo %></span>
+        </div>
+      </div>
+    </header>
+
+    <section class="dashboard-stats">
+
+      <div class="dashboard-card">
+        <i class="fa-solid fa-clock"></i>
+        <div>
+          <h3>8</h3>
+          <p>Pendientes</p>
+        </div>
+      </div>
+
+      <div class="dashboard-card">
+        <i class="fa-solid fa-book"></i>
+        <div>
+          <h3>6</h3>
+          <p>Materias</p>
+        </div>
+      </div>
+
+      <div class="dashboard-card">
+        <i class="fa-solid fa-check-circle"></i>
+        <div>
+          <h3>34</h3>
+          <p>Entregadas</p>
+        </div>
+      </div>
+
+      <div class="dashboard-card">
+        <i class="fa-solid fa-chart-simple"></i>
+        <div>
+          <h3>96%</h3>
+          <p>Asistencia</p>
+        </div>
+      </div>
+
+    </section>
+
+    <section class="dashboard-grid">
+
+      <div class="panel-card">
+        <div class="panel-header">
+          <h3>Actividades próximas</h3>
+          <a href="#">Ver todas</a>
+        </div>
+
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Actividad</th>
+              <th>Materia</th>
+              <th>Fecha</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr>
+              <td>Ensayo de lectura</td>
+              <td>Español</td>
+              <td>12 Julio</td>
+            </tr>
+
+            <tr>
+              <td>Proyecto final</td>
+              <td>Informática</td>
+              <td>15 Julio</td>
+            </tr>
+
+            <tr>
+              <td>Práctica de laboratorio</td>
+              <td>Química</td>
+              <td>18 Julio</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="panel-card">
+        <div class="panel-header">
+          <h3>Mi progreso</h3>
+        </div>
+
+        <div class="quick-actions">
+          <button><i class="fa-solid fa-calendar-check"></i> Asistencia general: 96%</button>
+          <button><i class="fa-solid fa-list-check"></i> Actividades completadas: 34</button>
+          <button><i class="fa-solid fa-chart-line"></i> Seguimiento académico</button>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+</div>
+
+</body>
+</html>

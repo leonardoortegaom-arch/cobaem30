@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<%- include('../../partials/head', { title }) %>
+<body>
+<div class="dashboard-layout">
+  <%- include('../../partials/sidebar', { menuItems }) %>
+  <main class="dashboard-main student-activities">
+    <header class="student-activities-hero">
+      <div>
+        <span class="student-activities-eyebrow">Orientación</span>
+        <h1>Mis actividades</h1>
+        <p>Consulta las actividades programadas por el área de orientación y revisa su estado.</p>
+      </div>
+      <div class="student-activities-open-summary"><strong><%= resumen.abiertas %></strong><span>Abiertas</span><small><%= resumen.vencidas %> vencidas</small></div>
+    </header>
+
+    <section class="student-activities-metrics" aria-label="Resumen de actividades">
+      <article class="student-activity-metric is-pending"><i class="fa-regular fa-clock" aria-hidden="true"></i><div><strong><%= resumen.pendientes %></strong><span>Pendientes</span></div></article>
+      <article class="student-activity-metric is-progress"><i class="fa-solid fa-spinner" aria-hidden="true"></i><div><strong><%= resumen.enProceso %></strong><span>En proceso</span></div></article>
+      <article class="student-activity-metric is-completed"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><div><strong><%= resumen.realizadas %></strong><span>Realizadas</span></div></article>
+      <article class="student-activity-metric is-missed"><i class="fa-solid fa-circle-minus" aria-hidden="true"></i><div><strong><%= resumen.noRealizadas %></strong><span>Sin realizar</span></div></article>
+      <article class="student-activity-metric is-cancelled"><i class="fa-solid fa-ban" aria-hidden="true"></i><div><strong><%= resumen.canceladas %></strong><span>Canceladas</span></div></article>
+    </section>
+
+    <section class="student-activities-panel" aria-labelledby="listado-actividades-titulo">
+      <div class="student-activities-panel-heading">
+        <div><h2 id="listado-actividades-titulo">Actividades programadas</h2><p><%= paginacion.totalRegistros %> <%= paginacion.totalRegistros === 1 ? 'actividad encontrada' : 'actividades encontradas' %></p></div>
+      </div>
+
+      <form id="alumno-actividades-filtros" class="student-activities-filters" method="GET" action="/alumno/actividades">
+        <div class="student-activities-filter-field">
+          <label for="alumno-actividades-q">Buscar</label>
+          <input id="alumno-actividades-q" type="search" name="q" maxlength="100" value="<%= filtros.q %>" placeholder="Título, instrucciones u orientador" autocomplete="off">
+        </div>
+        <div class="student-activities-filter-field">
+          <label for="alumno-actividades-estado">Estado</label>
+          <select id="alumno-actividades-estado" name="estado">
+            <option value="" <%= filtros.estado === '' ? 'selected' : '' %>>Todas</option>
+            <option value="PENDIENTE" <%= filtros.estado === 'PENDIENTE' ? 'selected' : '' %>>Pendientes</option>
+            <option value="EN_PROCESO" <%= filtros.estado === 'EN_PROCESO' ? 'selected' : '' %>>En proceso</option>
+            <option value="REALIZADA" <%= filtros.estado === 'REALIZADA' ? 'selected' : '' %>>Realizadas</option>
+            <option value="NO_REALIZADA" <%= filtros.estado === 'NO_REALIZADA' ? 'selected' : '' %>>No realizadas</option>
+            <option value="CANCELADA" <%= filtros.estado === 'CANCELADA' ? 'selected' : '' %>>Canceladas</option>
+          </select>
+        </div>
+        <div class="student-activities-filter-actions">
+          <button type="submit">Buscar</button>
+          <a href="/alumno/actividades">Limpiar</a>
+        </div>
+        <p class="student-activities-filter-hint">Los resultados se actualizan automáticamente.</p>
+      </form>
+
+      <% if (actividades.length === 0) { %>
+        <div class="student-activities-empty">
+          <i class="fa-solid fa-list-check" aria-hidden="true"></i>
+          <% if (filtros.q || filtros.estado) { %>
+            <div><h3>No se encontraron actividades</h3><p>Prueba con otros criterios o limpia los filtros seleccionados.</p></div>
+          <% } else { %>
+            <div><h3>Todavía no tienes actividades</h3><p>Aparecerán aquí cuando el área de orientación programe alguna para ti.</p></div>
+          <% } %>
+        </div>
+      <% } else { %>
+        <div class="student-activities-list">
+          <% actividades.forEach((actividad) => { %>
+            <a href="/alumno/actividades/<%= actividad.id %>" class="student-activity-row <%= actividad.indicadorTemporal === 'Vencida' ? 'is-overdue' : '' %>">
+              <div class="student-activity-row-main">
+                <div class="student-activity-row-badges">
+                  <span class="student-activity-badge state-<%= actividad.estadoClave.toLowerCase() %>"><%= actividad.estadoNombre %></span>
+                  <span class="student-activity-temporal temporal-<%= actividad.indicadorTemporal.toLowerCase().replaceAll(' ', '-') %>"><%= actividad.indicadorTemporal %></span>
+                </div>
+                <h3><%= actividad.titulo %></h3>
+                <p><%= actividad.resumenInstrucciones %></p>
+              </div>
+              <dl class="student-activity-row-meta">
+                <div><dt>Programada</dt><dd><%= new Date(actividad.fechaAsignacion).toLocaleDateString('es-MX', { timeZone: 'UTC' }) %></dd></div>
+                <% if (actividad.fechaRealizacion) { %><div><dt>Realizada</dt><dd><%= new Date(actividad.fechaRealizacion).toLocaleDateString('es-MX', { timeZone: 'UTC' }) %></dd></div><% } %>
+                <div><dt>Orientador</dt><dd><%= actividad.orientadorNombre %></dd></div>
+              </dl>
+              <i class="fa-solid fa-chevron-right student-activity-row-arrow" aria-hidden="true"></i>
+            </a>
+          <% }); %>
+        </div>
+      <% } %>
+
+      <% if (paginacion.totalPaginas > 1) { %>
+        <nav class="admin-pagination" aria-label="Paginación de actividades">
+          <a class="admin-page-link <%= !paginacion.tieneAnterior ? 'disabled' : '' %>" href="<%= paginacion.urlAnterior || '#' %>" <%= !paginacion.tieneAnterior ? 'aria-disabled="true"' : '' %>>Anterior</a>
+          <% paginacion.enlaces.forEach((enlace) => { %><a class="admin-page-link <%= enlace.actual ? 'active' : '' %>" href="<%= enlace.url %>" <%= enlace.actual ? 'aria-current="page"' : '' %>><%= enlace.numero %></a><% }); %>
+          <a class="admin-page-link <%= !paginacion.tieneSiguiente ? 'disabled' : '' %>" href="<%= paginacion.urlSiguiente || '#' %>" <%= !paginacion.tieneSiguiente ? 'aria-disabled="true"' : '' %>>Siguiente</a>
+        </nav>
+      <% } %>
+    </section>
+  </main>
+</div>
+<script src="/js/alumnoActivityFilters.js" defer></script>
+</body>
+</html>

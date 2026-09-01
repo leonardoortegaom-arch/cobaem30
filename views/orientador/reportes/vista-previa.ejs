@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="es">
+<%- include('../../partials/head', { title }) %>
+<body>
+<div class="dashboard-layout">
+  <%- include('../../partials/sidebar', { menuItems }) %>
+  <main class="dashboard-main report-preview-main">
+    <nav class="report-breadcrumb" aria-label="Ruta de navegación">
+      <a href="/orientador/reportes">Reportes</a>
+      <span aria-hidden="true">/</span>
+      <span aria-current="page">Información de apoyo</span>
+    </nav>
+
+    <ol class="report-flow-steps" aria-label="Progreso para generar el reporte">
+      <li><span>1</span> Seleccionar periodo</li>
+      <li class="active" aria-current="step"><span>2</span> Consultar información</li>
+    </ol>
+
+    <header class="report-preview-hero">
+      <div class="report-preview-heading">
+        <h1>Información de apoyo</h1>
+        <p>Consulta los seguimientos y actividades registrados durante el periodo para apoyar la redacción del reporte.</p>
+        <div class="report-student-identity" aria-label="Alumno seleccionado">
+          <strong><%= reporte.alumno.nombre %></strong>
+          <span>Matrícula <%= reporte.alumno.matricula %></span>
+          <span>Grupo <%= reporte.alumno.grupo %></span>
+        </div>
+      </div>
+      <div class="report-preview-navigation-actions">
+        <a href="/orientador/reportes" class="btn-admin-secondary report-change-student">Volver a Reportes</a>
+      </div>
+    </header>
+
+    <section class="panel-card report-period-card">
+      <div class="report-section-heading">
+        <h2>Configurar periodo</h2>
+        <p>Selecciona el intervalo de registros que deseas consultar como apoyo.</p>
+      </div>
+      <form method="GET" action="/orientador/reportes/alumnos/<%= alumnoId %>/vista-previa" class="report-period-form">
+        <div class="report-period-fields">
+          <div class="admin-filter-field"><label for="desde">Desde</label><input id="desde" name="desde" type="date" value="<%= reporte.periodo.desde %>" required></div>
+          <div class="admin-filter-field"><label for="hasta">Hasta</label><input id="hasta" name="hasta" type="date" value="<%= reporte.periodo.hasta %>" required></div>
+        </div>
+        <div class="report-period-actions">
+          <button type="submit" class="btn-admin-primary">Actualizar información</button>
+        </div>
+      </form>
+      <% if (error) { %><div class="alert alert-danger report-period-error" role="alert"><%= error %></div><% } %>
+    </section>
+
+    <section class="panel-card report-view-info">
+      <div class="report-section-heading"><h2>Información de la consulta</h2></div>
+      <dl class="report-view-meta">
+        <div><dt>Generado el</dt><dd><%= reporte.fechaGeneracion %></dd></div>
+        <div><dt>Periodo mostrado</dt><dd><%= reporte.periodo.desde %> a <%= reporte.periodo.hasta %></dd></div>
+        <div><dt>Elaborado por</dt><dd><%= reporte.orientador.nombre %> · <%= reporte.orientador.rol %></dd></div>
+      </dl>
+    </section>
+
+    <section class="panel-card report-preview-section">
+      <h2>Datos del alumno</h2>
+      <dl class="admin-user-summary">
+        <div><dt>Nombre</dt><dd><%= reporte.alumno.nombre %></dd></div><div><dt>Correo</dt><dd><%= reporte.alumno.correo %></dd></div>
+        <div><dt>Matrícula</dt><dd><%= reporte.alumno.matricula %></dd></div><div><dt>Grupo</dt><dd><%= reporte.alumno.grupo %></dd></div>
+        <div><dt>Semestre</dt><dd><%= reporte.alumno.semestre %></dd></div><div><dt>Turno</dt><dd><%= reporte.alumno.turno %></dd></div>
+        <div><dt>Ciclo escolar</dt><dd><%= reporte.alumno.ciclo %></dd></div><div><dt>Estado de cuenta</dt><dd><%= reporte.alumno.activo ? 'Activo' : 'Inactivo' %></dd></div>
+        <div><dt>Estado del grupo</dt><dd><%= reporte.alumno.grupoActivo ? 'Activo' : 'Inactivo' %></dd></div>
+      </dl>
+    </section>
+
+    <section class="panel-card report-preview-section">
+      <h2>Resumen numérico</h2>
+      <div class="dashboard-stats report-summary-stats">
+        <div class="dashboard-card"><i class="fa-solid fa-clipboard-list"></i><div><h3><%= reporte.resumen.totalSeguimientos %></h3><p>Seguimientos</p></div></div>
+        <div class="dashboard-card"><i class="fa-solid fa-list-check"></i><div><h3><%= reporte.resumen.totalActividades %></h3><p>Actividades</p></div></div>
+      </div>
+      <div class="report-count-groups">
+        <div><h3>Por tipo de seguimiento</h3><% if (reporte.resumen.seguimientosPorTipo.length === 0) { %><p>Sin registros</p><% } else { %><ul><% reporte.resumen.seguimientosPorTipo.forEach((item) => { %><li><%= item.nombre %>: <%= item.total %></li><% }); %></ul><% } %></div>
+        <div><h3>Por estado de actividad</h3><% if (reporte.resumen.actividadesPorEstado.length === 0) { %><p>Sin registros</p><% } else { %><ul><% reporte.resumen.actividadesPorEstado.forEach((item) => { %><li><%= item.nombre %>: <%= item.total %></li><% }); %></ul><% } %></div>
+      </div>
+    </section>
+
+    <section class="panel-card report-preview-section"><h2>Observaciones de seguimiento</h2>
+      <% if (reporte.seguimientos.length === 0) { %><p class="text-center">No existen observaciones en el periodo seleccionado.</p><% } else { %>
+        <% reporte.seguimientos.forEach((item) => { %><article class="admin-password-warning"><div class="panel-header"><h3><%= item.titulo %></h3><span class="badge-custom success"><%= item.tipo_nombre %></span></div><p><strong>Fecha:</strong> <%= new Date(item.fecha).toLocaleDateString('es-MX', { timeZone: 'UTC' }) %></p><p><%= item.descripcion %></p><p class="admin-form-note"><strong>Responsable:</strong> <%= item.orientador_nombre %></p></article><% }); %>
+      <% } %>
+    </section>
+
+    <section class="panel-card report-preview-section"><h2>Actividades de orientación</h2>
+      <% if (reporte.actividades.length === 0) { %><p class="text-center">No existen actividades en el periodo seleccionado.</p><% } else { %>
+        <% reporte.actividades.forEach((item) => { %><article class="admin-password-warning"><div class="panel-header"><h3><%= item.titulo %></h3><span class="badge-custom warning"><%= item.estado_nombre %></span></div><p><strong>Fecha de asignación:</strong> <%= new Date(item.fecha_asignacion).toLocaleDateString('es-MX', { timeZone: 'UTC' }) %></p><% if (item.fecha_realizacion) { %><p><strong>Fecha de realización:</strong> <%= new Date(item.fecha_realizacion).toLocaleDateString('es-MX', { timeZone: 'UTC' }) %></p><% } %><p><%= item.instrucciones %></p><p class="admin-form-note"><strong>Responsable:</strong> <%= item.orientador_nombre %></p></article><% }); %>
+      <% } %>
+    </section>
+
+    <div class="alert alert-warning report-disclaimer" role="note">Esta consulta es información de apoyo y no constituye el reporte oficial redactado por el orientador.</div>
+  </main>
+</div>
+</body>
+</html>

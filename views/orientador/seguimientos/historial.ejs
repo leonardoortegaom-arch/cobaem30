@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<%- include('../../partials/head', { title }) %>
+
+<body>
+
+<div class="dashboard-layout">
+
+  <%- include('../../partials/sidebar', { menuItems }) %>
+
+  <main class="dashboard-main">
+    <header class="dashboard-header">
+      <div>
+        <h1>Historial de seguimiento</h1>
+        <p>Consulta las observaciones registradas para el alumno.</p>
+      </div>
+    </header>
+
+    <section class="panel-card account-card">
+      <h2><%= alumno.nombreCompleto %></h2>
+      <dl class="admin-user-summary">
+        <div><dt>Matrícula</dt><dd><%= alumno.matricula %></dd></div>
+        <div><dt>Grupo</dt><dd><%= alumno.grupoClave %></dd></div>
+        <div><dt>Semestre</dt><dd><%= alumno.semestre %></dd></div>
+        <div><dt>Turno</dt><dd><%= alumno.turno %></dd></div>
+        <div><dt>Ciclo escolar</dt><dd><%= alumno.cicloEscolar %></dd></div>
+      </dl>
+    </section>
+
+    <section class="panel-card">
+      <div class="panel-header">
+        <h2>Observaciones registradas</h2>
+        <a href="/orientador/alumnos/<%= alumnoId %>" class="btn-admin-secondary">Volver al detalle</a>
+      </div>
+
+      <% if (error) { %>
+        <div class="alert alert-danger" role="alert"><%= error %></div>
+      <% } %>
+
+      <form id="seguimientos-filtros" method="GET" action="/orientador/alumnos/<%= alumnoId %>/seguimientos" class="admin-user-filters">
+        <div class="admin-filter-field">
+          <label for="seguimientos-filtro-q">Buscar</label>
+          <input id="seguimientos-filtro-q" name="q" type="search" value="<%= filtros.q %>" maxlength="100" placeholder="Título, descripción u orientador">
+        </div>
+        <div class="admin-filter-field">
+          <label for="seguimientos-filtro-tipo">Tipo</label>
+          <select id="seguimientos-filtro-tipo" name="tipo">
+            <option value="">Todos</option>
+            <% tipos.forEach((tipo) => { %>
+              <option value="<%= tipo.id %>" <%= filtros.tipo === String(tipo.id) ? 'selected' : '' %>><%= tipo.nombre %><%= tipo.activo ? '' : ' (inactivo)' %></option>
+            <% }); %>
+          </select>
+        </div>
+        <div class="admin-filter-field">
+          <label for="seguimientos-filtro-desde">Desde</label>
+          <input id="seguimientos-filtro-desde" name="desde" type="date" value="<%= filtros.desde %>">
+        </div>
+        <div class="admin-filter-field">
+          <label for="seguimientos-filtro-hasta">Hasta</label>
+          <input id="seguimientos-filtro-hasta" name="hasta" type="date" value="<%= filtros.hasta %>">
+        </div>
+        <div class="admin-filter-actions">
+          <button type="submit" class="btn-admin-primary">Buscar</button>
+          <a href="/orientador/alumnos/<%= alumnoId %>/seguimientos" class="btn-admin-secondary">Limpiar filtros</a>
+        </div>
+      </form>
+
+      <p class="admin-filter-hint">Los resultados se actualizan automáticamente.</p>
+      <p class="admin-results-count"><%= paginacion.totalRegistros %> seguimientos encontrados</p>
+
+      <% if (seguimientos.length === 0) { %>
+        <p class="text-center">No se encontraron seguimientos con los filtros seleccionados.</p>
+      <% } else { %>
+        <% seguimientos.forEach((seguimiento) => { %>
+          <article class="admin-password-warning">
+            <div class="panel-header">
+              <h3><%= seguimiento.titulo %></h3>
+              <span class="badge-custom success"><%= seguimiento.tipo_nombre %></span>
+            </div>
+            <p><strong>Fecha:</strong> <%= new Date(seguimiento.fecha).toLocaleDateString('es-MX', { timeZone: 'UTC' }) %></p>
+            <p><%= seguimiento.descripcion %></p>
+            <p class="admin-form-note"><strong>Orientador responsable:</strong> <%= seguimiento.orientador_nombre %></p>
+          </article>
+        <% }); %>
+      <% } %>
+
+      <% if (paginacion.totalPaginas > 1) { %>
+        <nav class="admin-pagination" aria-label="Paginación del historial de seguimiento">
+          <% if (paginacion.tieneAnterior) { %>
+            <a href="<%= paginacion.urlAnterior %>" class="admin-page-link">Anterior</a>
+          <% } else { %>
+            <span class="admin-page-link disabled">Anterior</span>
+          <% } %>
+          <% paginacion.enlaces.forEach((enlace) => { %>
+            <a href="<%= enlace.url %>" class="admin-page-link <%= enlace.actual ? 'active' : '' %>" <% if (enlace.actual) { %>aria-current="page"<% } %>><%= enlace.numero %></a>
+          <% }); %>
+          <% if (paginacion.tieneSiguiente) { %>
+            <a href="<%= paginacion.urlSiguiente %>" class="admin-page-link">Siguiente</a>
+          <% } else { %>
+            <span class="admin-page-link disabled">Siguiente</span>
+          <% } %>
+        </nav>
+      <% } %>
+    </section>
+  </main>
+</div>
+
+<script src="/js/orientadorTrackingFilters.js" defer></script>
+
+</body>
+</html>

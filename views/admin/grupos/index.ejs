@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<%- include('../../partials/head', { title }) %>
+
+<body>
+
+<div class="dashboard-layout">
+
+  <%- include('../../partials/sidebar', { menuItems }) %>
+
+  <main class="dashboard-main">
+
+    <header class="dashboard-header">
+      <div>
+        <h1>Administración de grupos</h1>
+        <p>Consulta los grupos registrados por ciclo escolar y turno.</p>
+      </div>
+    </header>
+
+    <% if (mensaje) { %>
+      <div class="alert alert-success" role="alert">
+        <%= mensaje %>
+      </div>
+    <% } %>
+
+    <section class="panel-card">
+      <div class="panel-header">
+        <h3>Grupos registrados</h3>
+        <a href="/admin/grupos/nuevo" class="btn-admin-primary">Crear grupo</a>
+      </div>
+
+      <form id="grupos-filtros" method="GET" action="/admin/grupos" class="admin-user-filters">
+        <div class="admin-filter-field">
+          <label for="grupos-filtro-q">Buscar clave</label>
+          <input id="grupos-filtro-q" name="q" type="search" value="<%= filtros.q %>" maxlength="10" placeholder="Ej. 101">
+        </div>
+
+        <div class="admin-filter-field">
+          <label for="grupos-filtro-semestre">Semestre</label>
+          <select id="grupos-filtro-semestre" name="semestre">
+            <option value="">Todos</option>
+            <% for (let semestre = 1; semestre <= 6; semestre += 1) { %>
+              <option value="<%= semestre %>" <%= filtros.semestre === String(semestre) ? 'selected' : '' %>><%= semestre %></option>
+            <% } %>
+          </select>
+        </div>
+
+        <div class="admin-filter-field">
+          <label for="grupos-filtro-turno">Turno</label>
+          <select id="grupos-filtro-turno" name="turno">
+            <option value="">Todos</option>
+            <% turnos.forEach((turno) => { %>
+              <option value="<%= turno.id %>" <%= filtros.turno === String(turno.id) ? 'selected' : '' %>><%= turno.nombre %></option>
+            <% }); %>
+          </select>
+        </div>
+
+        <div class="admin-filter-field">
+          <label for="grupos-filtro-ciclo">Ciclo escolar</label>
+          <select id="grupos-filtro-ciclo" name="ciclo">
+            <option value="">Todos</option>
+            <% ciclos.forEach((ciclo) => { %>
+              <option value="<%= ciclo %>" <%= filtros.ciclo === ciclo ? 'selected' : '' %>><%= ciclo %></option>
+            <% }); %>
+          </select>
+        </div>
+
+        <div class="admin-filter-field">
+          <label for="grupos-filtro-estado">Estado</label>
+          <select id="grupos-filtro-estado" name="estado">
+            <option value="">Todos</option>
+            <option value="activo" <%= filtros.estado === 'activo' ? 'selected' : '' %>>Activos</option>
+            <option value="inactivo" <%= filtros.estado === 'inactivo' ? 'selected' : '' %>>Inactivos</option>
+          </select>
+        </div>
+
+        <div class="admin-filter-actions">
+          <button type="submit" class="btn-admin-primary">Buscar</button>
+          <a href="/admin/grupos" class="btn-admin-secondary">Limpiar filtros</a>
+        </div>
+      </form>
+
+      <p class="admin-filter-hint">Los resultados se actualizan automáticamente.</p>
+      <p class="admin-results-count"><%= paginacion.totalRegistros %> grupos encontrados</p>
+
+      <div class="table-responsive">
+        <table class="custom-table">
+          <thead>
+            <tr>
+              <th>Clave</th>
+              <th>Semestre</th>
+              <th>Turno</th>
+              <th>Ciclo escolar</th>
+              <th>Estado</th>
+              <th>Fecha de registro</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <% if (grupos.length === 0) { %>
+              <tr>
+                <td colspan="7" class="text-center">No se encontraron grupos con los filtros seleccionados.</td>
+              </tr>
+            <% } else { %>
+              <% grupos.forEach((grupo) => { %>
+                <tr>
+                  <td><%= grupo.clave %></td>
+                  <td><%= grupo.semestre %></td>
+                  <td><%= grupo.turno_nombre %></td>
+                  <td><%= grupo.ciclo_escolar %></td>
+                  <td>
+                    <span class="badge-custom <%= grupo.activo ? 'success' : 'warning' %>">
+                      <%= grupo.activo ? 'Activo' : 'Inactivo' %>
+                    </span>
+                  </td>
+                  <td><%= new Date(grupo.creado_en).toLocaleString('es-MX') %></td>
+                  <td>
+                    <div class="admin-table-actions">
+                      <a href="/admin/grupos/<%= grupo.id %>/editar" class="btn-admin-edit">Editar</a>
+                      <% if (grupo.activo) { %>
+                        <a href="/admin/grupos/<%= grupo.id %>/estado" class="btn-admin-state-danger">Desactivar</a>
+                      <% } else { %>
+                        <a href="/admin/grupos/<%= grupo.id %>/estado" class="btn-admin-state-activate">Activar</a>
+                      <% } %>
+                    </div>
+                  </td>
+                </tr>
+              <% }); %>
+            <% } %>
+          </tbody>
+        </table>
+      </div>
+
+      <% if (paginacion.totalPaginas > 1) { %>
+        <nav class="admin-pagination" aria-label="Paginación de grupos">
+          <% if (paginacion.tieneAnterior) { %>
+            <a href="<%= paginacion.urlAnterior %>" class="admin-page-link">Anterior</a>
+          <% } else { %>
+            <span class="admin-page-link disabled">Anterior</span>
+          <% } %>
+
+          <% paginacion.enlaces.forEach((enlace) => { %>
+            <a href="<%= enlace.url %>" class="admin-page-link <%= enlace.actual ? 'active' : '' %>" <%= enlace.actual ? 'aria-current="page"' : '' %>><%= enlace.numero %></a>
+          <% }); %>
+
+          <% if (paginacion.tieneSiguiente) { %>
+            <a href="<%= paginacion.urlSiguiente %>" class="admin-page-link">Siguiente</a>
+          <% } else { %>
+            <span class="admin-page-link disabled">Siguiente</span>
+          <% } %>
+        </nav>
+      <% } %>
+    </section>
+
+  </main>
+
+</div>
+
+<script src="/js/adminGroupFilters.js" defer></script>
+
+</body>
+</html>

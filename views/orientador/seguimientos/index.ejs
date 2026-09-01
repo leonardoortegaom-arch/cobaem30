@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<%- include('../../partials/head', { title }) %>
+
+<body>
+
+<div class="dashboard-layout">
+  <%- include('../../partials/sidebar', { menuItems }) %>
+
+  <main class="dashboard-main">
+    <header class="dashboard-header">
+      <div>
+        <h1>Seguimiento</h1>
+        <p>Resumen general de observaciones y actividades de orientación.</p>
+      </div>
+    </header>
+
+    <section class="dashboard-stats">
+      <div class="dashboard-card">
+        <i class="fa-solid fa-user-graduate"></i>
+        <div><h3><%= resumen.totalAlumnosActivos %></h3><p>Alumnos activos</p></div>
+      </div>
+      <div class="dashboard-card">
+        <i class="fa-solid fa-clipboard-list"></i>
+        <div><h3><%= resumen.totalSeguimientos %></h3><p>Seguimientos</p></div>
+      </div>
+      <div class="dashboard-card">
+        <i class="fa-solid fa-clock"></i>
+        <div><h3><%= resumen.totalActividadesPendientes %></h3><p>Actividades pendientes</p></div>
+      </div>
+      <div class="dashboard-card">
+        <i class="fa-solid fa-spinner"></i>
+        <div><h3><%= resumen.totalActividadesEnProceso %></h3><p>Actividades en proceso</p></div>
+      </div>
+      <div class="dashboard-card">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <div><h3><%= resumen.totalActividadesVencidas %></h3><p>Actividades vencidas</p></div>
+      </div>
+    </section>
+
+    <section class="panel-card tracking-panel-section">
+      <div class="panel-header"><h2>Actividades que requieren atención</h2></div>
+      <% if (actividades.length === 0) { %>
+        <p class="text-center">No hay actividades pendientes o en proceso.</p>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="custom-table">
+            <thead><tr><th>Alumno</th><th>Matrícula</th><th>Grupo</th><th>Actividad</th><th>Fecha</th><th>Estado</th><th>Acción</th></tr></thead>
+            <tbody>
+              <% actividades.forEach((actividad) => { %>
+                <tr class="<%= actividad.vencida ? 'tracking-overdue-row' : '' %>">
+                  <td><%= actividad.alumno_nombre %></td>
+                  <td><%= actividad.matricula %></td>
+                  <td><%= actividad.grupo_clave %></td>
+                  <td><%= actividad.titulo %></td>
+                  <td><%= new Date(actividad.fecha_asignacion).toLocaleDateString('es-MX', { timeZone: 'UTC' }) %></td>
+                  <td><span class="badge-custom <%= actividad.vencida ? 'warning' : 'success' %>"><%= actividad.estado_nombre %><%= actividad.vencida ? ' · Vencida' : '' %></span></td>
+                  <td>
+                    <div class="admin-table-actions">
+                      <a href="/orientador/alumnos/<%= actividad.alumno_usuario_id %>" class="btn-admin-edit">Ver alumno</a>
+                      <% if (actividad.esPropia) { %>
+                        <a href="/orientador/alumnos/<%= actividad.alumno_usuario_id %>/actividades/<%= actividad.id %>/estado" class="btn-admin-edit">Actualizar estado</a>
+                      <% } %>
+                    </div>
+                  </td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </section>
+
+    <section class="panel-card tracking-panel-section">
+      <div class="panel-header"><h2>Seguimientos recientes</h2></div>
+      <% if (seguimientos.length === 0) { %>
+        <p class="text-center">No hay seguimientos registrados.</p>
+      <% } else { %>
+        <div class="table-responsive">
+          <table class="custom-table">
+            <thead><tr><th>Alumno</th><th>Matrícula</th><th>Tipo</th><th>Título</th><th>Fecha</th><th>Orientador</th><th>Acción</th></tr></thead>
+            <tbody>
+              <% seguimientos.forEach((seguimiento) => { %>
+                <tr>
+                  <td><%= seguimiento.alumno_nombre %></td>
+                  <td><%= seguimiento.matricula %></td>
+                  <td><%= seguimiento.tipo_nombre %></td>
+                  <td><%= seguimiento.titulo %></td>
+                  <td><%= new Date(seguimiento.fecha_seguimiento).toLocaleDateString('es-MX', { timeZone: 'UTC' }) %></td>
+                  <td><%= seguimiento.orientador_nombre %></td>
+                  <td><a href="/orientador/alumnos/<%= seguimiento.alumno_usuario_id %>/seguimientos" class="btn-admin-edit">Ver historial</a></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      <% } %>
+    </section>
+  </main>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<%- include('../../partials/head', { title }) %>
+
+<body>
+
+<div class="dashboard-layout">
+
+  <%- include('../../partials/sidebar', { menuItems }) %>
+
+  <main class="dashboard-main">
+
+    <header class="dashboard-header">
+      <div>
+        <h1>Editar usuario</h1>
+        <p>Actualiza los datos generales y el rol del usuario.</p>
+      </div>
+    </header>
+
+    <section class="panel-card admin-form-card">
+      <% if (error) { %>
+        <div class="alert alert-danger" role="alert">
+          <%= error %>
+        </div>
+      <% } %>
+
+      <form method="POST" action="/admin/usuarios/<%= datos.id %>/editar">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+        <div class="admin-form-grid">
+          <div class="admin-form-group">
+            <label for="nombre">Nombre</label>
+            <input id="nombre" name="nombre" type="text" value="<%= datos.nombre %>" required maxlength="100" autocomplete="given-name">
+          </div>
+
+          <div class="admin-form-group">
+            <label for="apellido_paterno">Apellido paterno</label>
+            <input id="apellido_paterno" name="apellido_paterno" type="text" value="<%= datos.apellido_paterno %>" required maxlength="80" autocomplete="family-name">
+          </div>
+
+          <div class="admin-form-group">
+            <label for="apellido_materno">Apellido materno</label>
+            <input id="apellido_materno" name="apellido_materno" type="text" value="<%= datos.apellido_materno %>" maxlength="80" autocomplete="additional-name">
+          </div>
+
+          <div class="admin-form-group">
+            <label for="correo">Correo</label>
+            <input id="correo" name="correo" type="email" value="<%= datos.correo %>" required maxlength="150" autocomplete="username">
+          </div>
+
+          <div class="admin-form-group admin-form-group-full">
+            <label for="rol_id">Rol</label>
+            <% if (esUsuarioActual) { %>
+              <select id="rol_id" disabled>
+                <% roles.forEach((rol) => { %>
+                  <option value="<%= rol.id %>" <%= String(datos.rol_id) === String(rol.id) ? 'selected' : '' %>><%= rol.nombre %></option>
+                <% }); %>
+              </select>
+              <input type="hidden" name="rol_id" value="<%= datos.rol_id %>">
+              <p class="admin-form-note">No puedes cambiar el rol de tu propia cuenta.</p>
+            <% } else { %>
+              <select id="rol_id" name="rol_id" required>
+                <% roles.forEach((rol) => { %>
+                  <% const transicionAlumnoBloqueada = (rolActualClave === 'ALUMNO' && rol.clave !== 'ALUMNO') || (rolActualClave !== 'ALUMNO' && rol.clave === 'ALUMNO'); %>
+                  <option value="<%= rol.id %>" <%= String(datos.rol_id) === String(rol.id) ? 'selected' : '' %> <%= transicionAlumnoBloqueada ? 'disabled' : '' %>><%= rol.nombre %></option>
+                <% }); %>
+              </select>
+              <p class="admin-form-note">El cambio hacia o desde el rol Alumno debe realizarse desde el módulo académico correspondiente.</p>
+            <% } %>
+          </div>
+        </div>
+
+        <div class="admin-form-actions">
+          <button type="submit" class="btn-admin-primary">Guardar cambios</button>
+          <a href="/admin/usuarios" class="btn-admin-secondary">Cancelar</a>
+        </div>
+      </form>
+    </section>
+
+  </main>
+
+</div>
+
+</body>
+</html>

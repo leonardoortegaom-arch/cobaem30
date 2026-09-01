@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<%- include('../../partials/head', { title }) %>
+
+<body>
+
+<div class="dashboard-layout">
+  <%- include('../../partials/sidebar', { menuItems }) %>
+
+  <main class="dashboard-main">
+    <header class="dashboard-header">
+      <div>
+        <h1>Actualizar estado de actividad</h1>
+        <p>Consulta la actividad y selecciona únicamente una transición permitida.</p>
+      </div>
+    </header>
+
+    <section class="panel-card admin-form-card">
+      <h2>Alumno</h2>
+      <dl class="admin-user-summary">
+        <div><dt>Nombre</dt><dd><%= alumno.nombreCompleto %></dd></div>
+        <div><dt>Matrícula</dt><dd><%= alumno.matricula %></dd></div>
+        <div><dt>Grupo</dt><dd><%= alumno.grupoClave %></dd></div>
+        <div><dt>Semestre</dt><dd><%= alumno.semestre %></dd></div>
+        <div><dt>Turno</dt><dd><%= alumno.turno %></dd></div>
+        <div><dt>Ciclo escolar</dt><dd><%= alumno.cicloEscolar %></dd></div>
+      </dl>
+
+      <h2>Actividad</h2>
+      <dl class="admin-user-summary">
+        <div><dt>Título</dt><dd><%= actividad.titulo %></dd></div>
+        <div><dt>Fecha de asignación</dt><dd><%= actividad.fechaAsignacion %></dd></div>
+        <div><dt>Estado actual</dt><dd><%= actividad.estadoNombre %></dd></div>
+        <div><dt>Instrucciones</dt><dd><%= actividad.instrucciones %></dd></div>
+      </dl>
+
+      <% if (error) { %>
+        <div class="alert alert-danger" role="alert"><%= error %></div>
+      <% } %>
+
+      <% if (cerrada) { %>
+        <div class="alert alert-warning" role="status">
+          Esta actividad está cerrada y su estado final no puede modificarse.
+        </div>
+      <% } else { %>
+        <form method="POST" action="/orientador/alumnos/<%= alumnoId %>/actividades/<%= actividad.id %>/estado">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+
+          <div class="admin-form-group">
+            <label for="estado">Nuevo estado</label>
+            <select id="estado" name="estado" required>
+              <option value="" selected disabled>Selecciona una transición</option>
+              <% opciones.forEach((opcion) => { %>
+                <option value="<%= opcion.clave %>"><%= opcion.nombre %></option>
+              <% }); %>
+            </select>
+          </div>
+
+          <div class="admin-password-warning">
+            <p><strong>En proceso:</strong> indica que la actividad comenzó.</p>
+            <p><strong>Realizada:</strong> registra la fecha actual como fecha de realización.</p>
+            <p><strong>No realizada:</strong> indica que la actividad no fue completada.</p>
+            <p><strong>Cancelada:</strong> cierra la actividad sin realizarla.</p>
+            <p>Realizada, No realizada y Cancelada son estados finales y no podrán cambiarse después.</p>
+          </div>
+
+          <div class="admin-form-actions">
+            <button type="submit" class="btn-admin-primary">Confirmar cambio</button>
+            <a href="/orientador/alumnos/<%= alumnoId %>" class="btn-admin-secondary">Cancelar</a>
+          </div>
+        </form>
+      <% } %>
+
+      <% if (cerrada) { %>
+        <div class="admin-form-actions">
+          <a href="/orientador/alumnos/<%= alumnoId %>" class="btn-admin-secondary">Volver al detalle</a>
+        </div>
+      <% } %>
+    </section>
+  </main>
+</div>
+
+</body>
+</html>
