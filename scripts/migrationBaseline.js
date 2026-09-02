@@ -154,8 +154,10 @@ function construirPlanBaseline(manifiesto, opciones = {}) {
 }
 
 function compararRegistrosBaseline(filas, plan) {
-    if (!Array.isArray(filas) || filas.length !== 9 || !Array.isArray(plan) || plan.length !== 9) return false;
-    const porVersion = new Map(filas.map((fila) => [Number(fila.version), fila]));
+    if (!Array.isArray(filas) || !Array.isArray(plan) || plan.length !== 9) return false;
+    const filasBaseline = filas.filter((fila) => Number(fila.version) >= 0 && Number(fila.version) <= 8);
+    if (filasBaseline.length !== 9) return false;
+    const porVersion = new Map(filasBaseline.map((fila) => [Number(fila.version), fila]));
     return plan.every((esperada) => {
         const real = porVersion.get(esperada.version);
         return real
@@ -170,7 +172,8 @@ function validarEstadoPrevio(resultado) {
         throw crearError('El preflight detectó incompatibilidad estructural.', 'PREFLIGHT_INCOMPATIBLE');
     }
     if (resultado.estadoControl === 'PARTIAL_OR_INCONSISTENT') throw crearError('El control de migraciones es parcial o incompatible.', 'CONTROL_PARTIAL');
-    if (resultado.estadoControl === 'BASELINE_V008_COMPLETE') return 'ALREADY_REGISTERED';
+    if (resultado.estadoControl === 'BASELINE_V008_COMPLETE'
+        || resultado.estadoControl === 'MIGRATIONS_CURRENT') return 'ALREADY_REGISTERED';
     if (resultado.estadoControl === 'CONTROL_NOT_INITIALIZED') return 'BOOTSTRAP_REQUIRED';
     if (resultado.estadoControl === 'CONTROL_EMPTY') return 'REGISTER_REQUIRED';
     throw crearError('Estado de control desconocido.', 'CONTROL_UNKNOWN');
@@ -356,7 +359,7 @@ async function ejecutarDryRun(salida = {}, dependencias = {}) {
             ? await dependencias.preflight(conexion, descriptor, manifiesto)
             : await ejecutarPreflightConexion(conexion, descriptor, manifiesto);
         const estado = preflight.estado || validarEstadoPrevio(preflight.resultado || preflight);
-        const plan = construirPlanBaseline(manifiesto, dependencias);
+        const plan = estado === 'ALREADY_REGISTERED' ? [] : construirPlanBaseline(manifiesto, dependencias);
         escribir(`Estado previo: ${estado}`);
         escribir(`Registros planeados: ${plan.length}`);
         plan.forEach((fila) => escribir(`${String(fila.version).padStart(3, '0')} | ${fila.tipoRegistro} | ${fila.checksumSha256.slice(0, 12)}…`));

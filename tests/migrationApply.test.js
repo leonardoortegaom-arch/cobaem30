@@ -169,3 +169,10 @@ test('44 modo preflight termina sin cambios', async () => {
     assert.match(output.join('\n'), /MIGRATION_EXECUTE_PREFLIGHT_COMPLETE_NO_CHANGES/);
 });
 test('45 SQL 015 permanece inmutable por checksum', () => assert.equal(manifestApi.calcularChecksumCanonico(path.join(manifestApi.MIGRATIONS_DIR, entry015.archivo)), entry015.checksumSha256));
+test('46 dry-run después de 015 no encuentra pendientes', async () => {
+    const output = []; const pool = mockPool({ release() {} });
+    const plan = await apply.ejecutarDryRun({ log: (line) => output.push(line) }, { pool, snapshot: async () => appliedSnapshot(true) });
+    assert.deepEqual(plan, []);
+    assert.match(output.join('\n'), /Migraciones ACTIVE pendientes: ninguna/);
+    assert.equal(output.at(-1), 'MIGRATION_UP_DRY_RUN_NO_CHANGES');
+});

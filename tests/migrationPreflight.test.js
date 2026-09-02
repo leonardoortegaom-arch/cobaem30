@@ -13,6 +13,7 @@ const {
     validarSqlLectura,
     crearSnapshotCompatible,
     crearTablaControlCompatible,
+    analizarFilasControl,
     compararSnapshotConDescriptor,
     ejecutarConPool,
     ejecutarCli
@@ -32,12 +33,12 @@ function comparar(snapshot) {
 
 function filasBaseline() {
     return manifiesto.migraciones
-        .filter((item) => item.version >= 1 && item.version <= 8)
+        .filter((item) => item.version >= 0 && item.version <= 8)
         .map((item) => ({
             version: item.version,
             archivo: item.archivo,
             checksum_sha256: item.checksumSha256,
-            tipo_registro: 'BASELINE',
+            tipo_registro: item.version === 0 ? 'EJECUTADA' : 'BASELINE',
             aplicada_en: new Date('2026-01-01T00:00:00Z')
         }));
 }
@@ -132,4 +133,58 @@ test('40 codigos 0 1 2 correctos', async () => {
 test('41 reescritura equivalente de DATEDIFF por MySQL no genera deriva', () => {
     const clausula = normalizarClausula('((periodo_desde <= periodo_hasta) and ((to_days(periodo_hasta) - to_days(periodo_desde)) <= 365))');
     assert.match(clausula, /datediff\(periodo_hasta, periodo_desde\)/);
+});
+
+function filaAplicada(version, manifiestoUsado = manifiesto) {
+    const entrada = manifiestoUsado.migraciones.find((item) => item.version === version);
+    return { version, archivo: entrada.archivo, checksum_sha256: entrada.checksumSha256,
+        tipo_registro: 'EJECUTADA', aplicada_en: new Date('2026-01-01T00:00:00Z') };
+}
+
+test('42 baseline válido con ACTIVE pendiente conserva BASELINE_V008_COMPLETE', () => {
+    const resultado = comparar(crearSnapshotCompatible(descriptor, { control: 'complete', controlRows: filasBaseline() }));
+    assert.equal(resultado.estadoControl, 'BASELINE_V008_COMPLETE');
+    assert.equal(resultado.fallidas, 0);
+});
+test('43 baseline válido con 015 aplicada produce MIGRATIONS_CURRENT', () => {
+    const filas = [...filasBaseline(), filaAplicada(15)];
+    const resultado = comparar(crearSnapshotCompatible(descriptor, { control: 'complete', controlRows: filas }));
+    assert.equal(resultado.estadoControl, 'MIGRATIONS_CURRENT');
+    assert.equal(resultado.clasificacion, 'MIGRATIONS_CURRENT');
+    assert.equal(resultado.fallidas, 0);
+});
+test('44 checksum incorrecto de 015 se rechaza', () => {
+    const fila = filaAplicada(15); fila.checksum_sha256 = '0'.repeat(64);
+    assert.throws(() => analizarFilasControl(manifiesto, [...filasBaseline(), fila]), (e) => e.code === 'APPLIED_MIGRATION_INVALID');
+});
+test('45 estado almacenado incorrecto de 015 se rechaza', () => {
+    const fila = filaAplicada(15); fila.tipo_registro = 'BASELINE';
+    assert.throws(() => analizarFilasControl(manifiesto, [...filasBaseline(), fila]), (e) => e.code === 'APPLIED_MIGRATION_INVALID');
+});
+test('46 versión desconocida registrada se rechaza', () => {
+    assert.throws(() => analizarFilasControl(manifiesto, [...filasBaseline(), { ...filaAplicada(15), version: 999 }]), (e) => e.code === 'UNKNOWN_APPLIED_VERSION');
+});
+for (const [numero, version, estado] of [[47,16,'PLANNED'],[48,9,'SUPERSEDED_NOT_APPLIED'],[49,10,'RESERVED_MISSING']]) {
+    test(`${numero} registro ${estado} se rechaza`, () => {
+        const entrada = manifiesto.migraciones.find((item) => item.version === version);
+        const fila = { version, archivo: entrada.archivo, checksum_sha256: entrada.checksumSha256, tipo_registro: 'EJECUTADA' };
+        assert.throws(() => analizarFilasControl(manifiesto, [...filasBaseline(), fila]), (e) => e.code === 'NON_EXECUTABLE_RECORDED');
+    });
+}
+test('50 baseline incompleto no es compensado por 015', () => {
+    assert.throws(() => analizarFilasControl(manifiesto, [...filasBaseline().slice(0, 8), filaAplicada(15)]), (e) => e.code === 'BASELINE_PARTIAL');
+});
+test('51 secuencia ACTIVE con salto se rechaza', () => {
+    const futuro = clonar(manifiesto);
+    const e16 = futuro.migraciones.find((item) => item.version === 16); Object.assign(e16, { estado: 'ACTIVE', archivo: '016.sql', checksumSha256: '1'.repeat(64) });
+    const e17 = futuro.migraciones.find((item) => item.version === 17); Object.assign(e17, { estado: 'ACTIVE', archivo: '017.sql', checksumSha256: '2'.repeat(64) });
+    assert.throws(() => analizarFilasControl(futuro, [...filasBaseline(), filaAplicada(15), filaAplicada(17, futuro)]), (e) => e.code === 'ACTIVE_PREDECESSOR_MISSING');
+});
+test('52 varias ACTIVE posteriores válidas son compatibles', () => {
+    const futuro = clonar(manifiesto);
+    for (const [version, checksum] of [[16,'1'],[17,'2']]) {
+        Object.assign(futuro.migraciones.find((item) => item.version === version), { estado: 'ACTIVE', archivo: `${version}.sql`, checksumSha256: checksum.repeat(64) });
+    }
+    const filas = [...filasBaseline(), filaAplicada(15), filaAplicada(16, futuro), filaAplicada(17, futuro)];
+    assert.equal(analizarFilasControl(futuro, filas).estado, 'MIGRATIONS_CURRENT');
 });

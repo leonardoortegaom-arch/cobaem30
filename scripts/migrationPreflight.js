@@ -304,6 +304,59 @@ function agregarRegla(resultado, codigo, seccion, ok, mensaje, severidad = 'ERRO
     resultado.reglas.push({ codigo, seccion, ok, mensaje, severidad });
 }
 
+function analizarFilasControl(manifiesto, filasControl) {
+    const limite = manifiesto.legacyBaselineThrough;
+    const entradas = new Map(manifiesto.migraciones.map((entrada) => [entrada.version, entrada]));
+    const filas = new Map();
+
+    for (const fila of filasControl) {
+        const version = Number(campo(fila, 'version'));
+        if (!Number.isInteger(version) || filas.has(version)) {
+            throw crearError('Versiones duplicadas o inválidas en el control.', 'CONTROL_DUPLICATE_OR_INVALID_VERSION');
+        }
+        filas.set(version, fila);
+    }
+
+    for (let version = 0; version <= limite; version += 1) {
+        const entrada = entradas.get(version);
+        const fila = filas.get(version);
+        const tipoEsperado = version === 0 ? 'EJECUTADA' : 'BASELINE';
+        if (!entrada || !fila
+            || campo(fila, 'archivo') !== entrada.archivo
+            || campo(fila, 'checksum_sha256') !== entrada.checksumSha256
+            || campo(fila, 'tipo_registro') !== tipoEsperado) {
+            throw crearError('Baseline heredado incompleto o inválido.', 'BASELINE_PARTIAL');
+        }
+    }
+
+    for (const [version, fila] of filas) {
+        if (version <= limite) continue;
+        const entrada = entradas.get(version);
+        if (!entrada) throw crearError('Versión registrada desconocida.', 'UNKNOWN_APPLIED_VERSION');
+        if (entrada.estado !== 'ACTIVE') throw crearError('Versión no ejecutable registrada.', 'NON_EXECUTABLE_RECORDED');
+        if (campo(fila, 'archivo') !== entrada.archivo
+            || campo(fila, 'checksum_sha256') !== entrada.checksumSha256
+            || campo(fila, 'tipo_registro') !== 'EJECUTADA') {
+            throw crearError('Registro de migración ACTIVE incompatible.', 'APPLIED_MIGRATION_INVALID');
+        }
+    }
+
+    const activasPosteriores = manifiesto.migraciones
+        .filter((entrada) => entrada.estado === 'ACTIVE' && entrada.version > limite)
+        .sort((a, b) => a.version - b.version);
+    let pendienteEncontrada = false;
+    for (const entrada of activasPosteriores) {
+        if (!filas.has(entrada.version)) pendienteEncontrada = true;
+        else if (pendienteEncontrada) throw crearError('Migraciones ACTIVE aplicadas fuera de orden.', 'ACTIVE_PREDECESSOR_MISSING');
+    }
+
+    return {
+        estado: pendienteEncontrada ? 'BASELINE_V008_COMPLETE' : 'MIGRATIONS_CURRENT',
+        aplicadasPosteriores: activasPosteriores.filter((entrada) => filas.has(entrada.version)),
+        pendientesPosteriores: activasPosteriores.filter((entrada) => !filas.has(entrada.version))
+    };
+}
+
 function compararTabla(nombre, contrato, real, resultado) {
     const prefijo = nombre.toUpperCase();
     if (!real) {
@@ -379,22 +432,18 @@ function evaluarControl(snapshot, manifiesto, resultado) {
         return 'CONTROL_EMPTY';
     }
 
-    const activas = manifiesto.migraciones.filter((item) => item.version >= 1 && item.version <= 8);
-    const filas = new Map(snapshot.controlRows.map((fila) => [Number(campo(fila, 'version')), fila]));
-    const baselineCompleto = activas.every((entrada) => {
-        const fila = filas.get(entrada.version);
-        return fila
-            && campo(fila, 'archivo') === entrada.archivo
-            && campo(fila, 'checksum_sha256') === entrada.checksumSha256
-            && campo(fila, 'tipo_registro') === 'BASELINE';
-    });
-    const versionesPermitidas = [...filas.keys()].every((version) => version >= 0 && version <= 8);
-    if (!baselineCompleto || !versionesPermitidas) {
+    let analisis;
+    try {
+        analisis = analizarFilasControl(manifiesto, snapshot.controlRows);
+    } catch {
         agregarRegla(resultado, 'CONTROL_BASELINE_PARTIAL_OR_INVALID', 'control', false, 'Baseline parcial o checksums incompatibles.');
         return 'PARTIAL_OR_INCONSISTENT';
     }
-    agregarRegla(resultado, 'BASELINE_V008_COMPLETE', 'control', true, 'Baseline v008 registrado y consistente.');
-    return 'BASELINE_V008_COMPLETE';
+    agregarRegla(resultado, analisis.estado, 'control', true,
+        analisis.estado === 'MIGRATIONS_CURRENT'
+            ? 'Baseline válido y migraciones ACTIVE actuales aplicadas.'
+            : 'Baseline v008 registrado; existen migraciones ACTIVE pendientes.');
+    return analisis.estado;
 }
 
 function compararSnapshotConDescriptor(snapshot, descriptor, manifiesto) {
@@ -423,7 +472,8 @@ function compararSnapshotConDescriptor(snapshot, descriptor, manifiesto) {
     resultado.estadoControl = evaluarControl(snapshot, manifiesto, resultado);
     const fallidas = resultado.reglas.filter((regla) => !regla.ok && regla.severidad !== 'ADVERTENCIA').length;
     resultado.clasificacion = fallidas === 0
-        ? (resultado.estadoControl === 'BASELINE_V008_COMPLETE' ? 'BASELINE_V008_COMPLETE' : 'COMPATIBLE_FOR_FUTURE_BASELINE')
+        ? (['BASELINE_V008_COMPLETE', 'MIGRATIONS_CURRENT'].includes(resultado.estadoControl)
+            ? resultado.estadoControl : 'COMPATIBLE_FOR_FUTURE_BASELINE')
         : 'SCHEMA_DRIFT_DETECTED';
     resultado.total = resultado.reglas.length;
     resultado.aprobadas = resultado.reglas.filter((regla) => regla.ok && regla.severidad !== 'ADVERTENCIA').length;
@@ -564,6 +614,7 @@ module.exports = {
     construirSnapshotDesdeFilas,
     crearSnapshotCompatible,
     crearTablaControlCompatible,
+    analizarFilasControl,
     compararSnapshotConDescriptor,
     clasificarStatus,
     consultarSnapshot,

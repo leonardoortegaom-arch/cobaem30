@@ -106,23 +106,11 @@ function cargarContrato(entrada) {
 }
 
 function validarRegistrosAplicados(manifiesto, rows) {
-    const byVersion = new Map(manifiesto.migraciones.map((item) => [item.version, item]));
-    const applied = new Map();
-    for (const row of rows || []) {
-        const version = Number(row.version); const entry = byVersion.get(version);
-        if (!entry) throw errorSeguro('UNKNOWN_APPLIED_VERSION', 'STATE');
-        if (['SUPERSEDED_NOT_APPLIED', 'RESERVED_MISSING', 'PLANNED'].includes(entry.estado)) throw errorSeguro('NON_EXECUTABLE_RECORDED', 'STATE');
-        if (row.archivo !== entry.archivo || row.checksum_sha256 !== entry.checksumSha256) throw errorSeguro('APPLIED_CHECKSUM_MISMATCH', 'STATE');
-        const tipoEsperado = version === 0 ? 'EJECUTADA' : version <= manifiesto.legacyBaselineThrough ? 'BASELINE' : 'EJECUTADA';
-        if (row.tipo_registro !== tipoEsperado) throw errorSeguro('APPLIED_RECORD_TYPE_MISMATCH', 'STATE');
-        applied.set(version, row);
+    try { preflightApi.analizarFilasControl(manifiesto, rows || []); } catch (error) {
+        throw errorSeguro(error.code || 'CONTROL_INCONSISTENT', 'STATE');
     }
-    for (let version = 0; version <= manifiesto.legacyBaselineThrough; version += 1) {
-        if (!applied.has(version)) throw errorSeguro('BASELINE_PARTIAL', 'STATE');
-    }
+    const applied = new Map((rows || []).map((row) => [Number(row.version), row]));
     const active = manifiesto.migraciones.filter((item) => item.estado === 'ACTIVE' && item.version > manifiesto.legacyBaselineThrough);
-    let gap = false;
-    for (const entry of active) { if (!applied.has(entry.version)) gap = true; else if (gap) throw errorSeguro('ACTIVE_PREDECESSOR_MISSING', 'STATE'); }
     return { applied, pending: active.filter((entry) => !applied.has(entry.version)) };
 }
 
