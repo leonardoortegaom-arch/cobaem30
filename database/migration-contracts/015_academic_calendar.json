@@ -1,0 +1,78 @@
+{
+  "versionContrato": 1,
+  "migracion": 15,
+  "identificador": "015",
+  "algoritmoChecksum": "sha256-utf8-lf-v1",
+  "tablas": {
+    "generaciones": {
+      "engine": "innodb",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_0900_ai_ci",
+      "columnas": [
+        {"nombre":"id","tipo":"int unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"anio_inicio","tipo":"smallint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"anio_fin","tipo":"smallint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"activo","tipo":"tinyint(1)","unsigned":false,"nullable":false,"default":"1"},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"},
+        {"nombre":"actualizado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP","extra":"on update CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey": ["id"],
+      "indicesUnicos": [{"columnas":["anio_inicio","anio_fin"]}],
+      "indices": [{"columnas":["activo","anio_inicio","anio_fin"]}],
+      "foreignKeys": [],
+      "checks": [
+        {"fragmentos":["anio_inicio","between 1000 and 9999"]},
+        {"fragmentos":["anio_fin","between 1000 and 9999"]},
+        {"fragmentos":["anio_fin",">","anio_inicio"]},
+        {"fragmentos":["activo","in (0,1)"]}
+      ]
+    },
+    "ciclos_escolares": {
+      "engine": "innodb",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_0900_ai_ci",
+      "columnas": [
+        {"nombre":"id","tipo":"int unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"clave","tipo":"varchar(30)","unsigned":false,"nullable":false},
+        {"nombre":"nombre","tipo":"varchar(100)","unsigned":false,"nullable":false},
+        {"nombre":"fecha_inicio","tipo":"date","unsigned":false,"nullable":false},
+        {"nombre":"fecha_fin","tipo":"date","unsigned":false,"nullable":false},
+        {"nombre":"activo","tipo":"tinyint(1)","unsigned":false,"nullable":false,"default":"1"},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"},
+        {"nombre":"actualizado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP","extra":"on update CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey": ["id"],
+      "indicesUnicos": [{"columnas":["clave"]}],
+      "indices": [{"columnas":["activo","fecha_inicio","fecha_fin"]}],
+      "foreignKeys": [],
+      "checks": [
+        {"fragmentos":["fecha_inicio","<=","fecha_fin"]},
+        {"fragmentos":["activo","in (0,1)"]}
+      ]
+    },
+    "periodos_academicos": {
+      "engine": "innodb",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_0900_ai_ci",
+      "columnas": [
+        {"nombre":"id","tipo":"int unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"ciclo_escolar_id","tipo":"int unsigned","unsigned":true,"nullable":false},
+        {"nombre":"clave","tipo":"varchar(30)","unsigned":false,"nullable":false},
+        {"nombre":"nombre","tipo":"varchar(100)","unsigned":false,"nullable":false},
+        {"nombre":"fecha_inicio","tipo":"date","unsigned":false,"nullable":false},
+        {"nombre":"fecha_fin","tipo":"date","unsigned":false,"nullable":false},
+        {"nombre":"activo","tipo":"tinyint(1)","unsigned":false,"nullable":false,"default":"1"},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"},
+        {"nombre":"actualizado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP","extra":"on update CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey": ["id"],
+      "indicesUnicos": [{"columnas":["ciclo_escolar_id","clave"]}],
+      "indices": [{"columnas":["activo","fecha_inicio","fecha_fin"]}],
+      "foreignKeys": [{"columnas":["ciclo_escolar_id"],"tablaDestino":"ciclos_escolares","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"}],
+      "checks": [
+        {"fragmentos":["fecha_inicio","<=","fecha_fin"]},
+        {"fragmentos":["activo","in (0,1)"]}
+      ]
+    }
+  }
+}

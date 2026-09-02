@@ -7,7 +7,8 @@ const crypto = require('crypto');
 const PROJECT_ROOT = path.resolve(__dirname, '..');
 const MANIFEST_PATH = path.join(PROJECT_ROOT, 'database', 'migration-manifest.json');
 const MIGRATIONS_DIR = path.join(PROJECT_ROOT, 'database', 'migrations');
-const FORMAT_VERSION = 1;
+const CONTRACTS_DIR = path.join(PROJECT_ROOT, 'database', 'migration-contracts');
+const FORMAT_VERSION = 2;
 const CHECKSUM_ALGORITHM = 'sha256-utf8-lf-v1';
 const ALLOWED_STATES = new Set([
     'BOOTSTRAP',
@@ -82,6 +83,13 @@ function esNombreArchivoSeguro(nombre) {
         && nombre.toLowerCase().endsWith('.sql');
 }
 
+function esRutaContratoSegura(nombre) {
+    if (typeof nombre !== 'string' || !nombre.endsWith('.json') || path.isAbsolute(nombre)
+        || nombre.includes('..') || nombre.includes('\\')) return false;
+    const destino = path.resolve(PROJECT_ROOT, nombre);
+    return destino.startsWith(`${CONTRACTS_DIR}${path.sep}`) && path.dirname(destino) === CONTRACTS_DIR;
+}
+
 function validarEstructuraManifiesto(manifiesto) {
     if (!manifiesto || typeof manifiesto !== 'object' || Array.isArray(manifiesto)) {
         throw crearError('El manifiesto debe ser un objeto JSON.');
@@ -91,6 +99,9 @@ function validarEstructuraManifiesto(manifiesto) {
     }
     if (manifiesto.algoritmoChecksum !== CHECKSUM_ALGORITHM) {
         throw crearError(`algoritmoChecksum debe ser ${CHECKSUM_ALGORITHM}.`);
+    }
+    if (!Number.isInteger(manifiesto.legacyBaselineThrough) || manifiesto.legacyBaselineThrough < 0) {
+        throw crearError('legacyBaselineThrough debe ser un entero no negativo.');
     }
     if (typeof manifiesto.descripcion !== 'string' || !manifiesto.descripcion.trim()) {
         throw crearError('El manifiesto requiere una descripción.');
@@ -155,6 +166,32 @@ function validarEstructuraManifiesto(manifiesto) {
                 throw crearError(`${entrada.estado} no puede apuntar a un archivo en ${entrada.identificador}.`);
             }
         }
+
+        if (entrada.estado === 'ACTIVE' && entrada.version > manifiesto.legacyBaselineThrough) {
+            const ejecucion = entrada.execution;
+            if (!ejecucion || !Number.isInteger(ejecucion.statementCount) || ejecucion.statementCount < 1
+                || !Array.isArray(ejecucion.statements) || ejecucion.statements.length !== ejecucion.statementCount) {
+                throw crearError(`Metadatos de ejecución inválidos en ${entrada.identificador}.`);
+            }
+            const targets = new Set();
+            for (const statement of ejecucion.statements) {
+                if (!statement || statement.operation !== 'CREATE_TABLE' || !/^[a-z][a-z0-9_]*$/.test(statement.target || '')
+                    || targets.has(statement.target)) throw crearError(`Operación o target inválido en ${entrada.identificador}.`);
+                targets.add(statement.target);
+            }
+            const targetsPrecondicion = new Set((ejecucion.preconditions || []).map((item) => item && item.target));
+            if (!Array.isArray(ejecucion.preconditions) || ejecucion.preconditions.length !== targets.size
+                || targetsPrecondicion.size !== targets.size
+                || ejecucion.preconditions.some((item) => !item || item.type !== 'TABLE_ABSENT' || !targets.has(item.target))) {
+                throw crearError(`Precondiciones incoherentes en ${entrada.identificador}.`);
+            }
+            if (!esRutaContratoSegura(ejecucion.postconditionContract)
+                || !/^[0-9a-f]{64}$/.test(ejecucion.postconditionChecksumSha256 || '')) {
+                throw crearError(`Contrato de postcondición inválido en ${entrada.identificador}.`);
+            }
+        } else if (entrada.execution !== undefined) {
+            throw crearError(`execution solo se permite en ACTIVE posterior al baseline: ${entrada.identificador}.`);
+        }
     }
 
     return true;
@@ -208,6 +245,27 @@ function validarArchivosYChecksums(manifiesto, opciones = {}) {
             throw crearError(`Checksum distinto para ${entrada.archivo}.`);
         }
     }
+
+    const contratosManifestados = new Set();
+    for (const entrada of manifiesto.migraciones.filter((item) => item.execution)) {
+        const relativo = entrada.execution.postconditionContract;
+        if (contratosManifestados.has(relativo)) throw crearError(`Contrato duplicado: ${relativo}.`);
+        contratosManifestados.add(relativo);
+        const ruta = path.resolve(PROJECT_ROOT, relativo);
+        let stat;
+        try { stat = fs.lstatSync(ruta); } catch { throw crearError(`Contrato esperado ausente en ${entrada.identificador}.`); }
+        if (!stat.isFile() || stat.isSymbolicLink()) throw crearError(`Contrato no regular en ${entrada.identificador}.`);
+        if (calcularChecksumCanonico(ruta) !== entrada.execution.postconditionChecksumSha256) {
+            throw crearError(`Checksum de contrato distinto en ${entrada.identificador}.`);
+        }
+        let contrato;
+        try { contrato = JSON.parse(normalizarContenidoParaChecksum(fs.readFileSync(ruta))); } catch { throw crearError(`Contrato JSON inválido en ${entrada.identificador}.`); }
+        if (Number(contrato.migracion) !== entrada.version) throw crearError(`Contrato asociado a versión incorrecta en ${entrada.identificador}.`);
+    }
+    const contratosFisicos = fs.existsSync(CONTRACTS_DIR)
+        ? fs.readdirSync(CONTRACTS_DIR, { withFileTypes: true }).filter((item) => item.isFile() && item.name.endsWith('.json'))
+            .map((item) => `database/migration-contracts/${item.name}`) : [];
+    for (const contrato of contratosFisicos) if (!contratosManifestados.has(contrato)) throw crearError(`Contrato físico no manifestado: ${contrato}.`);
 
     return {
         totalEntradas: manifiesto.migraciones.length,
@@ -270,7 +328,7 @@ function ejecutarCli(argumentos, salida = {}) {
 }
 
 module.exports = {
-    PROJECT_ROOT,
+    PROJECT_ROOT, CONTRACTS_DIR,
     MANIFEST_PATH,
     MIGRATIONS_DIR,
     FORMAT_VERSION,

@@ -1,5 +1,6 @@
 {
-  "versionFormato": 1,
+  "versionFormato": 2,
+  "legacyBaselineThrough": 8,
   "algoritmoChecksum": "sha256-utf8-lf-v1",
   "descripcion": "Manifiesto estático y explícito de migraciones de COBAEM 30 desde el baseline v008.",
   "migraciones": [
@@ -136,7 +137,22 @@
       "estado": "ACTIVE",
       "archivo": "015_create_academic_calendar_catalogs.sql",
       "checksumSha256": "4e5bafebe0c72ab0a2343cd75144d1354ee3197a3f989b363c68fe166f7c2c6f",
-      "descripcion": "Crear catálogos normalizados de generaciones, ciclos escolares y periodos académicos."
+      "descripcion": "Crear catálogos normalizados de generaciones, ciclos escolares y periodos académicos.",
+      "execution": {
+        "statementCount": 3,
+        "statements": [
+          {"operation":"CREATE_TABLE","target":"generaciones"},
+          {"operation":"CREATE_TABLE","target":"ciclos_escolares"},
+          {"operation":"CREATE_TABLE","target":"periodos_academicos"}
+        ],
+        "preconditions": [
+          {"type":"TABLE_ABSENT","target":"generaciones"},
+          {"type":"TABLE_ABSENT","target":"ciclos_escolares"},
+          {"type":"TABLE_ABSENT","target":"periodos_academicos"}
+        ],
+        "postconditionContract": "database/migration-contracts/015_academic_calendar.json",
+        "postconditionChecksumSha256": "e482141c303ad0843b931dd747b7bdb6ffb58b283fa7e67c1c9501cea0fd226b"
+      }
     },
     {
       "version": 16,

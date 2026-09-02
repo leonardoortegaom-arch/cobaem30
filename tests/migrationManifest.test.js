@@ -30,7 +30,8 @@ function conDirectorioTemporal(callback) {
 
 function manifiestoMinimo(archivo, checksum) {
     return {
-        versionFormato: 1,
+        versionFormato: 2,
+        legacyBaselineThrough: 1,
         algoritmoChecksum: 'sha256-utf8-lf-v1',
         descripcion: 'Manifiesto temporal de prueba.',
         migraciones: [{
@@ -248,4 +249,36 @@ test('25. plan es estático y no presenta migraciones como aplicadas', () => {
     assert.match(texto, /no hubo acceso a base de datos/);
     assert.doesNotMatch(texto, /aplicada en MySQL|conectado a DB/i);
     assert.equal(salida.filter((linea) => /^\d{3} \|/.test(linea)).length, 22);
+});
+
+test('26. formato 2 declara el límite del baseline legado', () => {
+    const manifiesto = manifestModule.cargarManifiesto();
+    assert.equal(manifiesto.versionFormato, 2);
+    assert.equal(manifiesto.legacyBaselineThrough, 8);
+});
+
+test('27. ACTIVE posterior al baseline exige metadatos de ejecución', () => {
+    const manifiesto = cargarClonReal();
+    delete manifiesto.migraciones.find((item) => item.version === 15).execution;
+    assert.throws(() => manifestModule.validarEstructuraManifiesto(manifiesto), /ejecución/);
+});
+
+test('28. contrato 015 está manifestado y protegido por checksum', () => {
+    const entrada = manifestModule.cargarManifiesto().migraciones.find((item) => item.version === 15);
+    assert.equal(entrada.execution.statementCount, 3);
+    assert.deepEqual(entrada.execution.statements.map((item) => item.target), ['generaciones', 'ciclos_escolares', 'periodos_academicos']);
+    const ruta = path.join(manifestModule.PROJECT_ROOT, entrada.execution.postconditionContract);
+    assert.equal(manifestModule.calcularChecksumCanonico(ruta), entrada.execution.postconditionChecksumSha256);
+});
+
+test('29. rutas inseguras de contrato son rechazadas', () => {
+    const manifiesto = cargarClonReal();
+    manifiesto.migraciones.find((item) => item.version === 15).execution.postconditionContract = '../contrato.json';
+    assert.throws(() => manifestModule.validarEstructuraManifiesto(manifiesto), /Contrato/);
+});
+
+test('30. precondiciones deben corresponder con los targets', () => {
+    const manifiesto = cargarClonReal();
+    manifiesto.migraciones.find((item) => item.version === 15).execution.preconditions[0].target = 'otra_tabla';
+    assert.throws(() => manifestModule.validarEstructuraManifiesto(manifiesto), /Precondiciones/);
 });
