@@ -1,0 +1,49 @@
+{
+  "versionContrato": 1,
+  "migracion": 16,
+  "identificador": "016",
+  "algoritmoChecksum": "sha256-utf8-lf-v1",
+  "tablas": {
+    "grupos": {
+      "engine": "innodb",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_0900_ai_ci",
+      "columnas": [
+        {"nombre":"id","tipo":"int unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"turno_id","tipo":"tinyint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"clave","tipo":"varchar(10)","unsigned":false,"nullable":false},
+        {"nombre":"semestre","tipo":"tinyint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"ciclo_escolar","tipo":"varchar(20)","unsigned":false,"nullable":false},
+        {"nombre":"generacion_id","tipo":"int unsigned","unsigned":true,"nullable":true},
+        {"nombre":"periodo_academico_id","tipo":"int unsigned","unsigned":true,"nullable":true},
+        {"nombre":"activo","tipo":"tinyint(1)","unsigned":false,"nullable":false,"default":"1"},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"},
+        {"nombre":"actualizado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP","extra":"on update CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey": ["id"],
+      "indicesUnicos": [{"columnas":["clave","ciclo_escolar","turno_id"]}],
+      "indices": [
+        {"columnas":["turno_id"]},
+        {"columnas":["semestre"]},
+        {"columnas":["ciclo_escolar"]},
+        {"columnas":["activo"]},
+        {"columnas":["generacion_id"]},
+        {"columnas":["periodo_academico_id"]}
+      ],
+      "foreignKeys": [
+        {"columnas":["turno_id"],"tablaDestino":"turnos","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"},
+        {"columnas":["generacion_id"],"tablaDestino":"generaciones","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"},
+        {"columnas":["periodo_academico_id"],"tablaDestino":"periodos_academicos","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"}
+      ],
+      "checks": [{"fragmentos":["semestre","between 1 and 6"]}]
+    }
+  },
+  "columnasProhibidas": {
+    "grupos": ["docente_id", "orientador_id", "generacion", "periodo_semestre", "ciclo_escolar_id"]
+  },
+  "invariantesDatos": [
+    "GROUP_COUNT_UNCHANGED",
+    "LEGACY_GROUP_VALUES_UNCHANGED",
+    "NEW_GROUP_REFERENCES_NULL_FOR_EXISTING_ROWS"
+  ]
+}

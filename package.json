@@ -17,6 +17,7 @@
     "migrations:baseline-dry-run": "node scripts/migrationBaseline.js baseline-v008 --dry-run",
     "test:migrations:baseline": "node --test tests/migrationBaseline.test.js",
     "test:migrations:015": "node --test tests/migration015.test.js",
+    "test:migrations:016": "node --test tests/migration016.test.js",
     "migrations:up-dry-run": "node scripts/migrationApply.js up --dry-run",
     "test:migrations:apply": "node --test tests/migrationApply.test.js",
     "test": "echo \"Error: no test specified\" && exit 1"

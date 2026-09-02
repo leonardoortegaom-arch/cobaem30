@@ -149,8 +149,8 @@ test('42 baseline válido con ACTIVE pendiente conserva BASELINE_V008_COMPLETE',
 test('43 baseline válido con 015 aplicada produce MIGRATIONS_CURRENT', () => {
     const filas = [...filasBaseline(), filaAplicada(15)];
     const resultado = comparar(crearSnapshotCompatible(descriptor, { control: 'complete', controlRows: filas }));
-    assert.equal(resultado.estadoControl, 'MIGRATIONS_CURRENT');
-    assert.equal(resultado.clasificacion, 'MIGRATIONS_CURRENT');
+    assert.equal(resultado.estadoControl, 'BASELINE_V008_COMPLETE');
+    assert.equal(resultado.clasificacion, 'BASELINE_V008_COMPLETE');
     assert.equal(resultado.fallidas, 0);
 });
 test('44 checksum incorrecto de 015 se rechaza', () => {
@@ -164,7 +164,7 @@ test('45 estado almacenado incorrecto de 015 se rechaza', () => {
 test('46 versión desconocida registrada se rechaza', () => {
     assert.throws(() => analizarFilasControl(manifiesto, [...filasBaseline(), { ...filaAplicada(15), version: 999 }]), (e) => e.code === 'UNKNOWN_APPLIED_VERSION');
 });
-for (const [numero, version, estado] of [[47,16,'PLANNED'],[48,9,'SUPERSEDED_NOT_APPLIED'],[49,10,'RESERVED_MISSING']]) {
+for (const [numero, version, estado] of [[47,17,'PLANNED'],[48,9,'SUPERSEDED_NOT_APPLIED'],[49,10,'RESERVED_MISSING']]) {
     test(`${numero} registro ${estado} se rechaza`, () => {
         const entrada = manifiesto.migraciones.find((item) => item.version === version);
         const fila = { version, archivo: entrada.archivo, checksum_sha256: entrada.checksumSha256, tipo_registro: 'EJECUTADA' };

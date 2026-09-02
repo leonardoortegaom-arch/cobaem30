@@ -157,11 +157,33 @@
     {
       "version": 16,
       "identificador": "016",
-      "estado": "PLANNED",
-      "archivo": null,
-      "checksumSha256": null,
+      "estado": "ACTIVE",
+      "archivo": "016_add_academic_calendar_references_to_groups.sql",
+      "checksumSha256": "be3dfcf2fae5b8a3d10b39340b98efc7a78625a79f31246df0f819474cc3b736",
       "descripcion": "Agregar referencias académicas normalizadas y nullable a grupos.",
-      "razonEstado": "Contrato aprobado; SQL aún no creado."
+      "execution": {
+        "dependsOn": [15],
+        "statementCount": 1,
+        "statements": [
+          {"operation":"ALTER_TABLE","target":"grupos"}
+        ],
+        "preconditions": [
+          {"type":"MIGRATION_APPLIED","version":15},
+          {"type":"TABLE_PRESENT","target":"grupos"},
+          {"type":"TABLE_PRESENT","target":"generaciones"},
+          {"type":"TABLE_PRESENT","target":"periodos_academicos"},
+          {"type":"COLUMN_ABSENT","table":"grupos","target":"generacion_id"},
+          {"type":"COLUMN_ABSENT","table":"grupos","target":"periodo_academico_id"},
+          {"type":"INDEX_ABSENT","table":"grupos","target":"idx_grupos_generacion_id"},
+          {"type":"INDEX_ABSENT","table":"grupos","target":"idx_grupos_periodo_academico_id"},
+          {"type":"FOREIGN_KEY_ABSENT","table":"grupos","target":"fk_grupos_generacion"},
+          {"type":"FOREIGN_KEY_ABSENT","table":"grupos","target":"fk_grupos_periodo_academico"},
+          {"type":"COLUMN_MATCH","table":"grupos","target":"id","columnType":"int unsigned","nullable":false},
+          {"type":"COLUMN_MATCH","table":"grupos","target":"ciclo_escolar","columnType":"varchar(20)","nullable":false}
+        ],
+        "postconditionContract": "database/migration-contracts/016_group_calendar_references.json",
+        "postconditionChecksumSha256": "27a763bc1deca35568a1f2415fc6477d7bbf93af55fa72dd4a5e0a1e6dd0660a"
+      }
     },
     {
       "version": 17,

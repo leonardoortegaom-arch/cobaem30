@@ -10,7 +10,15 @@ const apply = require('../scripts/migrationApply');
 const manifestApi = require('../scripts/migrationManifest');
 const preflight = require('../scripts/migrationPreflight');
 
-const manifest = manifestApi.cargarManifiesto();
+const actualManifest = manifestApi.cargarManifiesto();
+const manifest = structuredClone(actualManifest);
+const legacyManifest = manifest;
+const legacy016 = manifest.migraciones.find((item) => item.version === 16);
+legacy016.estado = 'PLANNED';
+legacy016.archivo = null;
+legacy016.checksumSha256 = null;
+legacy016.razonEstado = 'Fixture previa a 016.';
+delete legacy016.execution;
 const entry015 = manifest.migraciones.find((item) => item.version === 15);
 const contract = apply.cargarContrato(entry015);
 const descriptor = preflight.cargarDescriptor();
@@ -81,14 +89,14 @@ test('03 contrato contiene índices FK CHECK y opciones', () => {
 test('04 manifiesto formato 2 y metadata obligatoria', () => {
     assert.equal(manifest.versionFormato, 2); assert.equal(manifest.legacyBaselineThrough, 8); assert.equal(entry015.execution.statementCount, 3);
 });
-test('05 rutas de contrato seguras', () => assert.doesNotThrow(() => manifestApi.validarArchivosYChecksums(manifest)));
+test('05 rutas de contrato seguras', () => assert.doesNotThrow(() => manifestApi.validarArchivosYChecksums(actualManifest)));
 test('06 dry-run encuentra solo 015', async () => {
     const connection = { release() {} }; const pool = mockPool(connection); const out = [];
-    const plan = await apply.ejecutarDryRun({ log: (x) => out.push(x) }, { pool, snapshot: async () => compatibleSnapshot() });
+    const plan = await apply.ejecutarDryRun({ log: (x) => out.push(x) }, { pool, manifest: legacyManifest, snapshot: async () => compatibleSnapshot() });
     assert.deepEqual(plan.map((p) => p.entrada.version), [15]); assert.match(out.join('\n'), /MIGRATION_UP_DRY_RUN_NO_CHANGES/); assert.ok(pool.ended);
 });
-test('07 baseline parcial rechazado', () => { const s = compatibleSnapshot(); s.controlRows.pop(); assert.throws(() => apply.construirPlan(manifest, s), (e) => e.code === 'BASELINE_PARTIAL'); });
-test('08 checksum aplicado distinto rechazado', () => { const s = compatibleSnapshot(); s.controlRows[1].checksum_sha256 = '0'.repeat(64); assert.throws(() => apply.construirPlan(manifest, s)); });
+test('07 baseline parcial rechazado', () => { const s = compatibleSnapshot(); s.controlRows.pop(); assert.throws(() => apply.construirPlan(legacyManifest, s), (e) => e.code === 'BASELINE_PARTIAL'); });
+test('08 checksum aplicado distinto rechazado', () => { const s = compatibleSnapshot(); s.controlRows[1].checksum_sha256 = '0'.repeat(64); assert.throws(() => apply.construirPlan(legacyManifest, s)); });
 test('09 versión desconocida rechazada', () => { const s = compatibleSnapshot(); s.controlRows.push({ version: 99 }); assert.throws(() => apply.construirPlan(manifest, s)); });
 test('10 estructura parcial no registrada rechazada', () => { const s = compatibleSnapshot(); s.tablas.generaciones = tableFromContract(contract.tablas.generaciones); assert.throws(() => apply.construirPlan(manifest, s), (e) => e.code === 'UNREGISTERED_PARTIAL_STRUCTURE'); });
 test('11 015 aplicada con postcondición correcta es idempotente', () => assert.deepEqual(apply.construirPlan(manifest, appliedSnapshot(true)), []));
@@ -111,23 +119,23 @@ test('23 DML ALTER DROP rechazados', () => { for (const sql of ['INSERT INTO x V
 
 test('24 dry-run no ejecuta SQL mediante conexión', async () => {
     let calls = 0; const pool = mockPool({ execute() { calls += 1; }, release() {} });
-    await apply.ejecutarDryRun({ log() {} }, { pool, snapshot: async () => compatibleSnapshot() }); assert.equal(calls, 0);
+    await apply.ejecutarDryRun({ log() {} }, { pool, manifest: legacyManifest, snapshot: async () => compatibleSnapshot() }); assert.equal(calls, 0);
 });
 test('25 barreras administrativas completas', () => {
     const b = tempBackup(); try { assert.equal(apply.validarBarreras(adminOptions('--execute', b.file, b.hash), adminEnv()).multipleStatements, false); } finally { fs.rmSync(b.dir, { recursive: true }); }
 });
 test('26 execute-preflight no escribe', async () => {
     const b = tempBackup(); const queries = []; const connection = { async execute(sql) { queries.push(sql); return [[{ lock_obtenido: 1 }]]; }, release() {} }; const pool = mockPool(connection);
-    try { await apply.ejecutarAdministrativo(adminOptions('--execute-preflight', b.file, b.hash), false, { log() {} }, { env: adminEnv(), pool, snapshot: async () => compatibleSnapshot(), privileges: async () => ({ estado: 'PRESENT' }) }); } finally { fs.rmSync(b.dir, { recursive: true }); }
+    try { await apply.ejecutarAdministrativo(adminOptions('--execute-preflight', b.file, b.hash), false, { log() {} }, { env: adminEnv(), pool, manifest, snapshot: async () => compatibleSnapshot(), privileges: async () => ({ estado: 'PRESENT' }) }); } finally { fs.rmSync(b.dir, { recursive: true }); }
     assert.ok(queries.every((q) => /^SELECT|^WITH/i.test(q))); assert.equal(queries.some((q) => /INSERT|CREATE/i.test(q)), false);
 });
 test('27 permisos insuficientes bloquean', async () => {
     const b = tempBackup(); const c = { async execute() { return [[{ lock_obtenido: 1 }]]; }, release() {} };
-    try { await assert.rejects(apply.ejecutarAdministrativo(adminOptions('--execute-preflight', b.file, b.hash), false, { log() {} }, { env: adminEnv(), pool: mockPool(c), snapshot: async () => compatibleSnapshot(), privileges: async () => ({ estado: 'INSUFFICIENT' }) })); } finally { fs.rmSync(b.dir, { recursive: true }); }
+    try { await assert.rejects(apply.ejecutarAdministrativo(adminOptions('--execute-preflight', b.file, b.hash), false, { log() {} }, { env: adminEnv(), pool: mockPool(c), manifest, snapshot: async () => compatibleSnapshot(), privileges: async () => ({ estado: 'INSUFFICIENT' }) })); } finally { fs.rmSync(b.dir, { recursive: true }); }
 });
 test('28 lock siempre se libera', async () => {
     const b = tempBackup(); const queries = []; const c = { async execute(sql) { queries.push(sql); return [[{ lock_obtenido: 1 }]]; }, release() {} };
-    try { await assert.rejects(apply.ejecutarAdministrativo(adminOptions('--execute-preflight', b.file, b.hash), false, { log() {} }, { env: adminEnv(), pool: mockPool(c), snapshot: async () => { throw new Error('x'); } })); } finally { fs.rmSync(b.dir, { recursive: true }); }
+    try { await assert.rejects(apply.ejecutarAdministrativo(adminOptions('--execute-preflight', b.file, b.hash), false, { log() {} }, { env: adminEnv(), pool: mockPool(c), manifest, snapshot: async () => { throw new Error('x'); } })); } finally { fs.rmSync(b.dir, { recursive: true }); }
     assert.ok(queries.some((q) => /RELEASE_LOCK/.test(q)));
 });
 
@@ -144,7 +152,7 @@ async function simulatedExecution(failAt = 0, badPost = false, failRecord = fals
     const pool = mockPool(c); const after = appliedSnapshot(false); if (badPost) delete after.tablas.generaciones;
     try {
         const result = await apply.ejecutarAdministrativo(adminOptions('--execute', b.file, b.hash), true, { log() {} }, {
-            env: adminEnv(), pool, snapshot: async () => compatibleSnapshot(), privileges: async () => ({ estado: 'PRESENT' }),
+            env: adminEnv(), pool, manifest: legacyManifest, snapshot: async () => compatibleSnapshot(), privileges: async () => ({ estado: 'PRESENT' }),
             snapshotAfter: async () => after, snapshotVerified: async () => appliedSnapshot(true), randomUUID: () => '00000000-0000-4000-8000-000000000001'
         }); return { result, calls, pool, c };
     } finally { fs.rmSync(b.dir, { recursive: true }); }
@@ -165,14 +173,19 @@ test('42 contraseña CLI se rechaza', () => assert.throws(() => apply.parsearArg
 test('43 modo administrativo exige respaldo', () => { const o = apply.parsearArgumentos(['up', '--execute', '--confirm=APPLY-ACTIVE-MIGRATIONS', '--acknowledge-ddl-autocommit', `--backup-sha256=${'0'.repeat(64)}`]); assert.throws(() => apply.validarBarreras(o, adminEnv())); });
 test('44 modo preflight termina sin cambios', async () => {
     const b = tempBackup(); const output = []; const c = { async execute(sql) { return [[{ lock_obtenido: 1 }]]; }, release() {} };
-    try { await apply.ejecutarAdministrativo(adminOptions('--execute-preflight', b.file, b.hash), false, { log: (x) => output.push(x) }, { env: adminEnv(), pool: mockPool(c), snapshot: async () => compatibleSnapshot(), privileges: async () => ({ estado: 'PRESENT' }) }); } finally { fs.rmSync(b.dir, { recursive: true }); }
+    try { await apply.ejecutarAdministrativo(adminOptions('--execute-preflight', b.file, b.hash), false, { log: (x) => output.push(x) }, { env: adminEnv(), pool: mockPool(c), manifest, snapshot: async () => compatibleSnapshot(), privileges: async () => ({ estado: 'PRESENT' }) }); } finally { fs.rmSync(b.dir, { recursive: true }); }
     assert.match(output.join('\n'), /MIGRATION_EXECUTE_PREFLIGHT_COMPLETE_NO_CHANGES/);
 });
 test('45 SQL 015 permanece inmutable por checksum', () => assert.equal(manifestApi.calcularChecksumCanonico(path.join(manifestApi.MIGRATIONS_DIR, entry015.archivo)), entry015.checksumSha256));
 test('46 dry-run después de 015 no encuentra pendientes', async () => {
     const output = []; const pool = mockPool({ release() {} });
-    const plan = await apply.ejecutarDryRun({ log: (line) => output.push(line) }, { pool, snapshot: async () => appliedSnapshot(true) });
+    const plan = await apply.ejecutarDryRun({ log: (line) => output.push(line) }, { pool, manifest: legacyManifest, snapshot: async () => appliedSnapshot(true) });
     assert.deepEqual(plan, []);
     assert.match(output.join('\n'), /Migraciones ACTIVE pendientes: ninguna/);
     assert.equal(output.at(-1), 'MIGRATION_UP_DRY_RUN_NO_CHANGES');
+});
+test('47 manifiesto actual selecciona solo 016 como ALTER TABLE grupos', () => {
+    const plan = apply.construirPlan(actualManifest, appliedSnapshot(true));
+    assert.deepEqual(plan.map((item) => item.entrada.version), [16]);
+    assert.deepEqual(plan[0].statements.map(({ operation, target }) => ({ operation, target })), [{ operation: 'ALTER_TABLE', target: 'grupos' }]);
 });

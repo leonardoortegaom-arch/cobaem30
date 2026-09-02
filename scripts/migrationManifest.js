@@ -175,15 +175,39 @@ function validarEstructuraManifiesto(manifiesto) {
             }
             const targets = new Set();
             for (const statement of ejecucion.statements) {
-                if (!statement || statement.operation !== 'CREATE_TABLE' || !/^[a-z][a-z0-9_]*$/.test(statement.target || '')
+                if (!statement || !['CREATE_TABLE', 'ALTER_TABLE'].includes(statement.operation) || !/^[a-z][a-z0-9_]*$/.test(statement.target || '')
                     || targets.has(statement.target)) throw crearError(`Operación o target inválido en ${entrada.identificador}.`);
                 targets.add(statement.target);
             }
-            const targetsPrecondicion = new Set((ejecucion.preconditions || []).map((item) => item && item.target));
-            if (!Array.isArray(ejecucion.preconditions) || ejecucion.preconditions.length !== targets.size
-                || targetsPrecondicion.size !== targets.size
-                || ejecucion.preconditions.some((item) => !item || item.type !== 'TABLE_ABSENT' || !targets.has(item.target))) {
+            const tiposPrecondicion = new Set(['MIGRATION_APPLIED', 'TABLE_ABSENT', 'TABLE_PRESENT', 'COLUMN_ABSENT', 'INDEX_ABSENT', 'FOREIGN_KEY_ABSENT', 'COLUMN_MATCH']);
+            if (!Array.isArray(ejecucion.preconditions) || !ejecucion.preconditions.length
+                || ejecucion.preconditions.some((item) => !item || !tiposPrecondicion.has(item.type))) {
                 throw crearError(`Precondiciones incoherentes en ${entrada.identificador}.`);
+            }
+            for (const statement of ejecucion.statements) {
+                const tipo = statement.operation === 'CREATE_TABLE' ? 'TABLE_ABSENT' : 'TABLE_PRESENT';
+                if (!ejecucion.preconditions.some((item) => item.type === tipo && item.target === statement.target)) {
+                    throw crearError(`Falta precondicion estructural en ${entrada.identificador}.`);
+                }
+            }
+            for (const item of ejecucion.preconditions) {
+                if (item.type === 'MIGRATION_APPLIED') {
+                    if (!Number.isInteger(item.version) || item.version < 0 || item.version >= entrada.version) throw crearError(`Dependencia invalida en ${entrada.identificador}.`);
+                    continue;
+                }
+                if (!/^[a-z][a-z0-9_]*$/.test(item.target || '') || (item.table !== undefined && !/^[a-z][a-z0-9_]*$/.test(item.table))) {
+                    throw crearError(`Target de precondicion invalido en ${entrada.identificador}.`);
+                }
+                if (item.type === 'COLUMN_MATCH' && (typeof item.columnType !== 'string' || !item.columnType.trim() || typeof item.nullable !== 'boolean')) {
+                    throw crearError(`Contrato de columna invalido en ${entrada.identificador}.`);
+                }
+            }
+            const dependencias = ejecucion.dependsOn || [];
+            if (!Array.isArray(dependencias) || new Set(dependencias).size !== dependencias.length
+                || dependencias.some((version) => !Number.isInteger(version) || version >= entrada.version
+                    || !manifiesto.migraciones.some((item) => item.version === version && item.estado === 'ACTIVE'))
+                || dependencias.some((version) => !ejecucion.preconditions.some((item) => item.type === 'MIGRATION_APPLIED' && item.version === version))) {
+                throw crearError(`Dependencias incoherentes en ${entrada.identificador}.`);
             }
             if (!esRutaContratoSegura(ejecucion.postconditionContract)
                 || !/^[0-9a-f]{64}$/.test(ejecucion.postconditionChecksumSha256 || '')) {

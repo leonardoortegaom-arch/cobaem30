@@ -80,12 +80,16 @@ function separarSentenciasSql(sql) {
 
 function clasificarSentenciaDeclarada(sql, declarada) {
     if (/\bIF\s+NOT\s+EXISTS\b/i.test(sql)) throw errorSeguro('IF_NOT_EXISTS_FORBIDDEN', 'SQL_VALIDATION');
-    const match = sql.match(/^CREATE\s+TABLE\s+`?([a-zA-Z][a-zA-Z0-9_]*)`?\s*\(/i);
+    const operation = declarada && declarada.operation;
+    const pattern = operation === 'ALTER_TABLE'
+        ? /^ALTER\s+TABLE\s+`?([a-zA-Z][a-zA-Z0-9_]*)`?\s+/i
+        : /^CREATE\s+TABLE\s+`?([a-zA-Z][a-zA-Z0-9_]*)`?\s*\(/i;
+    const match = sql.match(pattern);
     if (!match) throw errorSeguro('SQL_OPERATION_FORBIDDEN', 'SQL_VALIDATION');
-    if (!declarada || declarada.operation !== 'CREATE_TABLE' || declarada.target !== match[1].toLowerCase()) {
+    if (!['CREATE_TABLE', 'ALTER_TABLE'].includes(operation) || declarada.target !== match[1].toLowerCase()) {
         throw errorSeguro('STATEMENT_TARGET_OR_ORDER_MISMATCH', 'SQL_VALIDATION');
     }
-    return { operation: 'CREATE_TABLE', target: match[1].toLowerCase(), sql };
+    return { operation, target: match[1].toLowerCase(), sql };
 }
 
 function validarSqlMigracion(entrada, directorio = path.join(manifestApi.PROJECT_ROOT, 'database', 'migrations')) {
@@ -114,15 +118,23 @@ function validarRegistrosAplicados(manifiesto, rows) {
     return { applied, pending: active.filter((entry) => !applied.has(entry.version)) };
 }
 
-function estadoTargets(snapshot, entrada) {
-    return entrada.execution.preconditions.map((item) => ({ target: item.target, exists: Boolean(snapshot.tablas[item.target]) }));
-}
-
-function validarPrecondiciones(snapshot, entrada, aplicada = false) {
-    const targets = estadoTargets(snapshot, entrada);
-    if (!aplicada && targets.some((item) => item.exists)) throw errorSeguro('UNREGISTERED_PARTIAL_STRUCTURE', 'PRECONDITIONS');
-    if (aplicada && targets.some((item) => !item.exists)) throw errorSeguro('APPLIED_SCHEMA_DRIFT', 'POSTCONDITION');
-    return targets;
+function validarPrecondiciones(snapshot, entrada) {
+    for (const item of entrada.execution.preconditions) {
+        const tabla = snapshot.tablas[item.table || item.target];
+        let valida = false;
+        if (item.type === 'MIGRATION_APPLIED') valida = (snapshot.controlRows || []).some((row) => Number(row.version) === item.version);
+        else if (item.type === 'TABLE_PRESENT') valida = Boolean(snapshot.tablas[item.target]);
+        else if (item.type === 'TABLE_ABSENT') valida = !snapshot.tablas[item.target];
+        else if (item.type === 'COLUMN_ABSENT') valida = Boolean(tabla) && !tabla.columnas[item.target];
+        else if (item.type === 'INDEX_ABSENT') valida = Boolean(tabla) && !tabla.indices.some((indice) => indice.nombre === item.target);
+        else if (item.type === 'FOREIGN_KEY_ABSENT') valida = Boolean(tabla) && !tabla.foreignKeys.some((fk) => fk.nombre === item.target);
+        else if (item.type === 'COLUMN_MATCH') {
+            const columna = tabla && tabla.columnas[item.target];
+            valida = Boolean(columna) && columna.tipo === normalizar(item.columnType) && columna.nullable === item.nullable;
+        }
+        if (!valida) throw errorSeguro('UNREGISTERED_PARTIAL_STRUCTURE', 'PRECONDITIONS');
+    }
+    return true;
 }
 
 function normalizar(v) { return String(v == null ? '' : v).toLowerCase().replace(/\s+/g, ' ').replace(/\s*,\s*/g, ',').trim(); }
@@ -147,6 +159,10 @@ function validarPostcondicion(snapshot, contrato) {
         for (const fk of expected.foreignKeys) if (!actual.foreignKeys.some((a) => igualArray(a.columnas, fk.columnas) && a.tablaDestino === fk.tablaDestino && igualArray(a.columnasDestino, fk.columnasDestino) && a.onUpdate === fk.onUpdate && a.onDelete === fk.onDelete)) errores.push(`FK_${name}`);
         for (const check of expected.checks) if (!actual.checks.some((value) => check.fragmentos.every((f) => normalizar(value).includes(normalizar(f))))) errores.push(`CHECK_${name}`);
     }
+    for (const [tabla, columnas] of Object.entries(contrato.columnasProhibidas || {})) {
+        const actual = snapshot.tablas[tabla];
+        if (actual && columnas.some((columna) => actual.columnas[columna])) errores.push(`FORBIDDEN_COLUMNS_${tabla}`);
+    }
     if (errores.length) throw errorSeguro('POSTCONDITION_MISMATCH', 'POSTCONDITION');
     return true;
 }
@@ -160,10 +176,10 @@ async function obtenerEstado(conexion) {
 function construirPlan(manifiesto, snapshot) {
     const state = validarRegistrosAplicados(manifiesto, snapshot.controlRows);
     for (const entry of manifiesto.migraciones.filter((e) => e.estado === 'ACTIVE' && e.version > manifiesto.legacyBaselineThrough && state.applied.has(e.version))) {
-        validarPrecondiciones(snapshot, entry, true); validarPostcondicion(snapshot, cargarContrato(entry));
+        validarPostcondicion(snapshot, cargarContrato(entry));
     }
     return state.pending.map((entry) => {
-        validarPrecondiciones(snapshot, entry, false);
+        validarPrecondiciones(snapshot, entry);
         return { entrada: entry, statements: validarSqlMigracion(entry), contrato: cargarContrato(entry) };
     });
 }
@@ -189,7 +205,7 @@ async function conRecursos(pool, fn, lock = false) {
 }
 
 async function ejecutarDryRun(output = {}, deps = {}) {
-    const log = output.log || console.log; const manifiesto = cargarContexto(); const pool = deps.pool || crearPoolLectura();
+    const log = output.log || console.log; const manifiesto = deps.manifest || cargarContexto(); const pool = deps.pool || crearPoolLectura();
     return conRecursos(pool, async (connection) => {
         const snapshot = deps.snapshot ? await deps.snapshot(connection) : await obtenerEstado(connection);
         const plan = construirPlan(manifiesto, snapshot);
@@ -202,7 +218,7 @@ async function ejecutarDryRun(output = {}, deps = {}) {
 
 async function ejecutarAdministrativo(opciones, execute, output = {}, deps = {}) {
     const log = output.log || console.log; const config = validarBarreras(opciones, deps.env || process.env); log('MIGRATION_ARGUMENTS_VALID'); log('MIGRATION_BACKUP_VALID'); log('MIGRATION_CONFIG_VALID');
-    const manifiesto = cargarContexto(); const pool = deps.pool || (deps.crearPool || crearPoolAdmin)(config);
+    const manifiesto = deps.manifest || cargarContexto(); const pool = deps.pool || (deps.crearPool || crearPoolAdmin)(config);
     return conRecursos(pool, async (connection) => {
         log('MIGRATION_CONNECTED'); log('MIGRATION_LOCK_ACQUIRED');
         const snapshot = deps.snapshot ? await deps.snapshot(connection) : await obtenerEstado(connection);
