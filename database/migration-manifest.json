@@ -133,11 +133,10 @@
     {
       "version": 15,
       "identificador": "015",
-      "estado": "PLANNED",
-      "archivo": null,
-      "checksumSha256": null,
-      "descripcion": "Crear catálogos de calendario académico.",
-      "razonEstado": "Contrato aprobado; SQL aún no creado."
+      "estado": "ACTIVE",
+      "archivo": "015_create_academic_calendar_catalogs.sql",
+      "checksumSha256": "4e5bafebe0c72ab0a2343cd75144d1354ee3197a3f989b363c68fe166f7c2c6f",
+      "descripcion": "Crear catálogos normalizados de generaciones, ciclos escolares y periodos académicos."
     },
     {
       "version": 16,

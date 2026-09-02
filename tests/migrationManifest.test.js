@@ -52,12 +52,32 @@ test('2. todos los SQL físicos están manifestados', () => {
     const manifiesto = manifestModule.cargarManifiesto();
     const fisicos = manifestModule.listarArchivosSql();
     const declarados = manifiesto.migraciones.filter((item) => item.archivo).map((item) => item.archivo).sort();
+    const esperados = [
+        '000_create_schema_migrations.sql',
+        '001_create_auth_tables.sql',
+        '002_create_sessions_table.sql',
+        '003_add_credential_version.sql',
+        '004_create_groups_tables.sql',
+        '005_create_students_table.sql',
+        '006_create_orientation_tracking_tables.sql',
+        '007_create_orientation_activity_attachments.sql',
+        '008_create_written_orientation_reports.sql',
+        '009_add_group_staff_assignments.sql',
+        '011_add_generation_to_groups.sql',
+        '012_add_semester_period_to_groups.sql',
+        '013_create_group_schedules_table.sql',
+        '014_create_teacher_schedules_table.sql',
+        '015_create_academic_calendar_catalogs.sql'
+    ].sort();
     assert.deepEqual(fisicos, declarados);
+    assert.deepEqual(fisicos, esperados);
+    assert.equal(fisicos.some((archivo) => archivo.startsWith('010_')), false);
+    assert.equal(new Set(declarados).size, declarados.length);
 });
 
 test('3. los checksums reales coinciden', () => {
     const resultado = manifestModule.validarArchivosYChecksums(manifestModule.cargarManifiesto());
-    assert.equal(resultado.totalArchivosSql, 14);
+    assert.equal(resultado.totalArchivosSql, 15);
 });
 
 test('4. LF y CRLF producen el mismo checksum', () => {
@@ -119,10 +139,12 @@ test('13. RESERVED_MISSING con archivo es rechazazada', () => {
 
 test('14. PLANNED con archivo es rechazazada', () => {
     const manifiesto = cargarClonReal();
-    const entrada = manifiesto.migraciones.find((item) => item.version === 15);
-    entrada.archivo = '015_invalida.sql';
+    const entrada = manifiesto.migraciones.find((item) => item.version === 16);
+    entrada.archivo = '016_invalida.sql';
     entrada.checksumSha256 = '0'.repeat(64);
     assert.throws(() => manifestModule.validarEstructuraManifiesto(manifiesto));
+    const entradaReal = manifestModule.cargarManifiesto().migraciones.find((item) => item.version === 16);
+    assert.deepEqual({ archivo: entradaReal.archivo, checksum: entradaReal.checksumSha256 }, { archivo: null, checksum: null });
 });
 
 test('15. una ruta con .. es rechazada', () => {
@@ -180,9 +202,17 @@ test('21. 009 y 011–014 permanecen superseded', () => {
     }
 });
 
-test('22. 015–021 permanecen planned y sin archivo', () => {
+test('22. 015 está active y 016–021 permanecen planned', () => {
     const migraciones = manifestModule.cargarManifiesto().migraciones;
-    for (let version = 15; version <= 21; version += 1) {
+    const activa = migraciones.find((item) => item.version === 15);
+    assert.equal(activa.estado, 'ACTIVE');
+    assert.equal(activa.archivo, '015_create_academic_calendar_catalogs.sql');
+    assert.match(activa.checksumSha256, /^[0-9a-f]{64}$/);
+    assert.equal(
+        manifestModule.calcularChecksumCanonico(path.join(manifestModule.MIGRATIONS_DIR, activa.archivo)),
+        activa.checksumSha256
+    );
+    for (let version = 16; version <= 21; version += 1) {
         const entrada = migraciones.find((item) => item.version === version);
         assert.equal(entrada.estado, 'PLANNED');
         assert.equal(entrada.archivo, null);

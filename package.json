@@ -16,6 +16,7 @@
     "test:migrations:preflight": "node --test tests/migrationPreflight.test.js",
     "migrations:baseline-dry-run": "node scripts/migrationBaseline.js baseline-v008 --dry-run",
     "test:migrations:baseline": "node --test tests/migrationBaseline.test.js",
+    "test:migrations:015": "node --test tests/migration015.test.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
