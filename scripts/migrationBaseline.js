@@ -25,7 +25,19 @@ const INSERT_BASELINE_SQL = `INSERT INTO schema_migrations
     VALUES (?, ?, ?, ?, ?, ?)`;
 const GET_LOCK_SQL = 'SELECT GET_LOCK(?, ?) AS lock_obtenido';
 const RELEASE_LOCK_SQL = 'SELECT RELEASE_LOCK(?) AS lock_liberado';
+const CURRENT_ACCOUNT_SQL = 'SELECT CURRENT_USER() AS cuenta_efectiva';
+const PRIVILEGES_SQL = `SELECT PRIVILEGE_TYPE
+    FROM information_schema.USER_PRIVILEGES
+    WHERE GRANTEE = ?
+    UNION
+    SELECT PRIVILEGE_TYPE
+    FROM information_schema.SCHEMA_PRIVILEGES
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND GRANTEE = ?`;
+const ENABLED_ROLES_SQL = 'SELECT ROLE_NAME FROM information_schema.ENABLED_ROLES';
 const ALLOWED_COMMANDS = new Set(['baseline-v008', 'help']);
+const ALLOWED_FLAGS = new Set(['--dry-run', '--execute', '--execute-preflight', '--acknowledge-ddl-autocommit']);
+const ALLOWED_VALUES = new Set(['--confirm', '--backup-file', '--backup-sha256']);
 const REQUIRED_MIGRATION_ENV = Object.freeze([
     'MIGRATION_DB_HOST', 'MIGRATION_DB_PORT', 'MIGRATION_DB_NAME',
     'MIGRATION_DB_USER', 'MIGRATION_DB_PASSWORD'
@@ -56,35 +68,60 @@ function parsearArgumentos(argumentos) {
             throw crearError('Argumento no reconocido.', 'INVALID_ARGUMENT');
         }
         const posicion = argumento.indexOf('=');
-        if (posicion === -1) resultado.flags.add(argumento);
-        else resultado.valores[argumento.slice(0, posicion)] = argumento.slice(posicion + 1);
+        if (posicion === -1) {
+            if (!ALLOWED_FLAGS.has(argumento)) throw crearError('Opción desconocida.', 'UNKNOWN_OPTION');
+            resultado.flags.add(argumento);
+        } else {
+            const clave = argumento.slice(0, posicion);
+            if (!ALLOWED_VALUES.has(clave)) throw crearError('Opción desconocida.', 'UNKNOWN_OPTION');
+            resultado.valores[clave] = argumento.slice(posicion + 1);
+        }
     }
     return resultado;
 }
 
-function validarOpcionesEjecucion(opciones, entorno = process.env) {
-    if (!opciones.flags.has('--execute')) throw crearError('Falta modo de ejecución explícito.', 'EXECUTE_FLAG_REQUIRED');
+function validarBarrerasEjecucion(opciones) {
+    if (!opciones.flags.has('--execute') && !opciones.flags.has('--execute-preflight')) throw crearError('Falta modo de ejecución explícito.', 'EXECUTE_FLAG_REQUIRED');
     if (opciones.valores['--confirm'] !== 'BASELINE-V008') throw crearError('Confirmación de baseline inválida.', 'CONFIRMATION_REQUIRED');
     if (!opciones.flags.has('--acknowledge-ddl-autocommit')) throw crearError('Falta reconocer el autocommit de DDL.', 'DDL_ACK_REQUIRED');
     if (!opciones.valores['--backup-file']) throw crearError('Falta el archivo de respaldo.', 'BACKUP_REQUIRED');
     if (!/^[0-9a-f]{64}$/i.test(opciones.valores['--backup-sha256'] || '')) throw crearError('Hash de respaldo inválido.', 'BACKUP_HASH_INVALID');
-    if (entorno.MIGRATION_DB_ALLOW_WRITES !== 'BASELINE_V008_ONLY') throw crearError('La habilitación temporal de escritura no es válida.', 'WRITE_ENABLE_REQUIRED');
+    return true;
+}
+
+function validarConfiguracionAdministrativa(entorno = process.env) {
+    const allowWrites = typeof entorno.MIGRATION_DB_ALLOW_WRITES === 'string'
+        ? entorno.MIGRATION_DB_ALLOW_WRITES.trim() : '';
+    if (allowWrites !== 'BASELINE_V008_ONLY') throw crearError('La habilitación temporal de escritura no es válida.', 'WRITE_ENABLE_REQUIRED');
     for (const nombre of REQUIRED_MIGRATION_ENV) {
         if (typeof entorno[nombre] !== 'string' || entorno[nombre].length === 0) {
             throw crearError('Configuración administrativa temporal incompleta.', 'MIGRATION_DB_CONFIG_INCOMPLETE');
         }
     }
+    const host = entorno.MIGRATION_DB_HOST.trim();
+    const database = entorno.MIGRATION_DB_NAME.trim();
+    const user = entorno.MIGRATION_DB_USER.trim();
+    if (!host || !database || !user) throw crearError('Configuración administrativa temporal incompleta.', 'MIGRATION_DB_CONFIG_INCOMPLETE');
+    const portText = entorno.MIGRATION_DB_PORT.trim();
+    if (!/^\d+$/.test(portText)) throw crearError('Puerto administrativo inválido.', 'MIGRATION_DB_PORT_INVALID');
+    const port = Number(portText);
+    if (!Number.isSafeInteger(port) || port < 1 || port > 65535) throw crearError('Puerto administrativo inválido.', 'MIGRATION_DB_PORT_INVALID');
     return {
-        host: entorno.MIGRATION_DB_HOST,
-        port: entorno.MIGRATION_DB_PORT,
-        database: entorno.MIGRATION_DB_NAME,
-        user: entorno.MIGRATION_DB_USER,
+        host,
+        port,
+        database,
+        user,
         password: entorno.MIGRATION_DB_PASSWORD,
         waitForConnections: true,
         connectionLimit: 1,
         queueLimit: 0,
         multipleStatements: false
     };
+}
+
+function validarOpcionesEjecucion(opciones, entorno = process.env) {
+    validarBarrerasEjecucion(opciones);
+    return validarConfiguracionAdministrativa(entorno);
 }
 
 function verificarRespaldo(rutaRespaldo, checksumEsperado) {
@@ -208,6 +245,106 @@ function crearPoolAdministrativo(configuracion) {
     return mysql.createPool(configuracion);
 }
 
+async function verificarPrivilegiosAdministrativos(conexion) {
+    let filas;
+    let roles;
+    try {
+        const [cuentas] = await conexion.execute(CURRENT_ACCOUNT_SQL);
+        const cuenta = String(cuentas && cuentas[0] && cuentas[0].cuenta_efectiva || '');
+        const separador = cuenta.lastIndexOf('@');
+        if (separador < 1) return { estado: 'UNKNOWN', faltantes: ['SELECT', 'CREATE', 'INSERT'] };
+        const escapar = (valor) => valor.replace(/'/g, "''");
+        const grantee = `'${escapar(cuenta.slice(0, separador))}'@'${escapar(cuenta.slice(separador + 1))}'`;
+        [filas] = await conexion.execute(PRIVILEGES_SQL, [grantee, grantee]);
+        [roles] = await conexion.execute(ENABLED_ROLES_SQL);
+    } catch {
+        return { estado: 'UNKNOWN', faltantes: ['SELECT', 'CREATE', 'INSERT'] };
+    }
+    const presentes = new Set((filas || []).map((fila) => String(fila.PRIVILEGE_TYPE || fila.privilege_type || '').toUpperCase()));
+    const requeridos = ['SELECT', 'CREATE', 'INSERT'];
+    const faltantes = requeridos.filter((permiso) => !presentes.has(permiso));
+    if (faltantes.length === 0) return { estado: 'PRESENT', faltantes: [] };
+    if (Array.isArray(roles) && roles.length > 0) return { estado: 'UNKNOWN', faltantes };
+    return { estado: 'INSUFFICIENT', faltantes };
+}
+
+function asignarEtapa(error, etapa) {
+    if (error && !error.stage) error.stage = etapa;
+    return error;
+}
+
+async function ejecutarExecutePreflight(opciones, salida = {}, dependencias = {}) {
+    const escribir = salida.log || ((mensaje) => console.log(mensaje));
+    const entorno = dependencias.env || process.env;
+    let etapa = 'ARGUMENTS';
+    let pool;
+    let conexion;
+    let lockObtenido = false;
+    let errorPrincipal;
+    try {
+        validarBarrerasEjecucion(opciones);
+        escribir('EXECUTE_PREFLIGHT_ARGUMENTS_VALID');
+
+        etapa = 'BACKUP';
+        verificarRespaldo(opciones.valores['--backup-file'], opciones.valores['--backup-sha256']);
+        escribir('EXECUTE_PREFLIGHT_BACKUP_VALID');
+
+        etapa = 'MANIFEST';
+        const { manifiesto, descriptor } = cargarContextoEstatico();
+
+        etapa = 'CONFIG';
+        const configuracion = validarConfiguracionAdministrativa(entorno);
+        escribir('EXECUTE_PREFLIGHT_CONFIG_VALID');
+
+        etapa = 'CONNECTION';
+        pool = dependencias.pool || (dependencias.crearPool || crearPoolAdministrativo)(configuracion);
+        conexion = await pool.getConnection();
+        escribir('EXECUTE_PREFLIGHT_CONNECTED');
+
+        etapa = 'LOCK';
+        const [filasLock] = await conexion.execute(GET_LOCK_SQL, [LOCK_NAME, LOCK_TIMEOUT_SECONDS]);
+        if (!filasLock || Number(filasLock[0] && filasLock[0].lock_obtenido) !== 1) throw crearError('No fue posible obtener el bloqueo exclusivo.', 'LOCK_NOT_ACQUIRED');
+        lockObtenido = true;
+        escribir('EXECUTE_PREFLIGHT_LOCK_ACQUIRED');
+
+        etapa = 'SCHEMA_PREFLIGHT';
+        const preflight = dependencias.preflight
+            ? await dependencias.preflight(conexion, descriptor, manifiesto)
+            : await ejecutarPreflightConexion(conexion, descriptor, manifiesto);
+        const estado = preflight.estado || validarEstadoPrevio(preflight.resultado || preflight);
+        if (!['BOOTSTRAP_REQUIRED', 'REGISTER_REQUIRED', 'ALREADY_REGISTERED'].includes(estado)) throw crearError('Estado incompatible.', 'PREFLIGHT_INCOMPATIBLE');
+        escribir('EXECUTE_PREFLIGHT_SCHEMA_COMPATIBLE');
+
+        etapa = 'PRIVILEGES';
+        const privilegios = dependencias.verificarPrivilegios
+            ? await dependencias.verificarPrivilegios(conexion)
+            : await verificarPrivilegiosAdministrativos(conexion);
+        if (privilegios.estado === 'PRESENT') {
+            escribir('EXECUTE_PREFLIGHT_PRIVILEGES_PRESENT');
+        } else if (privilegios.estado === 'INSUFFICIENT') {
+            escribir('EXECUTE_PREFLIGHT_PRIVILEGES_INSUFFICIENT');
+            escribir(`Permisos faltantes: ${(privilegios.faltantes || []).join(', ')}`);
+            throw crearError('Privilegios administrativos insuficientes.', 'PRIVILEGES_INSUFFICIENT');
+        } else {
+            escribir('EXECUTE_PREFLIGHT_PRIVILEGES_UNKNOWN');
+            throw crearError('No fue posible concluir los privilegios efectivos.', 'PRIVILEGES_UNKNOWN');
+        }
+    } catch (error) {
+        errorPrincipal = asignarEtapa(error, etapa);
+    } finally {
+        try {
+            if (conexion && lockObtenido) await conexion.execute(RELEASE_LOCK_SQL, [LOCK_NAME]);
+            if (conexion && typeof conexion.release === 'function') conexion.release();
+            if (pool) await pool.end();
+        } catch (error) {
+            if (!errorPrincipal) errorPrincipal = asignarEtapa(error, 'CLEANUP');
+        }
+    }
+    if (errorPrincipal) throw errorPrincipal;
+    escribir('EXECUTE_PREFLIGHT_COMPLETE_NO_CHANGES');
+    return { estado: 'EXECUTE_PREFLIGHT_COMPLETE_NO_CHANGES' };
+}
+
 async function ejecutarDryRun(salida = {}, dependencias = {}) {
     const escribir = salida.log || ((mensaje) => console.log(mensaje));
     const { manifiesto, descriptor } = cargarContextoEstatico();
@@ -235,17 +372,26 @@ async function ejecutarDryRun(salida = {}, dependencias = {}) {
 async function ejecutarBaselineReal(opciones, salida = {}, dependencias = {}) {
     const escribir = salida.log || ((mensaje) => console.log(mensaje));
     const entorno = dependencias.env || process.env;
-    const configuracion = validarOpcionesEjecucion(opciones, entorno);
-    verificarRespaldo(opciones.valores['--backup-file'], opciones.valores['--backup-sha256']);
-    const { manifiesto, descriptor } = cargarContextoEstatico();
-    const pool = dependencias.pool || (dependencias.crearPool || crearPoolAdministrativo)(configuracion);
+    let etapa = 'ARGUMENTS';
+    let pool;
     let conexion;
     let lockObtenido = false;
     try {
+        validarBarrerasEjecucion(opciones);
+        etapa = 'BACKUP';
+        verificarRespaldo(opciones.valores['--backup-file'], opciones.valores['--backup-sha256']);
+        etapa = 'MANIFEST';
+        const { manifiesto, descriptor } = cargarContextoEstatico();
+        etapa = 'CONFIG';
+        const configuracion = validarConfiguracionAdministrativa(entorno);
+        etapa = 'CONNECTION';
+        pool = dependencias.pool || (dependencias.crearPool || crearPoolAdministrativo)(configuracion);
         conexion = await pool.getConnection();
+        etapa = 'LOCK';
         const [filasLock] = await conexion.execute(GET_LOCK_SQL, [LOCK_NAME, LOCK_TIMEOUT_SECONDS]);
         if (!filasLock || Number(filasLock[0] && filasLock[0].lock_obtenido) !== 1) throw crearError('No fue posible obtener el bloqueo exclusivo.', 'LOCK_NOT_ACQUIRED');
         lockObtenido = true;
+        etapa = 'SCHEMA_PREFLIGHT';
         let preflight = dependencias.preflight
             ? await dependencias.preflight(conexion, descriptor, manifiesto)
             : await ejecutarPreflightConexion(conexion, descriptor, manifiesto);
@@ -255,8 +401,11 @@ async function ejecutarBaselineReal(opciones, salida = {}, dependencias = {}) {
             return { estado };
         }
         if (estado === 'BOOTSTRAP_REQUIRED') {
+            etapa = 'BOOTSTRAP_VALIDATION';
             const sql = validarBootstrapSql(manifiesto);
+            etapa = 'BOOTSTRAP_EXECUTION';
             await conexion.execute(sql);
+            etapa = 'SCHEMA_PREFLIGHT';
             preflight = dependencias.preflightPosteriorBootstrap
                 ? await dependencias.preflightPosteriorBootstrap(conexion, descriptor, manifiesto)
                 : await ejecutarPreflightConexion(conexion, descriptor, manifiesto);
@@ -266,29 +415,40 @@ async function ejecutarBaselineReal(opciones, salida = {}, dependencias = {}) {
             throw crearError('Estado previo incompatible.', 'CONTROL_PARTIAL');
         }
         const plan = construirPlanBaseline(manifiesto, dependencias);
+        etapa = 'BASELINE_TRANSACTION';
         await registrarBaselineTransaccional(conexion, plan);
+        etapa = 'POST_VERIFICATION';
         if (dependencias.verificarPosterior) await dependencias.verificarPosterior(conexion, descriptor, manifiesto, plan);
         else await verificarBaselineRegistrado(conexion, descriptor, manifiesto);
         escribir('BASELINE_V008_COMPLETE');
         return { estado: 'BASELINE_V008_COMPLETE', plan };
+    } catch (error) {
+        throw asignarEtapa(error, etapa);
     } finally {
         if (conexion && lockObtenido) {
             try { await conexion.execute(RELEASE_LOCK_SQL, [LOCK_NAME]); } catch { /* no oculta el error principal */ }
         }
-        if (conexion && typeof conexion.release === 'function') conexion.release();
-        await pool.end();
+        try {
+            if (conexion && typeof conexion.release === 'function') conexion.release();
+            if (pool) await pool.end();
+        } catch (error) {
+            throw asignarEtapa(error, 'CLEANUP');
+        }
     }
 }
 
 function imprimirAyuda(escribir) {
     escribir('Uso: node scripts/migrationBaseline.js baseline-v008 --dry-run');
+    escribir('Diagnóstico administrativo: baseline-v008 --execute-preflight con todas las barreras.');
     escribir('La ejecución real requiere --execute y todas las barreras documentadas.');
     escribir('N4C1 autoriza únicamente dry-run contra MySQL; no ejecute --execute en esta fase.');
 }
 
-function mensajeSeguro(error) {
+function mensajeSeguro(error, etapa = 'ARGUMENTS') {
     const codigo = error && /^[A-Z0-9_]+$/.test(error.code || '') ? error.code : 'TECHNICAL_ERROR';
-    return `Error seguro de baseline (${codigo}).`;
+    const etapaSegura = /^[A-Z_]+$/.test(error && error.stage ? error.stage : etapa)
+        ? (error.stage || etapa) : 'UNKNOWN';
+    return `BASELINE_FAILED_STAGE=${etapaSegura} CODE=${codigo}`;
 }
 
 async function ejecutarCli(argumentos, salida = {}, dependencias = {}) {
@@ -300,8 +460,10 @@ async function ejecutarCli(argumentos, salida = {}, dependencias = {}) {
         if (!ALLOWED_COMMANDS.has(opciones.comando)) throw crearError('Comando no permitido.', 'COMMAND_NOT_ALLOWED');
         const dryRun = opciones.flags.has('--dry-run');
         const execute = opciones.flags.has('--execute');
-        if (dryRun === execute) throw crearError('Debe elegir exactamente un modo.', 'MODE_REQUIRED');
+        const executePreflight = opciones.flags.has('--execute-preflight');
+        if ([dryRun, execute, executePreflight].filter(Boolean).length !== 1) throw crearError('Debe elegir exactamente un modo.', 'MODE_REQUIRED');
         if (dryRun) { await ejecutarDryRun(salida, dependencias); return 0; }
+        if (executePreflight) { await ejecutarExecutePreflight(opciones, salida, dependencias); return 0; }
         await ejecutarBaselineReal(opciones, salida, dependencias);
         return 0;
     } catch (error) {
@@ -312,10 +474,12 @@ async function ejecutarCli(argumentos, salida = {}, dependencias = {}) {
 
 module.exports = {
     BOOTSTRAP_PATH, LOCK_NAME, INSERT_BASELINE_SQL, GET_LOCK_SQL, RELEASE_LOCK_SQL,
-    REQUIRED_MIGRATION_ENV, parsearArgumentos, validarOpcionesEjecucion,
+    CURRENT_ACCOUNT_SQL, PRIVILEGES_SQL, ENABLED_ROLES_SQL, REQUIRED_MIGRATION_ENV, parsearArgumentos,
+    validarBarrerasEjecucion, validarConfiguracionAdministrativa, validarOpcionesEjecucion,
     verificarRespaldo, construirPlanBaseline, compararRegistrosBaseline, validarEstadoPrevio,
     validarBootstrapSql, registrarBaselineTransaccional, verificarBaselineRegistrado,
-    ejecutarDryRun, ejecutarBaselineReal, ejecutarCli
+    verificarPrivilegiosAdministrativos, ejecutarDryRun, ejecutarExecutePreflight,
+    ejecutarBaselineReal, ejecutarCli
 };
 
 if (require.main === module) {
