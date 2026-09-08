@@ -14,6 +14,7 @@ const {
     crearSnapshotCompatible,
     crearTablaControlCompatible,
     analizarFilasControl,
+    componerContratosAplicados,
     compararSnapshotConDescriptor,
     ejecutarConPool,
     ejecutarCli
@@ -41,6 +42,36 @@ function filasBaseline() {
             tipo_registro: item.version === 0 ? 'EJECUTADA' : 'BASELINE',
             aplicada_en: new Date('2026-01-01T00:00:00Z')
         }));
+}
+
+function tablaDesdeContrato(contrato) {
+    const columnas = Object.fromEntries(contrato.columnas.map((columna, ordinal) => [columna.nombre, {
+        tipo: columna.tipo.toLowerCase(), unsigned: columna.unsigned, nullable: columna.nullable,
+        default: Object.hasOwn(columna, 'default') ? String(columna.default).toLowerCase() : null,
+        extra: String(columna.extra || '').toLowerCase(), ordinal: ordinal + 1
+    }]));
+    return {
+        engine: contrato.engine, charset: contrato.charset, collation: contrato.collation, columnas,
+        indices: [{ nombre: 'PRIMARY', unique: true, columnas: contrato.primaryKey }]
+            .concat(contrato.indicesUnicos.map((indice, i) => ({ nombre: `uq_contract_${i}`, unique: true, columnas: indice.columnas })))
+            .concat(contrato.indices.map((indice, i) => ({ nombre: `idx_contract_${i}`, unique: false, columnas: indice.columnas }))),
+        foreignKeys: clonar(contrato.foreignKeys), checks: contrato.checks.map((check) => check.fragmentos.join(' '))
+    };
+}
+
+function aplicarContrato(snapshot, version) {
+    const entrada = manifiesto.migraciones.find((item) => item.version === version);
+    const contrato = JSON.parse(fs.readFileSync(path.join(__dirname, '..', entrada.execution.postconditionContract), 'utf8'));
+    for (const [tabla, definicion] of Object.entries(contrato.tablas)) snapshot.tablas[tabla] = tablaDesdeContrato(definicion);
+    snapshot.controlRows.push(filaAplicada(version));
+    return snapshot;
+}
+
+function snapshotTras016() {
+    const snapshot = crearSnapshotCompatible(descriptor, { control: 'complete', controlRows: filasBaseline() });
+    aplicarContrato(snapshot, 15);
+    aplicarContrato(snapshot, 16);
+    return snapshot;
 }
 
 function poolSimulado({ fallaConexion = null } = {}) {
@@ -147,8 +178,9 @@ test('42 baseline válido con ACTIVE pendiente conserva BASELINE_V008_COMPLETE',
     assert.equal(resultado.fallidas, 0);
 });
 test('43 baseline válido con 015 aplicada produce MIGRATIONS_CURRENT', () => {
-    const filas = [...filasBaseline(), filaAplicada(15)];
-    const resultado = comparar(crearSnapshotCompatible(descriptor, { control: 'complete', controlRows: filas }));
+    const snapshot = crearSnapshotCompatible(descriptor, { control: 'complete', controlRows: filasBaseline() });
+    aplicarContrato(snapshot, 15);
+    const resultado = comparar(snapshot);
     assert.equal(resultado.estadoControl, 'BASELINE_V008_COMPLETE');
     assert.equal(resultado.clasificacion, 'BASELINE_V008_COMPLETE');
     assert.equal(resultado.fallidas, 0);
@@ -188,3 +220,27 @@ test('52 varias ACTIVE posteriores válidas son compatibles', () => {
     const filas = [...filasBaseline(), filaAplicada(15), filaAplicada(16, futuro), filaAplicada(17, futuro)];
     assert.equal(analizarFilasControl(futuro, filas).estado, 'MIGRATIONS_CURRENT');
 });
+test('53 baseline sin 016 mantiene prohibida generacion_id', () => {
+    const snapshot = crearSnapshotCompatible(descriptor, { control: 'complete', controlRows: filasBaseline() });
+    snapshot.tablas.grupos.columnas.generacion_id = { tipo: 'int unsigned', unsigned: true, nullable: true };
+    assert.equal(comparar(snapshot).clasificacion, 'SCHEMA_DRIFT_DETECTED');
+});
+test('54 baseline sin 016 mantiene prohibida periodo_academico_id', () => {
+    const snapshot = crearSnapshotCompatible(descriptor, { control: 'complete', controlRows: filasBaseline() });
+    snapshot.tablas.grupos.columnas.periodo_academico_id = { tipo: 'int unsigned', unsigned: true, nullable: true };
+    assert.equal(comparar(snapshot).clasificacion, 'SCHEMA_DRIFT_DETECTED');
+});
+test('55 contratos 015 y 016 aplicados componen un esquema valido', () => assert.equal(comparar(snapshotTras016()).clasificacion, 'MIGRATIONS_CURRENT'));
+for (const [numero, mutar] of [
+    [56, (s) => { delete s.tablas.grupos.columnas.generacion_id; }],
+    [57, (s) => { s.tablas.grupos.columnas.generacion_id.tipo = 'bigint unsigned'; }],
+    [58, (s) => { s.tablas.grupos.columnas.generacion_id.nullable = false; }],
+    [59, (s) => { s.tablas.grupos.indices = s.tablas.grupos.indices.filter((i) => i.columnas[0] !== 'generacion_id'); }],
+    [60, (s) => { s.tablas.grupos.foreignKeys = s.tablas.grupos.foreignKeys.filter((fk) => fk.columnas[0] !== 'generacion_id'); }],
+    [61, (s) => { s.tablas.grupos.foreignKeys.find((fk) => fk.columnas[0] === 'generacion_id').onDelete = 'CASCADE'; }],
+    [62, (s) => { s.tablas.grupos.foreignKeys.find((fk) => fk.columnas[0] === 'generacion_id').onUpdate = 'RESTRICT'; }]
+]) test(`${numero} deriva de postcondicion 016 es rechazada`, () => { const snapshot = snapshotTras016(); mutar(snapshot); assert.equal(comparar(snapshot).clasificacion, 'SCHEMA_DRIFT_DETECTED'); });
+test('63 fila 016 con checksum incorrecto es inconsistente', () => { const s = snapshotTras016(); s.controlRows.find((r) => r.version === 16).checksum_sha256 = '0'.repeat(64); assert.equal(comparar(s).clasificacion, 'SCHEMA_DRIFT_DETECTED'); });
+test('64 contrato con checksum incorrecto es inconsistente', () => { const m = clonar(manifiesto); m.migraciones.find((e) => e.version === 16).execution.postconditionChecksumSha256 = '0'.repeat(64); assert.equal(compararSnapshotConDescriptor(snapshotTras016(), descriptor, m).clasificacion, 'SCHEMA_DRIFT_DETECTED'); });
+test('65 ACTIVE pendiente no autoriza columnas', () => { const s = crearSnapshotCompatible(descriptor, { control: 'complete', controlRows: filasBaseline() }); s.tablas.grupos.columnas.generacion_id = { tipo: 'int unsigned', unsigned: true, nullable: true }; assert.equal(comparar(s).clasificacion, 'SCHEMA_DRIFT_DETECTED'); });
+test('66 contratos ACTIVE aplicados se componen en orden', () => assert.deepEqual(componerContratosAplicados(manifiesto, snapshotTras016().controlRows).contratos.map((item) => item.entrada.version), [15, 16]));

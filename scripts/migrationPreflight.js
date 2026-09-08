@@ -5,7 +5,8 @@ const path = require('path');
 const {
     PROJECT_ROOT,
     cargarManifiesto,
-    validarArchivosYChecksums
+    validarArchivosYChecksums,
+    calcularChecksumCanonico
 } = require('./migrationManifest');
 
 const DESCRIPTOR_PATH = path.join(PROJECT_ROOT, 'database', 'baselines', 'v008-schema.json');
@@ -408,6 +409,41 @@ function compararTabla(nombre, contrato, real, resultado) {
     });
 }
 
+function cargarContratoAplicado(entrada) {
+    if (!entrada.execution || typeof entrada.execution.postconditionContract !== 'string') {
+        throw crearError('Migracion ACTIVE sin contrato de postcondicion.', 'ACTIVE_CONTRACT_INVALID');
+    }
+    const ruta = path.resolve(PROJECT_ROOT, entrada.execution.postconditionContract);
+    const raiz = path.resolve(PROJECT_ROOT, 'database', 'migration-contracts');
+    if (!ruta.startsWith(`${raiz}${path.sep}`)
+        || calcularChecksumCanonico(ruta) !== entrada.execution.postconditionChecksumSha256) {
+        throw crearError('Contrato ACTIVE ausente o con checksum incompatible.', 'ACTIVE_CONTRACT_INVALID');
+    }
+    let contrato;
+    try { contrato = JSON.parse(fs.readFileSync(ruta, 'utf8')); } catch {
+        throw crearError('Contrato ACTIVE invalido.', 'ACTIVE_CONTRACT_INVALID');
+    }
+    if (Number(contrato.migracion) !== entrada.version || !contrato.tablas) {
+        throw crearError('Contrato ACTIVE asociado a otra version.', 'ACTIVE_CONTRACT_INVALID');
+    }
+    return contrato;
+}
+
+function componerContratosAplicados(manifiesto, filasControl) {
+    const analisis = analizarFilasControl(manifiesto, filasControl || []);
+    const contratos = analisis.aplicadasPosteriores.map((entrada) => ({ entrada, contrato: cargarContratoAplicado(entrada) }));
+    const tablasPermitidas = new Set();
+    const columnasPermitidas = new Map();
+    for (const { contrato } of contratos) {
+        for (const [tabla, definicion] of Object.entries(contrato.tablas)) {
+            tablasPermitidas.add(tabla);
+            if (!columnasPermitidas.has(tabla)) columnasPermitidas.set(tabla, new Set());
+            for (const columna of definicion.columnas || []) columnasPermitidas.get(tabla).add(columna.nombre);
+        }
+    }
+    return { analisis, contratos, tablasPermitidas, columnasPermitidas };
+}
+
 function evaluarControl(snapshot, manifiesto, resultado) {
     const tabla = snapshot.tablas.schema_migrations;
     if (!tabla) {
@@ -450,16 +486,32 @@ function compararSnapshotConDescriptor(snapshot, descriptor, manifiesto) {
     validarDescriptor(descriptor);
     const resultado = { reglas: [], estadoControl: null, clasificacion: null };
 
+    resultado.estadoControl = evaluarControl(snapshot, manifiesto, resultado);
+    let composicion = { contratos: [], tablasPermitidas: new Set(), columnasPermitidas: new Map() };
+    if (['BASELINE_V008_COMPLETE', 'MIGRATIONS_CURRENT'].includes(resultado.estadoControl)) {
+        try {
+            composicion = componerContratosAplicados(manifiesto, snapshot.controlRows);
+            for (const { entrada, contrato } of composicion.contratos) {
+                for (const [nombre, tabla] of Object.entries(contrato.tablas)) compararTabla(nombre, tabla, snapshot.tablas[nombre], resultado);
+                agregarRegla(resultado, `ACTIVE_CONTRACT_${entrada.identificador}`, 'control', true, 'Contrato ACTIVE aplicado y validado.');
+            }
+        } catch {
+            agregarRegla(resultado, 'ACTIVE_CONTRACT_INVALID', 'control', false, 'Contrato de migracion ACTIVE incompatible.');
+        }
+    }
+
     for (const [nombre, contrato] of Object.entries(descriptor.tablas)) {
         compararTabla(nombre, contrato, snapshot.tablas[nombre], resultado);
     }
     for (const tabla of descriptor.tablasProhibidas) {
-        agregarRegla(resultado, `FORBIDDEN_TABLE_${tabla.toUpperCase()}`, 'ausencia-009-014', !snapshot.tablas[tabla], 'Tabla prohibida ausente.');
+        const permitida = composicion.tablasPermitidas.has(tabla);
+        agregarRegla(resultado, `FORBIDDEN_TABLE_${tabla.toUpperCase()}`, 'ausencia-009-014', !snapshot.tablas[tabla] || permitida, 'Tabla prohibida ausente o autorizada por contrato ACTIVE.');
     }
     for (const [tabla, columnas] of Object.entries(descriptor.columnasProhibidas)) {
         for (const columna of columnas) {
             const existe = snapshot.tablas[tabla] && snapshot.tablas[tabla].columnas[columna];
-            agregarRegla(resultado, `FORBIDDEN_COLUMN_${tabla.toUpperCase()}_${columna.toUpperCase()}`, 'ausencia-009-014', !existe, 'Columna prohibida ausente.');
+            const permitida = composicion.columnasPermitidas.get(tabla)?.has(columna);
+            agregarRegla(resultado, `FORBIDDEN_COLUMN_${tabla.toUpperCase()}_${columna.toUpperCase()}`, 'ausencia-009-014', !existe || permitida, 'Columna prohibida ausente o autorizada por contrato ACTIVE.');
         }
     }
     for (const [tabla, esperadas] of Object.entries(descriptor.catalogosMinimos)) {
@@ -469,7 +521,6 @@ function compararSnapshotConDescriptor(snapshot, descriptor, manifiesto) {
             faltantes.length ? `Claves faltantes: ${faltantes.join(', ')}.` : 'Claves mínimas presentes.');
     }
 
-    resultado.estadoControl = evaluarControl(snapshot, manifiesto, resultado);
     const fallidas = resultado.reglas.filter((regla) => !regla.ok && regla.severidad !== 'ADVERTENCIA').length;
     resultado.clasificacion = fallidas === 0
         ? (['BASELINE_V008_COMPLETE', 'MIGRATIONS_CURRENT'].includes(resultado.estadoControl)
@@ -483,11 +534,7 @@ function compararSnapshotConDescriptor(snapshot, descriptor, manifiesto) {
 }
 
 function clasificarStatus(snapshot, descriptor, manifiesto) {
-    const prohibida = descriptor.tablasProhibidas.some((tabla) => snapshot.tablas[tabla])
-        || Object.entries(descriptor.columnasProhibidas).some(([tabla, columnas]) => columnas.some((columna) => snapshot.tablas[tabla] && snapshot.tablas[tabla].columnas[columna]));
-    if (prohibida) return 'SCHEMA_DRIFT_DETECTED';
-    const temporal = { reglas: [] };
-    return evaluarControl(snapshot, manifiesto, temporal);
+    return compararSnapshotConDescriptor(snapshot, descriptor, manifiesto).clasificacion;
 }
 
 async function consultarSnapshot(adaptador, descriptor) {
@@ -569,9 +616,13 @@ async function ejecutarCli(argumentos, salida = {}, dependencias = {}) {
                 : await consultarSnapshot(conexion, descriptor);
             if (comando === 'status') {
                 const estado = clasificarStatus(snapshot, descriptor, manifiesto);
-                const prohibidas = descriptor.tablasProhibidas.filter((tabla) => snapshot.tablas[tabla]).length;
+                let composicion = { tablasPermitidas: new Set(), columnasPermitidas: new Map() };
+                try { composicion = componerContratosAplicados(manifiesto, snapshot.controlRows); } catch { /* estado ya refleja la inconsistencia */ }
+                const prohibidas = descriptor.tablasProhibidas.filter((tabla) => snapshot.tablas[tabla] && !composicion.tablasPermitidas.has(tabla)).length;
                 const columnasProhibidas = Object.entries(descriptor.columnasProhibidas)
-                    .flatMap(([tabla, columnas]) => columnas.filter((columna) => snapshot.tablas[tabla] && snapshot.tablas[tabla].columnas[columna])).length;
+                    .flatMap(([tabla, columnas]) => columnas.filter((columna) => snapshot.tablas[tabla]
+                        && snapshot.tablas[tabla].columnas[columna]
+                        && !composicion.columnasPermitidas.get(tabla)?.has(columna))).length;
                 escribir(`Estado estructural: ${estado}`);
                 escribir(`Cantidad agregada de tablas del esquema: ${Object.keys(snapshot.tablas).length}`);
                 escribir(`Tablas prohibidas detectadas: ${prohibidas}`);
@@ -615,6 +666,8 @@ module.exports = {
     crearSnapshotCompatible,
     crearTablaControlCompatible,
     analizarFilasControl,
+    cargarContratoAplicado,
+    componerContratosAplicados,
     compararSnapshotConDescriptor,
     clasificarStatus,
     consultarSnapshot,
