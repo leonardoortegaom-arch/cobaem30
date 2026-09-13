@@ -24,7 +24,7 @@ CREATE TABLE asignaciones_orientador_grupo (
         CHECK (fecha_fin IS NULL OR fecha_fin >= fecha_inicio),
     CONSTRAINT fk_asignacion_orientador_grupo
         FOREIGN KEY (grupo_id) REFERENCES grupos (id)
-        ON UPDATE CASCADE ON DELETE RESTRICT,
+        ON UPDATE RESTRICT ON DELETE RESTRICT,
     CONSTRAINT fk_asignacion_orientador_usuario
         FOREIGN KEY (orientador_usuario_id) REFERENCES usuarios (id)
         ON UPDATE CASCADE ON DELETE RESTRICT,
@@ -57,7 +57,7 @@ CREATE TABLE asignaciones_tutor_grupo (
         CHECK (fecha_fin IS NULL OR fecha_fin >= fecha_inicio),
     CONSTRAINT fk_asignacion_tutor_grupo
         FOREIGN KEY (grupo_id) REFERENCES grupos (id)
-        ON UPDATE CASCADE ON DELETE RESTRICT,
+        ON UPDATE RESTRICT ON DELETE RESTRICT,
     CONSTRAINT fk_asignacion_tutor_usuario
         FOREIGN KEY (tutor_usuario_id) REFERENCES usuarios (id)
         ON UPDATE CASCADE ON DELETE RESTRICT,

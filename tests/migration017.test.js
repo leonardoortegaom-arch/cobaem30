@@ -43,7 +43,7 @@ test('20 FK de grupo existe en ambas', () => { for (const table of [orientador,t
 test('21 FK de orientador apunta a usuarios', () => assert.ok(orientador.foreignKeys.some((fk)=>fk.columnas[0]==='orientador_usuario_id'&&fk.tablaDestino==='usuarios')));
 test('22 FK de tutor apunta a usuarios', () => assert.ok(tutor.foreignKeys.some((fk)=>fk.columnas[0]==='tutor_usuario_id'&&fk.tablaDestino==='usuarios')));
 test('23 auditor de creación apunta a usuarios', () => { for (const table of [orientador,tutor]) assert.ok(table.foreignKeys.some((fk)=>fk.columnas[0]==='creado_por_usuario_id'&&fk.tablaDestino==='usuarios')); });
-test('24 todas las FK usan UPDATE CASCADE', () => { for (const table of [orientador,tutor]) assert.ok(table.foreignKeys.every((fk)=>fk.onUpdate==='CASCADE')); });
+test('24 FK de grupo usan UPDATE RESTRICT por columna generada', () => { for (const table of [orientador,tutor]) assert.equal(table.foreignKeys.find((fk)=>fk.columnas[0]==='grupo_id').onUpdate,'RESTRICT'); });
 test('25 todas las FK usan DELETE RESTRICT', () => { for (const table of [orientador,tutor]) assert.ok(table.foreignKeys.every((fk)=>fk.onDelete==='RESTRICT')); });
 test('26 no existe ON DELETE CASCADE', () => assert.doesNotMatch(sql,/ON\s+DELETE\s+CASCADE/i));
 test('27 CHECK de vigencia en ambas tablas', () => { for (const table of [orientador,tutor]) assert.ok(table.checks.some((c)=>normalized(c.fragmentos.join(' ')).includes('fecha_fin is null')&&normalized(c.fragmentos.join(' ')).includes('fecha_fin >= fecha_inicio'))); });
@@ -68,3 +68,6 @@ test('45 contrato preserva grupos usuarios y alumnos', () => assert.ok(['GROUPS_
 test('46 manifiesto conserva estados históricos', () => { assert.equal(manifest.migraciones.find((m)=>m.version===10).estado,'RESERVED_MISSING'); for(const v of [9,11,12,13,14]) assert.equal(manifest.migraciones.find((m)=>m.version===v).estado,'SUPERSEDED_NOT_APPLIED'); });
 test('47 015 a 017 ACTIVE y 018 a 021 PLANNED', () => { for(const v of [15,16,17]) assert.equal(manifest.migraciones.find((m)=>m.version===v).estado,'ACTIVE'); for(let v=18;v<=21;v+=1) assert.equal(manifest.migraciones.find((m)=>m.version===v).estado,'PLANNED'); });
 test('48 runner clasifica las dos operaciones declaradas', () => assert.deepEqual(statements.map(({operation,target})=>({operation,target})),entry.execution.statements));
+test('49 grupo_id alimenta la columna generada vigente', () => { for (const table of [orientador,tutor]) assert.match(column(table,'grupo_vigente_id').generationExpression,/then grupo_id/i); });
+test('50 FK de usuario conservan UPDATE CASCADE', () => { for (const table of [orientador,tutor]) assert.ok(table.foreignKeys.filter((fk)=>fk.columnas[0]!=='grupo_id').every((fk)=>fk.onUpdate==='CASCADE')); });
+test('51 SQL aplica RESTRICT a UPDATE de las FK de grupo', () => { assert.match(sql,/fk_asignacion_orientador_grupo[\s\S]*?ON UPDATE RESTRICT ON DELETE RESTRICT/i); assert.match(sql,/fk_asignacion_tutor_grupo[\s\S]*?ON UPDATE RESTRICT ON DELETE RESTRICT/i); });

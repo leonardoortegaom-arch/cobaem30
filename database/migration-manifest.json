@@ -190,7 +190,7 @@
       "identificador": "017",
       "estado": "ACTIVE",
       "archivo": "017_create_group_staff_assignments.sql",
-      "checksumSha256": "68af6747c6e2e848529b5962d64fa1de27fddd25b2f63774be59363fa2971417",
+      "checksumSha256": "4d4568c4ba978e5839408fd136d67ec529a8dcdeef91948bfb7fe17d355aee3f",
       "descripcion": "Crear historial de asignaciones de orientador y tutor.",
       "execution": {
         "dependsOn": [16],
@@ -210,7 +210,7 @@
           {"type":"TABLE_ABSENT","target":"asignaciones_tutor_grupo"}
         ],
         "postconditionContract": "database/migration-contracts/017_group_staff_assignments.json",
-        "postconditionChecksumSha256": "1ea66fd2619bced9ee2a1055bc43a8748aa202f442757ee5cc37b13ac7fb953c"
+        "postconditionChecksumSha256": "d8300dfee7367386d673d264c2b0e516cc5634fd29701d439fd49b6a297fb8a9"
       }
     },
     {

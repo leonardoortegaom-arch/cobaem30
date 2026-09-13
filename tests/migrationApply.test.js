@@ -163,7 +163,7 @@ async function simulatedExecution(failAt = 0, badPost = false, failRecord = fals
         calls.push({ sql, params });
         if (/GET_LOCK/.test(sql)) return [[{ lock_obtenido: 1 }]];
         if (/RELEASE_LOCK/.test(sql)) return [[{ lock_liberado: 1 }]];
-        if (/^CREATE TABLE/.test(sql)) { ddl += 1; if (ddl === failAt) throw new Error('ddl'); return [{ affectedRows: 0 }]; }
+        if (/^CREATE TABLE/.test(sql)) { ddl += 1; if (ddl === failAt) throw Object.assign(new Error('detalle interno y credencial secreta'), { code: 'ER_CANNOT_ADD_FOREIGN', sql }); return [{ affectedRows: 0 }]; }
         if (/^INSERT INTO schema_migrations/.test(sql)) { if (failRecord) throw new Error('record'); return [{ affectedRows: 1 }]; }
         return [[]];
     }, async beginTransaction() { calls.push({ sql: 'BEGIN' }); }, async commit() { calls.push({ sql: 'COMMIT' }); }, async rollback() { calls.push({ sql: 'ROLLBACK' }); }, release() { this.released = true; } };
@@ -174,6 +174,29 @@ async function simulatedExecution(failAt = 0, badPost = false, failRecord = fals
             snapshotAfter: async () => after, snapshotVerified: async () => appliedSnapshot(true), randomUUID: () => '00000000-0000-4000-8000-000000000001'
         }); return { result, calls, pool, c };
     } finally { fs.rmSync(b.dir, { recursive: true }); }
+}
+
+async function simulated017Failure(failAt) {
+    const backup = tempBackup(); let ddl = 0;
+    const connection = {
+        async execute(sql) {
+            if (/GET_LOCK/.test(sql)) return [[{ lock_obtenido: 1 }]];
+            if (/RELEASE_LOCK/.test(sql)) return [[{ lock_liberado: 1 }]];
+            if (/^CREATE TABLE/.test(sql)) {
+                ddl += 1;
+                if (ddl === failAt) throw Object.assign(new Error('detalle interno'), { code: 'ER_CANNOT_ADD_FOREIGN', sql });
+                return [{ affectedRows: 0 }];
+            }
+            return [[]];
+        },
+        release() {}
+    };
+    try {
+        return await apply.ejecutarAdministrativo(adminOptions('--execute', backup.file, backup.hash), true, { log() {} }, {
+            env: adminEnv(), pool: mockPool(connection), manifest: actualManifest,
+            snapshot: async () => actualSnapshotAfter016(), privileges: async () => ({ estado: 'PRESENT' })
+        });
+    } finally { fs.rmSync(backup.dir, { recursive: true }); }
 }
 
 test('29 ejecución simulada aplica tres sentencias individualmente', async () => { const r = await simulatedExecution(); assert.equal(r.calls.filter((x) => /^CREATE TABLE/.test(x.sql)).length, 3); });
@@ -209,4 +232,20 @@ test('47 manifiesto actual selecciona solo 017 con dos CREATE TABLE', () => {
         { operation: 'CREATE_TABLE', target: 'asignaciones_orientador_grupo' },
         { operation: 'CREATE_TABLE', target: 'asignaciones_tutor_grupo' }
     ]);
+});
+for (const ordinal of [1, 2]) test(`4${7 + ordinal} fallo DDL ${ordinal} se etiqueta con versión y ordinal`, async () => {
+    let error;
+    try { await simulated017Failure(ordinal); } catch (caught) { error = caught; }
+    assert.deepEqual({ stage: error.stage, code: error.code, version: error.version, statement: error.statement },
+        { stage: 'STATEMENT_APPLICATION', code: 'ER_CANNOT_ADD_FOREIGN', version: 17, statement: ordinal });
+});
+test('50 mensaje de sentencia es seguro y conserva código técnico', () => {
+    const error = Object.assign(new Error('SQL y credencial secreta'), { stage: 'STATEMENT_APPLICATION', code: 'ER_CANNOT_ADD_FOREIGN', version: 17, statement: 2, sql: 'CREATE TABLE secreto' });
+    const message = apply.mensajeSeguro(error);
+    assert.equal(message, 'MIGRATION_FAILED_STAGE=STATEMENT_APPLICATION CODE=ER_CANNOT_ADD_FOREIGN VERSION=17 STATEMENT=2');
+    assert.doesNotMatch(message, /CREATE TABLE|credencial|secreta|SQL/i);
+});
+test('51 código nativo inseguro se sustituye', () => {
+    const error = { stage: 'STATEMENT_APPLICATION', code: 'error con espacios', version: 17, statement: 1 };
+    assert.match(apply.mensajeSeguro(error), /CODE=TECHNICAL_ERROR/);
 });

@@ -232,7 +232,19 @@ async function ejecutarAdministrativo(opciones, execute, output = {}, deps = {})
         const batch = (deps.randomUUID || crypto.randomUUID)();
         for (const item of plan) {
             const start = Date.now();
-            for (const statement of item.statements) await connection.execute(statement.sql);
+            for (const [index, statement] of item.statements.entries()) {
+                try {
+                    await connection.execute(statement.sql);
+                } catch (cause) {
+                    const error = errorSeguro(
+                        /^[A-Z0-9_]+$/.test(cause?.code || '') ? cause.code : 'STATEMENT_EXECUTION_FAILED',
+                        'STATEMENT_APPLICATION'
+                    );
+                    error.version = item.entrada.version;
+                    error.statement = index + 1;
+                    throw error;
+                }
+            }
             log('MIGRATION_STATEMENTS_APPLIED');
             const after = deps.snapshotAfter ? await deps.snapshotAfter(connection, item) : await obtenerEstado(connection);
             validarPostcondicion(after, item.contrato); log('MIGRATION_POSTCONDITION_VALID');
@@ -252,7 +264,13 @@ async function ejecutarAdministrativo(opciones, execute, output = {}, deps = {})
     }, true);
 }
 
-function mensajeSeguro(error) { return `MIGRATION_FAILED_STAGE=${/^[A-Z_]+$/.test(error?.stage || '') ? error.stage : 'UNKNOWN'} CODE=${/^[A-Z0-9_]+$/.test(error?.code || '') ? error.code : 'TECHNICAL_ERROR'}`; }
+function mensajeSeguro(error) {
+    let mensaje = `MIGRATION_FAILED_STAGE=${/^[A-Z_]+$/.test(error?.stage || '') ? error.stage : 'UNKNOWN'} CODE=${/^[A-Z0-9_]+$/.test(error?.code || '') ? error.code : 'TECHNICAL_ERROR'}`;
+    if (error?.stage === 'STATEMENT_APPLICATION' && Number.isInteger(error.version) && Number.isInteger(error.statement)) {
+        mensaje += ` VERSION=${error.version} STATEMENT=${error.statement}`;
+    }
+    return mensaje;
+}
 async function ejecutarCli(args, output = {}, deps = {}) {
     const log = output.log || console.log; const err = output.error || console.error;
     try {
@@ -265,6 +283,6 @@ async function ejecutarCli(args, output = {}, deps = {}) {
 
 module.exports = { LOCK_NAME, GET_LOCK_SQL, RELEASE_LOCK_SQL, INSERT_SQL, parsearArgumentos, validarBarreras,
     separarSentenciasSql, clasificarSentenciaDeclarada, validarSqlMigracion, cargarContrato, validarRegistrosAplicados, validarPrecondiciones,
-    validarPostcondicion, construirPlan, ejecutarDryRun, ejecutarAdministrativo, ejecutarCli };
+    validarPostcondicion, construirPlan, ejecutarDryRun, ejecutarAdministrativo, mensajeSeguro, ejecutarCli };
 
 if (require.main === module) ejecutarCli(process.argv.slice(2)).then((code) => { process.exitCode = code; });
