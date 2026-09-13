@@ -7,131 +7,112 @@
 <div class="dashboard-layout">
   <%- include('../partials/sidebar', { menuItems }) %>
 
-  <main class="dashboard-main orientation-workspace">
-    <header class="orientation-workspace-header">
-      <div class="orientation-workspace-heading">
-        <span class="orientation-workspace-eyebrow">Panel principal</span>
-        <h1>Centro de orientación</h1>
-        <p class="orientation-workspace-welcome">Bienvenido, <%= usuario.nombre %>.</p>
-        <div class="orientation-workspace-context">
-          <time><%= fechaActualLegible %></time>
-          <span aria-hidden="true">·</span>
-          <% if (metricas.actividadesVencidas === 0) { %>
-            <strong class="orientation-workspace-situation is-clear"><i class="fa-solid fa-circle-check" aria-hidden="true"></i>No tienes actividades vencidas.</strong>
-          <% } else { %>
-            <strong class="orientation-workspace-situation is-alert"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>Tienes <%= metricas.actividadesVencidas %> actividades vencidas que requieren atención.</strong>
-          <% } %>
-          <span>Tienes <%= metricas.actividadesAbiertas %> <%= metricas.actividadesAbiertas === 1 ? 'actividad abierta' : 'actividades abiertas' %>.</span>
-        </div>
-      </div>
-
-      <div class="orientation-workspace-identity" aria-label="Usuario autenticado">
-        <div class="orientation-workspace-avatar" aria-hidden="true"><%= usuario.inicial %></div>
-        <div>
-          <strong><%= usuario.nombre %></strong>
-          <span><%= usuario.correo %></span>
-        </div>
-      </div>
-    </header>
-
-    <section class="orientation-workspace-metrics" aria-label="Resumen de orientación">
-      <article class="orientation-workspace-metric is-students">
+  <main class="dashboard-main orientation-dashboard">
+    <section class="dashboard-stats orientation-dashboard-stats" aria-label="Resumen de orientación">
+      <article class="dashboard-card orientation-dashboard-metric">
         <i class="fa-solid fa-user-graduate" aria-hidden="true"></i>
-        <div><strong><%= metricas.totalAlumnosActivos %></strong><span>Alumnos activos</span></div>
+        <div><h3><%= metricas.totalAlumnosActivos %></h3><p>Alumnos activos</p></div>
       </article>
-      <article class="orientation-workspace-metric is-tracking">
+      <article class="dashboard-card orientation-dashboard-metric">
         <i class="fa-solid fa-clipboard-list" aria-hidden="true"></i>
-        <div><strong><%= metricas.seguimientosMes %></strong><span>Seguimientos del mes</span></div>
+        <div><h3><%= metricas.seguimientosMes %></h3><p>Seguimientos del mes</p></div>
       </article>
-      <article class="orientation-workspace-metric is-open">
+      <article class="dashboard-card orientation-dashboard-metric">
         <i class="fa-solid fa-list-check" aria-hidden="true"></i>
-        <div><strong><%= metricas.actividadesAbiertas %></strong><span>Actividades abiertas</span></div>
+        <div><h3><%= metricas.actividadesAbiertas %></h3><p>Actividades abiertas</p></div>
       </article>
-      <article class="orientation-workspace-metric is-overdue <%= metricas.actividadesVencidas > 0 ? 'is-warning' : 'is-clear' %>">
+      <article class="dashboard-card orientation-dashboard-metric">
         <i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i>
-        <div><strong><%= metricas.actividadesVencidas %></strong><span>Actividades vencidas</span></div>
+        <div>
+          <h3><%= metricas.actividadesVencidas %></h3>
+          <p>Actividades vencidas</p>
+          <span class="orientation-dashboard-status <%= metricas.actividadesVencidas > 0 ? 'is-alert' : 'is-clear' %>">
+            <%= metricas.actividadesVencidas > 0 ? 'Requieren atención' : 'Sin vencidas' %>
+          </span>
+        </div>
       </article>
     </section>
 
-    <div class="orientation-workspace-grid">
-      <section class="orientation-workspace-panel orientation-workspace-priorities" aria-labelledby="prioridades-titulo">
-        <div class="orientation-workspace-panel-header">
-          <div>
-            <div class="orientation-workspace-title-line"><h2 id="prioridades-titulo">Prioridades de atención</h2><span><%= actividades.length %> <%= actividades.length === 1 ? 'por atender' : 'por atender' %></span></div>
-            <p>Actividades pendientes o en proceso que requieren seguimiento.</p>
+    <section class="dashboard-grid orientation-dashboard-grid">
+      <div class="orientation-dashboard-main-column">
+        <section class="panel-card" aria-labelledby="prioridades-titulo">
+          <div class="panel-header orientation-dashboard-panel-header">
+            <div>
+              <h2 id="prioridades-titulo">Prioridades de atención</h2>
+              <p>Actividades pendientes o vencidas que requieren seguimiento.</p>
+            </div>
+            <a href="/orientador/seguimientos">Ver todas <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
           </div>
-          <a href="/orientador/seguimientos">Ver todas <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
-        </div>
 
-        <% if (actividades.length === 0) { %>
-          <div class="orientation-workspace-empty">
-            <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
-            <div><strong>No tienes actividades pendientes por atender.</strong><a href="/orientador/seguimientos">Ir al seguimiento general</a></div>
-          </div>
-        <% } else { %>
-          <div class="orientation-workspace-activity-list">
-            <% actividades.forEach((actividad) => { %>
-              <article class="orientation-workspace-activity <%= actividad.vencida ? 'is-overdue' : '' %>">
-                <div class="orientation-workspace-activity-main">
-                  <h3><%= actividad.titulo %></h3>
-                  <p><%= actividad.alumno_nombre %> · <%= actividad.matricula %> · Grupo <%= actividad.grupo_clave %></p>
-                </div>
-                <div class="orientation-workspace-activity-status">
-                  <span class="orientation-workspace-badge <%= actividad.estado_clave === 'EN_PROCESO' ? 'is-progress' : 'is-pending' %>"><%= actividad.estado_nombre %></span>
-                  <% if (actividad.vencida) { %><span class="orientation-workspace-overdue">Vencida</span><% } %>
-                  <span class="orientation-workspace-date"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Asignada: <%= new Date(actividad.fecha_asignacion).toLocaleDateString('es-MX', { timeZone: 'UTC' }) %></span>
-                </div>
-                <div class="orientation-workspace-activity-actions">
-                  <a href="/orientador/alumnos/<%= actividad.alumno_usuario_id %>/actividades/<%= actividad.actividad_id %>/estado" class="orientation-workspace-action-primary">Actualizar estado</a>
-                  <a href="/orientador/alumnos/<%= actividad.alumno_usuario_id %>" class="orientation-workspace-action-secondary">Ver alumno</a>
-                </div>
-              </article>
-            <% }); %>
-          </div>
-        <% } %>
-      </section>
-
-      <div class="orientation-workspace-side">
-        <section class="orientation-workspace-panel" aria-labelledby="acciones-rapidas-titulo">
-          <div class="orientation-workspace-panel-header is-compact">
-            <div><h2 id="acciones-rapidas-titulo">Acciones rápidas</h2><p>Continúa con una tarea frecuente.</p></div>
-          </div>
-          <nav class="orientation-workspace-quick-grid" aria-label="Acciones rápidas de orientación">
-            <a href="/orientador/alumnos" class="orientation-workspace-quick-link"><i class="fa-solid fa-user-graduate" aria-hidden="true"></i><span><strong>Buscar alumnos</strong><small>Consulta expedientes y selecciona un alumno.</small></span><i class="fa-solid fa-chevron-right orientation-workspace-chevron" aria-hidden="true"></i></a>
-            <a href="/orientador/seguimientos" class="orientation-workspace-quick-link"><i class="fa-solid fa-list-check" aria-hidden="true"></i><span><strong>Revisar pendientes</strong><small>Consulta actividades y seguimiento general.</small></span><i class="fa-solid fa-chevron-right orientation-workspace-chevron" aria-hidden="true"></i></a>
-            <a href="/orientador/reportes" class="orientation-workspace-quick-link"><i class="fa-solid fa-file-lines" aria-hidden="true"></i><span><strong>Preparar reporte</strong><small>Genera una vista previa por alumno y periodo.</small></span><i class="fa-solid fa-chevron-right orientation-workspace-chevron" aria-hidden="true"></i></a>
-            <a href="/orientador/historial" class="orientation-workspace-quick-link"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i><span><strong>Consultar historial</strong><small>Revisa observaciones y actividades anteriores.</small></span><i class="fa-solid fa-chevron-right orientation-workspace-chevron" aria-hidden="true"></i></a>
-          </nav>
+          <% if (actividades.length === 0) { %>
+            <div class="orientation-dashboard-empty">
+              <i class="fa-solid fa-circle-check" aria-hidden="true"></i>
+              <div><strong>No tienes actividades pendientes por atender.</strong><a href="/orientador/seguimientos">Ir al seguimiento general</a></div>
+            </div>
+          <% } else { %>
+            <div class="orientation-dashboard-priority-list">
+              <% actividades.forEach((actividad) => { %>
+                <article class="orientation-dashboard-priority-row">
+                  <div class="orientation-dashboard-priority-main">
+                    <h3><%= actividad.titulo %></h3>
+                    <p><%= actividad.alumno_nombre %> · <%= actividad.matricula %> · Grupo <%= actividad.grupo_clave %></p>
+                  </div>
+                  <div class="orientation-dashboard-priority-meta">
+                    <span class="badge-custom <%= actividad.vencida ? 'danger' : actividad.estado_clave === 'EN_PROCESO' ? 'success' : 'warning' %>"><%= actividad.estado_nombre %></span>
+                    <% if (actividad.vencida) { %><span class="orientation-dashboard-overdue">Vencida</span><% } %>
+                    <time><i class="fa-regular fa-calendar" aria-hidden="true"></i> <%= new Date(actividad.fecha_asignacion).toLocaleDateString('es-MX', { timeZone: 'UTC' }) %></time>
+                  </div>
+                  <div class="orientation-dashboard-row-actions">
+                    <a class="orientation-dashboard-primary-action" href="/orientador/alumnos/<%= actividad.alumno_usuario_id %>/actividades/<%= actividad.actividad_id %>/estado">Actualizar estado</a>
+                    <a class="orientation-dashboard-secondary-action" href="/orientador/alumnos/<%= actividad.alumno_usuario_id %>">Ver alumno</a>
+                  </div>
+                </article>
+              <% }); %>
+            </div>
+          <% } %>
         </section>
 
-        <section class="orientation-workspace-panel" aria-labelledby="seguimientos-recientes-titulo">
-          <div class="orientation-workspace-panel-header is-compact">
-            <div><h2 id="seguimientos-recientes-titulo">Seguimientos recientes</h2></div>
+        <section class="panel-card" aria-labelledby="seguimientos-recientes-titulo">
+          <div class="panel-header orientation-dashboard-panel-header">
+            <h2 id="seguimientos-recientes-titulo">Seguimientos recientes</h2>
             <a href="/orientador/historial">Ver historial <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
           </div>
 
           <% if (seguimientos.length === 0) { %>
-            <div class="orientation-workspace-empty is-small">
+            <div class="orientation-dashboard-empty">
               <i class="fa-solid fa-clipboard-check" aria-hidden="true"></i>
               <div><strong>Todavía no has registrado seguimientos.</strong><a href="/orientador/alumnos">Seleccionar un alumno</a></div>
             </div>
           <% } else { %>
-            <div class="orientation-workspace-tracking-list <%= seguimientos.length > 1 ? 'has-timeline' : '' %>">
+            <div class="orientation-dashboard-tracking-list">
               <% seguimientos.forEach((seguimiento) => { %>
-                <a href="/orientador/alumnos/<%= seguimiento.alumno_usuario_id %>/seguimientos" class="orientation-workspace-tracking-item">
-                  <span class="orientation-workspace-timeline-marker" aria-hidden="true"></span>
-                  <span class="orientation-workspace-badge is-tracking"><%= seguimiento.tipo_nombre %></span>
-                  <strong><%= seguimiento.titulo %></strong>
-                  <span><%= seguimiento.alumno_nombre %> · <%= seguimiento.matricula %></span>
+                <a href="/orientador/alumnos/<%= seguimiento.alumno_usuario_id %>/seguimientos" class="orientation-dashboard-tracking-row">
+                  <span class="orientation-dashboard-tracking-icon"><i class="fa-solid fa-clipboard-check" aria-hidden="true"></i></span>
+                  <span>
+                    <strong><%= seguimiento.titulo %></strong>
+                    <small><%= seguimiento.tipo_nombre %> · <%= seguimiento.alumno_nombre %> · <%= seguimiento.matricula %></small>
+                  </span>
                   <time><%= new Date(seguimiento.fecha_seguimiento).toLocaleDateString('es-MX', { timeZone: 'UTC' }) %></time>
-                  <i class="fa-solid fa-chevron-right orientation-workspace-tracking-chevron" aria-hidden="true"></i>
+                  <i class="fa-solid fa-chevron-right" aria-hidden="true"></i>
                 </a>
               <% }); %>
             </div>
           <% } %>
         </section>
       </div>
-    </div>
+
+      <aside class="panel-card orientation-dashboard-quick-panel" aria-labelledby="acciones-rapidas-titulo">
+        <div class="panel-header orientation-dashboard-panel-header">
+          <div><h2 id="acciones-rapidas-titulo">Acciones rápidas</h2><p>Continúa con una tarea frecuente.</p></div>
+        </div>
+        <nav class="quick-actions orientation-dashboard-quick-actions" aria-label="Acciones rápidas de orientación">
+          <a href="/orientador/alumnos"><i class="fa-solid fa-user-graduate" aria-hidden="true"></i><span><strong>Buscar alumnos</strong><small>Consulta expedientes.</small></span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a>
+          <a href="/orientador/seguimientos"><i class="fa-solid fa-list-check" aria-hidden="true"></i><span><strong>Revisar pendientes</strong><small>Consulta actividades abiertas.</small></span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a>
+          <a href="/orientador/reportes"><i class="fa-solid fa-file-lines" aria-hidden="true"></i><span><strong>Preparar reporte</strong><small>Trabaja con reportes de orientación.</small></span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a>
+          <a href="/orientador/historial"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i><span><strong>Consultar historial</strong><small>Revisa registros anteriores.</small></span><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></a>
+        </nav>
+      </aside>
+    </section>
   </main>
 </div>
 </body>
