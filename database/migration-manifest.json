@@ -188,11 +188,30 @@
     {
       "version": 17,
       "identificador": "017",
-      "estado": "PLANNED",
-      "archivo": null,
-      "checksumSha256": null,
+      "estado": "ACTIVE",
+      "archivo": "017_create_group_staff_assignments.sql",
+      "checksumSha256": "68af6747c6e2e848529b5962d64fa1de27fddd25b2f63774be59363fa2971417",
       "descripcion": "Crear historial de asignaciones de orientador y tutor.",
-      "razonEstado": "Contrato aprobado; SQL aún no creado."
+      "execution": {
+        "dependsOn": [16],
+        "statementCount": 2,
+        "statements": [
+          {"operation":"CREATE_TABLE","target":"asignaciones_orientador_grupo"},
+          {"operation":"CREATE_TABLE","target":"asignaciones_tutor_grupo"}
+        ],
+        "preconditions": [
+          {"type":"MIGRATION_APPLIED","version":15},
+          {"type":"MIGRATION_APPLIED","version":16},
+          {"type":"TABLE_PRESENT","target":"usuarios"},
+          {"type":"TABLE_PRESENT","target":"grupos"},
+          {"type":"COLUMN_MATCH","table":"usuarios","target":"id","columnType":"bigint unsigned","nullable":false},
+          {"type":"COLUMN_MATCH","table":"grupos","target":"id","columnType":"int unsigned","nullable":false},
+          {"type":"TABLE_ABSENT","target":"asignaciones_orientador_grupo"},
+          {"type":"TABLE_ABSENT","target":"asignaciones_tutor_grupo"}
+        ],
+        "postconditionContract": "database/migration-contracts/017_group_staff_assignments.json",
+        "postconditionChecksumSha256": "1ea66fd2619bced9ee2a1055bc43a8748aa202f442757ee5cc37b13ac7fb953c"
+      }
     },
     {
       "version": 18,

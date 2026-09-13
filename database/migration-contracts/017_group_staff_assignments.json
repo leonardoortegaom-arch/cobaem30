@@ -1,0 +1,75 @@
+{
+  "versionContrato": 1,
+  "migracion": 17,
+  "identificador": "017",
+  "algoritmoChecksum": "sha256-utf8-lf-v1",
+  "tablas": {
+    "asignaciones_orientador_grupo": {
+      "engine": "innodb",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_0900_ai_ci",
+      "columnas": [
+        {"nombre":"id","tipo":"bigint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"grupo_id","tipo":"int unsigned","unsigned":true,"nullable":false},
+        {"nombre":"orientador_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"fecha_inicio","tipo":"date","unsigned":false,"nullable":false},
+        {"nombre":"fecha_fin","tipo":"date","unsigned":false,"nullable":true},
+        {"nombre":"grupo_vigente_id","tipo":"int unsigned","unsigned":true,"nullable":true,"extra":"stored generated","generationExpression":"case when fecha_fin is null then grupo_id else null end"},
+        {"nombre":"creado_por_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"},
+        {"nombre":"actualizado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP","extra":"on update CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey": ["id"],
+      "indicesUnicos": [{"columnas":["grupo_vigente_id"]}],
+      "indices": [
+        {"columnas":["grupo_id","fecha_inicio","fecha_fin"]},
+        {"columnas":["orientador_usuario_id","fecha_inicio","fecha_fin","grupo_id"]},
+        {"columnas":["creado_por_usuario_id"]}
+      ],
+      "foreignKeys": [
+        {"columnas":["grupo_id"],"tablaDestino":"grupos","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"},
+        {"columnas":["orientador_usuario_id"],"tablaDestino":"usuarios","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"},
+        {"columnas":["creado_por_usuario_id"],"tablaDestino":"usuarios","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"}
+      ],
+      "checks": [{"fragmentos":["fecha_fin is null","or","fecha_fin >= fecha_inicio"]}]
+    },
+    "asignaciones_tutor_grupo": {
+      "engine": "innodb",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_0900_ai_ci",
+      "columnas": [
+        {"nombre":"id","tipo":"bigint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"grupo_id","tipo":"int unsigned","unsigned":true,"nullable":false},
+        {"nombre":"tutor_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"fecha_inicio","tipo":"date","unsigned":false,"nullable":false},
+        {"nombre":"fecha_fin","tipo":"date","unsigned":false,"nullable":true},
+        {"nombre":"grupo_vigente_id","tipo":"int unsigned","unsigned":true,"nullable":true,"extra":"stored generated","generationExpression":"case when fecha_fin is null then grupo_id else null end"},
+        {"nombre":"creado_por_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"},
+        {"nombre":"actualizado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP","extra":"on update CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey": ["id"],
+      "indicesUnicos": [{"columnas":["grupo_vigente_id"]}],
+      "indices": [
+        {"columnas":["grupo_id","fecha_inicio","fecha_fin"]},
+        {"columnas":["tutor_usuario_id","fecha_inicio","fecha_fin","grupo_id"]},
+        {"columnas":["creado_por_usuario_id"]}
+      ],
+      "foreignKeys": [
+        {"columnas":["grupo_id"],"tablaDestino":"grupos","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"},
+        {"columnas":["tutor_usuario_id"],"tablaDestino":"usuarios","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"},
+        {"columnas":["creado_por_usuario_id"],"tablaDestino":"usuarios","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"}
+      ],
+      "checks": [{"fragmentos":["fecha_fin is null","or","fecha_fin >= fecha_inicio"]}]
+    }
+  },
+  "columnasProhibidas": {
+    "grupos": ["orientador_id", "docente_id", "tutor_id"]
+  },
+  "invariantesDatos": [
+    "NEW_TABLES_EMPTY",
+    "GROUPS_UNCHANGED",
+    "USERS_UNCHANGED",
+    "STUDENTS_UNCHANGED"
+  ]
+}

@@ -76,4 +76,4 @@ test('41 no existe ON DELETE CASCADE',()=>assert.doesNotMatch(clean,/on\s+delete
 test('42 no hay indice FK redundante',()=>assert.doesNotMatch(lower,/key\s+idx_[^(]+\(\s*ciclo_escolar_id\s*\)/));
 test('43 SQL solo contiene CREATE TABLE',()=>assert.ok(statements.every(x=>/^create\s+table/i.test(x))));
 test('44 000-014 conservan checksums',()=>{for(const [version,checksum] of Object.entries(expectedOldChecksums)){assert.equal(manifest.migraciones.find(x=>x.version===Number(version)).checksumSha256,checksum)}});
-test('45 016 ACTIVE y 017-021 siguen PLANNED',()=>{assert.equal(manifest.migraciones.find(x=>x.version===16).estado,'ACTIVE');assert.ok(manifest.migraciones.filter(x=>x.version>=17&&x.version<=21).every(x=>x.estado==='PLANNED'&&x.archivo===null&&x.checksumSha256===null))});
+test('45 016 y 017 ACTIVE; 018-021 siguen PLANNED',()=>{assert.ok([16,17].every(v=>manifest.migraciones.find(x=>x.version===v).estado==='ACTIVE'));assert.ok(manifest.migraciones.filter(x=>x.version>=18&&x.version<=21).every(x=>x.estado==='PLANNED'&&x.archivo===null&&x.checksumSha256===null))});

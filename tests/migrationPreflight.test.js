@@ -10,6 +10,7 @@ const {
     cargarDescriptor,
     validarDescriptor,
     normalizarClausula,
+    normalizarExpresionGenerada,
     validarSqlLectura,
     crearSnapshotCompatible,
     crearTablaControlCompatible,
@@ -48,7 +49,8 @@ function tablaDesdeContrato(contrato) {
     const columnas = Object.fromEntries(contrato.columnas.map((columna, ordinal) => [columna.nombre, {
         tipo: columna.tipo.toLowerCase(), unsigned: columna.unsigned, nullable: columna.nullable,
         default: Object.hasOwn(columna, 'default') ? String(columna.default).toLowerCase() : null,
-        extra: String(columna.extra || '').toLowerCase(), ordinal: ordinal + 1
+        extra: String(columna.extra || '').toLowerCase(),
+        generationExpression: normalizarExpresionGenerada(columna.generationExpression), ordinal: ordinal + 1
     }]));
     return {
         engine: contrato.engine, charset: contrato.charset, collation: contrato.collation, columnas,
@@ -196,7 +198,7 @@ test('45 estado almacenado incorrecto de 015 se rechaza', () => {
 test('46 versión desconocida registrada se rechaza', () => {
     assert.throws(() => analizarFilasControl(manifiesto, [...filasBaseline(), { ...filaAplicada(15), version: 999 }]), (e) => e.code === 'UNKNOWN_APPLIED_VERSION');
 });
-for (const [numero, version, estado] of [[47,17,'PLANNED'],[48,9,'SUPERSEDED_NOT_APPLIED'],[49,10,'RESERVED_MISSING']]) {
+for (const [numero, version, estado] of [[47,18,'PLANNED'],[48,9,'SUPERSEDED_NOT_APPLIED'],[49,10,'RESERVED_MISSING']]) {
     test(`${numero} registro ${estado} se rechaza`, () => {
         const entrada = manifiesto.migraciones.find((item) => item.version === version);
         const fila = { version, archivo: entrada.archivo, checksum_sha256: entrada.checksumSha256, tipo_registro: 'EJECUTADA' };
@@ -230,7 +232,7 @@ test('54 baseline sin 016 mantiene prohibida periodo_academico_id', () => {
     snapshot.tablas.grupos.columnas.periodo_academico_id = { tipo: 'int unsigned', unsigned: true, nullable: true };
     assert.equal(comparar(snapshot).clasificacion, 'SCHEMA_DRIFT_DETECTED');
 });
-test('55 contratos 015 y 016 aplicados componen un esquema valido', () => assert.equal(comparar(snapshotTras016()).clasificacion, 'MIGRATIONS_CURRENT'));
+test('55 contratos 015 y 016 aplicados componen un esquema valido con 017 pendiente', () => assert.equal(comparar(snapshotTras016()).clasificacion, 'BASELINE_V008_COMPLETE'));
 for (const [numero, mutar] of [
     [56, (s) => { delete s.tablas.grupos.columnas.generacion_id; }],
     [57, (s) => { s.tablas.grupos.columnas.generacion_id.tipo = 'bigint unsigned'; }],
@@ -244,3 +246,12 @@ test('63 fila 016 con checksum incorrecto es inconsistente', () => { const s = s
 test('64 contrato con checksum incorrecto es inconsistente', () => { const m = clonar(manifiesto); m.migraciones.find((e) => e.version === 16).execution.postconditionChecksumSha256 = '0'.repeat(64); assert.equal(compararSnapshotConDescriptor(snapshotTras016(), descriptor, m).clasificacion, 'SCHEMA_DRIFT_DETECTED'); });
 test('65 ACTIVE pendiente no autoriza columnas', () => { const s = crearSnapshotCompatible(descriptor, { control: 'complete', controlRows: filasBaseline() }); s.tablas.grupos.columnas.generacion_id = { tipo: 'int unsigned', unsigned: true, nullable: true }; assert.equal(comparar(s).clasificacion, 'SCHEMA_DRIFT_DETECTED'); });
 test('66 contratos ACTIVE aplicados se componen en orden', () => assert.deepEqual(componerContratosAplicados(manifiesto, snapshotTras016().controlRows).contratos.map((item) => item.entrada.version), [15, 16]));
+test('67 contrato 017 aplicado compone columnas generadas', () => {
+    const snapshot = snapshotTras016(); aplicarContrato(snapshot, 17);
+    assert.equal(comparar(snapshot).clasificacion, 'MIGRATIONS_CURRENT');
+});
+test('68 expresión generada distinta en 017 produce deriva', () => {
+    const snapshot = snapshotTras016(); aplicarContrato(snapshot, 17);
+    snapshot.tablas.asignaciones_orientador_grupo.columnas.grupo_vigente_id.generationExpression = 'grupo_id';
+    assert.equal(comparar(snapshot).clasificacion, 'SCHEMA_DRIFT_DETECTED');
+});

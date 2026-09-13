@@ -17,7 +17,7 @@ const QUERIES = Object.freeze({
         FROM information_schema.TABLES
         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_TYPE = 'BASE TABLE'`,
     columns: `SELECT TABLE_NAME, COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE,
-            COLUMN_DEFAULT, EXTRA, COLLATION_NAME, ORDINAL_POSITION
+            COLUMN_DEFAULT, EXTRA, GENERATION_EXPRESSION, COLLATION_NAME, ORDINAL_POSITION
         FROM information_schema.COLUMNS
         WHERE TABLE_SCHEMA = DATABASE()`,
     indexes: `SELECT TABLE_NAME, INDEX_NAME, NON_UNIQUE, SEQ_IN_INDEX,
@@ -148,6 +148,15 @@ function normalizarClausula(valor) {
         .trim();
 }
 
+function normalizarExpresionGenerada(valor) {
+    let expresion = normalizarClausula(valor)
+        .replace(/\(\s*([a-z_][a-z0-9_]*\s+is\s+null)\s*\)/g, '$1');
+    while (expresion.startsWith('(') && expresion.endsWith(')')) {
+        expresion = expresion.slice(1, -1).trim();
+    }
+    return expresion;
+}
+
 function agruparIndices(filas) {
     const grupos = new Map();
     for (const fila of filas) {
@@ -232,6 +241,7 @@ function construirSnapshotDesdeFilas(datos) {
             nullable: String(campo(fila, 'IS_NULLABLE')).toUpperCase() === 'YES',
             default: normalizarDefault(campo(fila, 'COLUMN_DEFAULT')),
             extra: String(campo(fila, 'EXTRA') || '').toLowerCase(),
+            generationExpression: normalizarExpresionGenerada(campo(fila, 'GENERATION_EXPRESSION')),
             ordinal: Number(campo(fila, 'ORDINAL_POSITION'))
         };
     }
@@ -252,7 +262,8 @@ function crearSnapshotCompatible(descriptor, opciones = {}) {
                 tipo: normalizarTipo(columna.tipo), unsigned: columna.unsigned,
                 nullable: columna.nullable,
                 default: Object.prototype.hasOwnProperty.call(columna, 'default') ? normalizarDefault(columna.default) : null,
-                extra: String(columna.extra || '').toLowerCase(), ordinal: indice + 1
+                extra: String(columna.extra || '').toLowerCase(),
+                generationExpression: normalizarExpresionGenerada(columna.generationExpression), ordinal: indice + 1
             };
         });
         const indices = [{ nombre: 'PRIMARY', unique: true, columnas: contrato.primaryKey }]
@@ -384,6 +395,10 @@ function compararTabla(nombre, contrato, real, resultado) {
         if (columna.extra) {
             const fragmentos = columna.extra.toLowerCase().split(/\s+/).filter(Boolean);
             agregarRegla(resultado, `EXTRA_${prefijo}_${columna.nombre.toUpperCase()}`, 'estructura', fragmentos.every((item) => actual.extra.includes(item)), 'Atributos adicionales.');
+        }
+        if (columna.generationExpression) {
+            agregarRegla(resultado, `GENERATION_${prefijo}_${columna.nombre.toUpperCase()}`, 'integridad',
+                normalizarExpresionGenerada(actual.generationExpression) === normalizarExpresionGenerada(columna.generationExpression), 'Expresión de columna generada.');
         }
     }
 
@@ -660,6 +675,7 @@ module.exports = {
     cargarDescriptor,
     validarDescriptor,
     normalizarClausula,
+    normalizarExpresionGenerada,
     validarSqlLectura,
     ejecutarConsultaLectura,
     construirSnapshotDesdeFilas,

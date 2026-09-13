@@ -19,6 +19,12 @@ legacy016.archivo = null;
 legacy016.checksumSha256 = null;
 legacy016.razonEstado = 'Fixture previa a 016.';
 delete legacy016.execution;
+const legacy017 = manifest.migraciones.find((item) => item.version === 17);
+legacy017.estado = 'PLANNED';
+legacy017.archivo = null;
+legacy017.checksumSha256 = null;
+legacy017.razonEstado = 'Fixture previa a 017.';
+delete legacy017.execution;
 const entry015 = manifest.migraciones.find((item) => item.version === 15);
 const contract = apply.cargarContrato(entry015);
 const descriptor = preflight.cargarDescriptor();
@@ -38,7 +44,8 @@ function tableFromContract(spec) {
     const columnas = Object.fromEntries(spec.columnas.map((c, i) => [c.nombre, {
         tipo: c.tipo.toLowerCase(), unsigned: c.unsigned, nullable: c.nullable,
         default: Object.hasOwn(c, 'default') ? String(c.default).toLowerCase() : null,
-        extra: String(c.extra || '').toLowerCase(), ordinal: i + 1
+        extra: String(c.extra || '').toLowerCase(),
+        generationExpression: preflight.normalizarExpresionGenerada(c.generationExpression), ordinal: i + 1
     }]));
     return {
         engine: spec.engine, charset: spec.charset, collation: spec.collation, columnas,
@@ -54,6 +61,17 @@ function appliedSnapshot(withRow = false) {
     const snapshot = compatibleSnapshot();
     for (const [name, spec] of Object.entries(contract.tablas)) snapshot.tablas[name] = tableFromContract(spec);
     if (withRow) snapshot.controlRows.push({ version: 15, archivo: entry015.archivo, checksum_sha256: entry015.checksumSha256, tipo_registro: 'EJECUTADA' });
+    return snapshot;
+}
+
+function actualSnapshotAfter016() {
+    const snapshot = compatibleSnapshot();
+    for (const version of [15, 16]) {
+        const entry = actualManifest.migraciones.find((item) => item.version === version);
+        const currentContract = apply.cargarContrato(entry);
+        for (const [name, spec] of Object.entries(currentContract.tablas)) snapshot.tablas[name] = tableFromContract(spec);
+        snapshot.controlRows.push({ version, archivo: entry.archivo, checksum_sha256: entry.checksumSha256, tipo_registro: 'EJECUTADA' });
+    }
     return snapshot;
 }
 
@@ -184,8 +202,11 @@ test('46 dry-run después de 015 no encuentra pendientes', async () => {
     assert.match(output.join('\n'), /Migraciones ACTIVE pendientes: ninguna/);
     assert.equal(output.at(-1), 'MIGRATION_UP_DRY_RUN_NO_CHANGES');
 });
-test('47 manifiesto actual selecciona solo 016 como ALTER TABLE grupos', () => {
-    const plan = apply.construirPlan(actualManifest, appliedSnapshot(true));
-    assert.deepEqual(plan.map((item) => item.entrada.version), [16]);
-    assert.deepEqual(plan[0].statements.map(({ operation, target }) => ({ operation, target })), [{ operation: 'ALTER_TABLE', target: 'grupos' }]);
+test('47 manifiesto actual selecciona solo 017 con dos CREATE TABLE', () => {
+    const plan = apply.construirPlan(actualManifest, actualSnapshotAfter016());
+    assert.deepEqual(plan.map((item) => item.entrada.version), [17]);
+    assert.deepEqual(plan[0].statements.map(({ operation, target }) => ({ operation, target })), [
+        { operation: 'CREATE_TABLE', target: 'asignaciones_orientador_grupo' },
+        { operation: 'CREATE_TABLE', target: 'asignaciones_tutor_grupo' }
+    ]);
 });

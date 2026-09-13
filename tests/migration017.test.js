@@ -1,0 +1,70 @@
+'use strict';
+
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('fs');
+const path = require('path');
+const manifestApi = require('../scripts/migrationManifest');
+const apply = require('../scripts/migrationApply');
+
+const manifest = manifestApi.cargarManifiesto();
+const entry = manifest.migraciones.find((item) => item.version === 17);
+const sqlPath = path.join(manifestApi.MIGRATIONS_DIR, '017_create_group_staff_assignments.sql');
+const contractPath = path.join(manifestApi.PROJECT_ROOT, 'database', 'migration-contracts', '017_group_staff_assignments.json');
+const sql = fs.readFileSync(sqlPath, 'utf8');
+const contract = JSON.parse(fs.readFileSync(contractPath, 'utf8'));
+const statements = apply.validarSqlMigracion(entry);
+const orientador = contract.tablas.asignaciones_orientador_grupo;
+const tutor = contract.tablas.asignaciones_tutor_grupo;
+
+function column(table, name) { return table.columnas.find((item) => item.nombre === name); }
+function normalized(value) { return String(value).toLowerCase().replace(/\s+/g, ' '); }
+
+test('01 archivo 017 existe', () => assert.equal(fs.statSync(sqlPath).isFile(), true));
+test('02 017 está ACTIVE y manifestada', () => assert.deepEqual([entry.estado, entry.archivo], ['ACTIVE', '017_create_group_staff_assignments.sql']));
+test('03 checksum SQL coincide', () => assert.equal(manifestApi.calcularChecksumCanonico(sqlPath), entry.checksumSha256));
+test('04 contiene exactamente dos CREATE TABLE', () => assert.equal(statements.length, 2));
+test('05 crea tabla de orientador primero', () => assert.deepEqual(statements[0], { operation: 'CREATE_TABLE', target: 'asignaciones_orientador_grupo', sql: statements[0].sql }));
+test('06 crea tabla de tutor después', () => assert.equal(statements[1].target, 'asignaciones_tutor_grupo'));
+test('07 contrato corresponde a 017', () => assert.deepEqual([contract.migracion, contract.identificador], [17, '017']));
+test('08 checksum del contrato coincide', () => assert.equal(manifestApi.calcularChecksumCanonico(contractPath), entry.execution.postconditionChecksumSha256));
+test('09 contrato contiene ambas tablas', () => assert.deepEqual(Object.keys(contract.tablas), ['asignaciones_orientador_grupo', 'asignaciones_tutor_grupo']));
+test('10 IDs propios son BIGINT UNSIGNED', () => { assert.equal(column(orientador, 'id').tipo, 'bigint unsigned'); assert.equal(column(tutor, 'id').tipo, 'bigint unsigned'); });
+test('11 grupo_id es INT UNSIGNED', () => { assert.equal(column(orientador, 'grupo_id').tipo, 'int unsigned'); assert.equal(column(tutor, 'grupo_id').tipo, 'int unsigned'); });
+test('12 usuarios referenciados son BIGINT UNSIGNED', () => { assert.equal(column(orientador, 'orientador_usuario_id').tipo, 'bigint unsigned'); assert.equal(column(tutor, 'tutor_usuario_id').tipo, 'bigint unsigned'); });
+test('13 fecha_inicio no admite NULL', () => { assert.equal(column(orientador, 'fecha_inicio').nullable, false); assert.equal(column(tutor, 'fecha_inicio').nullable, false); });
+test('14 fecha_fin admite NULL', () => { assert.equal(column(orientador, 'fecha_fin').nullable, true); assert.equal(column(tutor, 'fecha_fin').nullable, true); });
+test('15 columna vigente es generada y nullable', () => { for (const table of [orientador, tutor]) { const c=column(table,'grupo_vigente_id'); assert.equal(c.nullable,true); assert.match(c.extra,/generated/i); } });
+test('16 expresión generada representa asignación abierta', () => { for (const table of [orientador,tutor]) assert.equal(column(table,'grupo_vigente_id').generationExpression,'case when fecha_fin is null then grupo_id else null end'); });
+test('17 UNIQUE vigente usa solo grupo generado', () => { for (const table of [orientador,tutor]) assert.deepEqual(table.indicesUnicos,[{columnas:['grupo_vigente_id']}]); });
+test('18 múltiples históricos cerrados permanecen permitidos', () => assert.equal(/UNIQUE[^\n]+\(grupo_id\s*,\s*fecha_inicio/i.test(sql), false));
+test('19 no existe unicidad por usuario', () => assert.equal(/UNIQUE[^\n]+(?:orientador|tutor)_usuario_id/i.test(sql), false));
+test('20 FK de grupo existe en ambas', () => { for (const table of [orientador,tutor]) assert.ok(table.foreignKeys.some((fk)=>fk.columnas[0]==='grupo_id'&&fk.tablaDestino==='grupos')); });
+test('21 FK de orientador apunta a usuarios', () => assert.ok(orientador.foreignKeys.some((fk)=>fk.columnas[0]==='orientador_usuario_id'&&fk.tablaDestino==='usuarios')));
+test('22 FK de tutor apunta a usuarios', () => assert.ok(tutor.foreignKeys.some((fk)=>fk.columnas[0]==='tutor_usuario_id'&&fk.tablaDestino==='usuarios')));
+test('23 auditor de creación apunta a usuarios', () => { for (const table of [orientador,tutor]) assert.ok(table.foreignKeys.some((fk)=>fk.columnas[0]==='creado_por_usuario_id'&&fk.tablaDestino==='usuarios')); });
+test('24 todas las FK usan UPDATE CASCADE', () => { for (const table of [orientador,tutor]) assert.ok(table.foreignKeys.every((fk)=>fk.onUpdate==='CASCADE')); });
+test('25 todas las FK usan DELETE RESTRICT', () => { for (const table of [orientador,tutor]) assert.ok(table.foreignKeys.every((fk)=>fk.onDelete==='RESTRICT')); });
+test('26 no existe ON DELETE CASCADE', () => assert.doesNotMatch(sql,/ON\s+DELETE\s+CASCADE/i));
+test('27 CHECK de vigencia en ambas tablas', () => { for (const table of [orientador,tutor]) assert.ok(table.checks.some((c)=>normalized(c.fragmentos.join(' ')).includes('fecha_fin is null')&&normalized(c.fragmentos.join(' ')).includes('fecha_fin >= fecha_inicio'))); });
+test('28 índice de historial por grupo', () => { for (const table of [orientador,tutor]) assert.ok(table.indices.some((i)=>i.columnas.join(',')==='grupo_id,fecha_inicio,fecha_fin')); });
+test('29 índice de orientador y vigencia', () => assert.ok(orientador.indices.some((i)=>i.columnas.join(',')==='orientador_usuario_id,fecha_inicio,fecha_fin,grupo_id')));
+test('30 índice de tutor y vigencia', () => assert.ok(tutor.indices.some((i)=>i.columnas.join(',')==='tutor_usuario_id,fecha_inicio,fecha_fin,grupo_id')));
+test('31 índices FK de auditor explícitos', () => { for (const table of [orientador,tutor]) assert.ok(table.indices.some((i)=>i.columnas.join(',')==='creado_por_usuario_id')); });
+test('32 usa InnoDB en ambas tablas', () => assert.equal((sql.match(/ENGINE\s*=\s*InnoDB/gi)||[]).length,2));
+test('33 usa charset utf8mb4', () => assert.equal((sql.match(/CHARACTER SET\s+utf8mb4/gi)||[]).length,2));
+test('34 usa collation contractual', () => assert.equal((sql.match(/COLLATE\s+utf8mb4_0900_ai_ci/gi)||[]).length,2));
+test('35 timestamps siguen convención', () => assert.equal((sql.match(/actualizado_en[\s\S]*?ON UPDATE CURRENT_TIMESTAMP/gi)||[]).length,2));
+test('36 no contiene sentencias DML', () => assert.doesNotMatch(sql,/^\s*(?:INSERT|UPDATE|DELETE|REPLACE)\b/im));
+test('37 no contiene ALTER ni DROP', () => assert.doesNotMatch(sql,/\b(?:ALTER|DROP|TRUNCATE)\b/i));
+test('38 no contiene ENUM ni automatismos', () => assert.doesNotMatch(sql,/\b(?:ENUM|TRIGGER|PROCEDURE|FUNCTION|EVENT)\b/i));
+test('39 no altera grupos ni agrega personal directo', () => assert.doesNotMatch(sql,/ALTER\s+TABLE\s+`?grupos|\b(?:orientador_id|docente_id|tutor_id)\b/i));
+test('40 no inserta asignaciones ni datos', () => assert.doesNotMatch(sql,/\bINSERT\b/i));
+test('41 precondiciones exigen 015 y 016 aplicadas', () => assert.deepEqual(entry.execution.preconditions.filter((p)=>p.type==='MIGRATION_APPLIED').map((p)=>p.version),[15,16]));
+test('42 precondiciones exigen tablas base y nuevas ausentes', () => { assert.ok(['usuarios','grupos'].every((t)=>entry.execution.preconditions.some((p)=>p.type==='TABLE_PRESENT'&&p.target===t))); assert.ok(Object.keys(contract.tablas).every((t)=>entry.execution.preconditions.some((p)=>p.type==='TABLE_ABSENT'&&p.target===t))); });
+test('43 tipos base se comprueban antes de ejecutar', () => { assert.ok(entry.execution.preconditions.some((p)=>p.type==='COLUMN_MATCH'&&p.table==='usuarios'&&p.columnType==='bigint unsigned')); assert.ok(entry.execution.preconditions.some((p)=>p.type==='COLUMN_MATCH'&&p.table==='grupos'&&p.columnType==='int unsigned')); });
+test('44 contrato declara tablas nuevas vacías', () => assert.ok(contract.invariantesDatos.includes('NEW_TABLES_EMPTY')));
+test('45 contrato preserva grupos usuarios y alumnos', () => assert.ok(['GROUPS_UNCHANGED','USERS_UNCHANGED','STUDENTS_UNCHANGED'].every((x)=>contract.invariantesDatos.includes(x))));
+test('46 manifiesto conserva estados históricos', () => { assert.equal(manifest.migraciones.find((m)=>m.version===10).estado,'RESERVED_MISSING'); for(const v of [9,11,12,13,14]) assert.equal(manifest.migraciones.find((m)=>m.version===v).estado,'SUPERSEDED_NOT_APPLIED'); });
+test('47 015 a 017 ACTIVE y 018 a 021 PLANNED', () => { for(const v of [15,16,17]) assert.equal(manifest.migraciones.find((m)=>m.version===v).estado,'ACTIVE'); for(let v=18;v<=21;v+=1) assert.equal(manifest.migraciones.find((m)=>m.version===v).estado,'PLANNED'); });
+test('48 runner clasifica las dos operaciones declaradas', () => assert.deepEqual(statements.map(({operation,target})=>({operation,target})),entry.execution.statements));
