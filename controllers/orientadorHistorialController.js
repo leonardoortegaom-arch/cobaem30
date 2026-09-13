@@ -81,6 +81,7 @@ const listarHistorial = async (req, res) => {
             : 1;
         const limite = 10;
         const filtrosModelo = {
+            orientadorUsuarioId: req.session.usuario.id,
             q,
             tipo: tipo === 'TODOS' ? undefined : tipo,
             fechaDesde,

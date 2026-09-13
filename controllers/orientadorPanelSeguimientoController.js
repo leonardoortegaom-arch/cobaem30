@@ -13,9 +13,9 @@ const crearMenuSeguimiento = () => crearMenuPorRol(
 const mostrarPanel = async (req, res) => {
     try {
         const [resumen, actividades, seguimientos] = await Promise.all([
-            actividadOrientacionModel.obtenerResumenGeneral(),
-            actividadOrientacionModel.listarActividadesQueRequierenAtencion(10),
-            seguimientoModel.listarSeguimientosRecientesGlobales(10)
+            actividadOrientacionModel.obtenerResumenGeneral(req.session.usuario.id),
+            actividadOrientacionModel.listarActividadesQueRequierenAtencion(req.session.usuario.id, 10),
+            seguimientoModel.listarSeguimientosRecientesGlobales(req.session.usuario.id, 10)
         ]);
 
         const actividadesSeguras = actividades.map((actividad) => ({

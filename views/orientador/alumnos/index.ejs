@@ -72,7 +72,7 @@
           <tbody>
             <% if (alumnos.length === 0) { %>
               <tr>
-                <td colspan="9" class="text-center">No se encontraron alumnos con los filtros seleccionados.</td>
+                <td colspan="9" class="text-center"><%= grupos.length === 0 ? 'No tienes grupos asignados actualmente.' : 'No se encontraron alumnos con los filtros seleccionados.' %></td>
               </tr>
             <% } else { %>
               <% alumnos.forEach((alumno) => { %>

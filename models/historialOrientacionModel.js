@@ -5,6 +5,7 @@ const CONSULTA_UNIFICADA = `
         'SEGUIMIENTO' AS tipoRegistro,
         seguimientos.id AS registroId,
         usuarios.id AS alumnoUsuarioId,
+        alumnos.grupo_id AS grupoId,
         alumnos.matricula,
         CONCAT_WS(' ', usuarios.nombre, usuarios.apellido_paterno, usuarios.apellido_materno) AS alumnoNombre,
         grupos.clave AS grupo,
@@ -35,6 +36,7 @@ const CONSULTA_UNIFICADA = `
         'ACTIVIDAD' AS tipoRegistro,
         actividades_orientacion.id AS registroId,
         usuarios.id AS alumnoUsuarioId,
+        alumnos.grupo_id AS grupoId,
         alumnos.matricula,
         CONCAT_WS(' ', usuarios.nombre, usuarios.apellido_paterno, usuarios.apellido_materno) AS alumnoNombre,
         grupos.clave AS grupo,
@@ -61,9 +63,14 @@ const CONSULTA_UNIFICADA = `
     INNER JOIN usuarios AS orientadores ON orientadores.id = actividades_orientacion.orientador_usuario_id
 `;
 
-const construirCondiciones = ({ q, tipo, fechaDesde, fechaHasta } = {}) => {
-    const condiciones = [];
-    const parametros = [];
+const construirCondiciones = ({ orientadorUsuarioId, q, tipo, fechaDesde, fechaHasta } = {}) => {
+    const condiciones = [`EXISTS (
+        SELECT 1 FROM asignaciones_orientador_grupo AS asignaciones
+        WHERE asignaciones.grupo_id = historial.grupoId
+          AND asignaciones.orientador_usuario_id = ?
+          AND asignaciones.fecha_fin IS NULL
+    )`];
+    const parametros = [orientadorUsuarioId];
 
     if (q) {
         const patron = `%${q}%`;
@@ -99,6 +106,7 @@ const construirCondiciones = ({ q, tipo, fechaDesde, fechaHasta } = {}) => {
 };
 
 const listarPaginado = async ({
+    orientadorUsuarioId,
     q,
     tipo,
     fechaDesde,
@@ -109,6 +117,7 @@ const listarPaginado = async ({
     const limiteSeguro = Number.isInteger(limite) && limite > 0 ? limite : 10;
     const offsetSeguro = Number.isInteger(offset) && offset >= 0 ? offset : 0;
     const { clausulaWhere, parametros } = construirCondiciones({
+        orientadorUsuarioId,
         q,
         tipo,
         fechaDesde,
@@ -147,9 +156,9 @@ const listarPaginado = async ({
     return rows;
 };
 
-const contarFiltrados = async ({ q, tipo, fechaDesde, fechaHasta } = {}) => {
+const contarFiltrados = async ({ orientadorUsuarioId, q, tipo, fechaDesde, fechaHasta } = {}) => {
     const { clausulaWhere, parametros } = construirCondiciones({
-        q,
+        orientadorUsuarioId, q,
         tipo,
         fechaDesde,
         fechaHasta

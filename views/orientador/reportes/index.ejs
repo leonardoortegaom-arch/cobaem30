@@ -63,7 +63,7 @@
           <thead><tr><th>Matrícula</th><th>Alumno</th><th>Correo</th><th>Grupo</th><th>Semestre</th><th>Turno</th><th>Ciclo</th><th>Estado</th><th>Acción</th></tr></thead>
           <tbody>
             <% if (alumnos.length === 0) { %>
-              <tr><td colspan="9" class="text-center">No se encontraron alumnos con los filtros seleccionados.</td></tr>
+              <tr><td colspan="9" class="text-center"><%= grupos.length === 0 ? 'No tienes grupos asignados actualmente.' : 'No se encontraron alumnos con los filtros seleccionados.' %></td></tr>
             <% } else { %>
               <% alumnos.forEach((alumno) => { %>
                 <tr>

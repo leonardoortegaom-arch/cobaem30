@@ -96,7 +96,7 @@ const mostrarFormulario = async (req, res) => {
     }
 
     try {
-        const resultado = await alumnoModel.buscarDetalleParaOrientadorPorUsuarioId(alumnoId);
+        const resultado = await alumnoModel.buscarDetalleParaOrientadorPorUsuarioId(alumnoId, req.session.usuario.id);
         if (!resultado) {
             res.status(404).send('Alumno no encontrado.');
             return;
@@ -118,7 +118,7 @@ const mostrarFormulario = async (req, res) => {
             }
         });
     } catch {
-        res.status(500).send('No fue posible cargar el formulario de seguimiento.');
+        res.status(503).send('No fue posible cargar el formulario de seguimiento.');
     }
 };
 
@@ -138,7 +138,7 @@ const crearSeguimiento = async (req, res) => {
     };
 
     try {
-        const resultado = await alumnoModel.buscarDetalleParaOrientadorPorUsuarioId(alumnoId);
+        const resultado = await alumnoModel.buscarDetalleParaOrientadorPorUsuarioId(alumnoId, orientadorId);
         if (!resultado) {
             res.status(404).send('Alumno no encontrado.');
             return;
@@ -200,7 +200,7 @@ const crearSeguimiento = async (req, res) => {
             return;
         }
 
-        await seguimientoModel.crear({
+        const seguimientoId = await seguimientoModel.crearAutorizado({
             alumno_usuario_id: alumnoId,
             orientador_usuario_id: orientadorId,
             tipo_id: tipo.id,
@@ -209,9 +209,11 @@ const crearSeguimiento = async (req, res) => {
             descripcion: datos.descripcion
         });
 
+        if (!seguimientoId) return res.status(404).send('Alumno no encontrado.');
+
         res.redirect(`/orientador/alumnos/${alumnoId}?seguimiento=creado`);
     } catch {
-        res.status(500).send('No fue posible registrar el seguimiento.');
+        res.status(503).send('No fue posible registrar el seguimiento.');
     }
 };
 
@@ -223,7 +225,7 @@ const listarHistorial = async (req, res) => {
     }
 
     try {
-        const resultado = await alumnoModel.buscarDetalleParaOrientadorPorUsuarioId(alumnoId);
+        const resultado = await alumnoModel.buscarDetalleParaOrientadorPorUsuarioId(alumnoId, req.session.usuario.id);
         if (!resultado) {
             res.status(404).send('Alumno no encontrado.');
             return;
@@ -336,7 +338,7 @@ const listarHistorial = async (req, res) => {
             }
         });
     } catch {
-        res.status(500).send('No fue posible cargar el historial de seguimiento.');
+        res.status(503).send('No fue posible cargar el historial de seguimiento.');
     }
 };
 

@@ -23,6 +23,27 @@ const crear = async (seguimiento) => {
     return result.insertId;
 };
 
+const crearAutorizado = async (seguimiento) => {
+    const [result] = await pool.execute(
+        `INSERT INTO seguimientos (
+            alumno_usuario_id, orientador_usuario_id, tipo_id,
+            fecha_seguimiento, titulo, descripcion
+         )
+         SELECT ?, ?, ?, ?, ?, ?
+         FROM alumnos
+         INNER JOIN asignaciones_orientador_grupo AS asignaciones
+            ON asignaciones.grupo_id = alumnos.grupo_id
+         WHERE alumnos.usuario_id = ?
+           AND asignaciones.orientador_usuario_id = ?
+           AND asignaciones.fecha_fin IS NULL`,
+        [seguimiento.alumno_usuario_id, seguimiento.orientador_usuario_id,
+            seguimiento.tipo_id, seguimiento.fecha_seguimiento, seguimiento.titulo,
+            seguimiento.descripcion, seguimiento.alumno_usuario_id,
+            seguimiento.orientador_usuario_id]
+    );
+    return result.affectedRows === 1 ? result.insertId : null;
+};
+
 const listarRecientesPorAlumno = async (alumnoUsuarioId, limite = 5) => {
     const limiteSeguro = Number.isInteger(limite) && limite > 0 ? limite : 5;
     const [rows] = await pool.execute(
@@ -152,7 +173,7 @@ const contarFiltradosPorAlumno = async ({
     return Number.isSafeInteger(total) && total >= 0 ? total : 0;
 };
 
-const listarSeguimientosRecientesGlobales = async (limite = 10) => {
+const listarSeguimientosRecientesGlobales = async (orientadorUsuarioId, limite = 10) => {
     const limiteSeguro = Number.isInteger(limite) && limite > 0 ? limite : 10;
     const [rows] = await pool.execute(
         `SELECT
@@ -168,11 +189,15 @@ const listarSeguimientosRecientesGlobales = async (limite = 10) => {
          INNER JOIN usuarios ON usuarios.id = alumnos.usuario_id
          INNER JOIN tipos_seguimiento ON tipos_seguimiento.id = seguimientos.tipo_id
          INNER JOIN usuarios AS orientadores ON orientadores.id = seguimientos.orientador_usuario_id
+         INNER JOIN asignaciones_orientador_grupo AS asignaciones
+            ON asignaciones.grupo_id = alumnos.grupo_id
+           AND asignaciones.orientador_usuario_id = ?
+           AND asignaciones.fecha_fin IS NULL
          ORDER BY seguimientos.fecha_seguimiento DESC,
                   seguimientos.creado_en DESC,
                   seguimientos.id DESC
          LIMIT ?`,
-        [String(limiteSeguro)]
+        [orientadorUsuarioId, String(limiteSeguro)]
     );
 
     return rows;
@@ -182,10 +207,15 @@ const contarPorOrientadorEnPeriodo = async (orientadorUsuarioId, desde, hastaExc
     const [rows] = await pool.execute(
         `SELECT COUNT(*) AS total
          FROM seguimientos
-         WHERE orientador_usuario_id = ?
+         INNER JOIN alumnos ON alumnos.usuario_id = seguimientos.alumno_usuario_id
+         INNER JOIN asignaciones_orientador_grupo AS asignaciones
+            ON asignaciones.grupo_id = alumnos.grupo_id
+           AND asignaciones.orientador_usuario_id = ?
+           AND asignaciones.fecha_fin IS NULL
+         WHERE seguimientos.orientador_usuario_id = ?
            AND fecha_seguimiento >= ?
            AND fecha_seguimiento < ?`,
-        [orientadorUsuarioId, desde, hastaExclusivo]
+        [orientadorUsuarioId, orientadorUsuarioId, desde, hastaExclusivo]
     );
     const total = Number(rows[0]?.total);
     return Number.isSafeInteger(total) && total >= 0 ? total : 0;
@@ -204,19 +234,24 @@ const listarRecientesPorOrientador = async (orientadorUsuarioId, limite = 5) => 
          FROM seguimientos
          INNER JOIN alumnos ON alumnos.usuario_id = seguimientos.alumno_usuario_id
          INNER JOIN usuarios ON usuarios.id = alumnos.usuario_id
+         INNER JOIN asignaciones_orientador_grupo AS asignaciones
+            ON asignaciones.grupo_id = alumnos.grupo_id
+           AND asignaciones.orientador_usuario_id = ?
+           AND asignaciones.fecha_fin IS NULL
          INNER JOIN tipos_seguimiento ON tipos_seguimiento.id = seguimientos.tipo_id
          WHERE seguimientos.orientador_usuario_id = ?
          ORDER BY seguimientos.fecha_seguimiento DESC,
                   seguimientos.creado_en DESC,
                   seguimientos.id DESC
          LIMIT ?`,
-        [orientadorUsuarioId, String(limiteSeguro)]
+        [orientadorUsuarioId, orientadorUsuarioId, String(limiteSeguro)]
     );
     return rows;
 };
 
 module.exports = {
     crear,
+    crearAutorizado,
     listarRecientesPorAlumno,
     listarPaginadoPorAlumno,
     contarFiltradosPorAlumno,

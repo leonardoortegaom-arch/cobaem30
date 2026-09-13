@@ -1,6 +1,7 @@
 const alumnoModel = require('../models/alumnoModel');
 const seguimientoModel = require('../models/seguimientoModel');
 const actividadOrientacionModel = require('../models/actividadOrientacionModel');
+const orientadorAlcanceModel = require('../models/orientadorAlcanceModel');
 const crearMenuPorRol = require('../config/roleMenus');
 
 const textoSeguro = (valor) => typeof valor === 'string' ? valor.trim() : '';
@@ -43,9 +44,10 @@ const mostrarDashboard = async (req, res) => {
             seguimientosMes,
             resumenActividades,
             actividades,
-            seguimientos
+            seguimientos,
+            gruposAsignados
         ] = await Promise.all([
-            alumnoModel.contarFiltradosParaOrientador({ activo: true }),
+            alumnoModel.contarFiltradosParaOrientador({ orientadorUsuarioId: orientador.id, activo: true }),
             seguimientoModel.contarPorOrientadorEnPeriodo(
                 orientador.id,
                 fechas.primerDiaMes,
@@ -53,7 +55,8 @@ const mostrarDashboard = async (req, res) => {
             ),
             actividadOrientacionModel.obtenerResumenPersonal(orientador.id, fechas.fechaActual),
             actividadOrientacionModel.listarAbiertasPorOrientador(orientador.id, 5, fechas.fechaActual),
-            seguimientoModel.listarRecientesPorOrientador(orientador.id, 5)
+            seguimientoModel.listarRecientesPorOrientador(orientador.id, 5),
+            orientadorAlcanceModel.listarGruposVigentes(orientador.id)
         ]);
 
         res.render('dashboards/orientador', {
@@ -67,7 +70,8 @@ const mostrarDashboard = async (req, res) => {
                 actividadesVencidas: resumenActividades.totalVencidas
             },
             actividades,
-            seguimientos
+            seguimientos,
+            sinGruposAsignados: gruposAsignados.length === 0
         });
     } catch {
         res.status(503).send('No fue posible cargar el dashboard de orientación. Inténtalo nuevamente.');

@@ -2,6 +2,7 @@ const alumnoModel = require('../models/alumnoModel');
 const estadoActividadOrientacionModel = require('../models/estadoActividadOrientacionModel');
 const actividadOrientacionModel = require('../models/actividadOrientacionModel');
 const adjuntoActividadOrientacionModel = require('../models/adjuntoActividadOrientacionModel');
+const orientadorAlcanceModel = require('../models/orientadorAlcanceModel');
 const adjuntoActividadStorageService = require('../services/adjuntoActividadStorageService');
 const fs = require('fs');
 const crearMenuPorRol = require('../config/roleMenus');
@@ -104,7 +105,7 @@ const cargarContextoConsulta = async (req, res) => {
         return null;
     }
 
-    const resultadoAlumno = await alumnoModel.buscarDetalleParaOrientadorPorUsuarioId(alumnoId);
+    const resultadoAlumno = await alumnoModel.buscarDetalleParaOrientadorPorUsuarioId(alumnoId, req.session.usuario.id);
     if (!resultadoAlumno) {
         res.status(404).send('Alumno no encontrado.');
         return null;
@@ -227,8 +228,8 @@ const descargarEvidencia = async (req, res) => {
     }
 };
 
-const cargarAlumnoActivo = async (id, res) => {
-    const resultado = await alumnoModel.buscarDetalleParaOrientadorPorUsuarioId(id);
+const cargarAlumnoActivo = async (id, orientadorId, res) => {
+    const resultado = await alumnoModel.buscarDetalleParaOrientadorPorUsuarioId(id, orientadorId);
     if (!resultado) {
         res.status(404).send('Alumno no encontrado.');
         return null;
@@ -265,7 +266,7 @@ const mostrarFormulario = async (req, res) => {
     }
 
     try {
-        const alumno = await cargarAlumnoActivo(alumnoId, res);
+        const alumno = await cargarAlumnoActivo(alumnoId, req.session.usuario.id, res);
         if (!alumno) return;
 
         renderizarFormulario(res, {
@@ -278,7 +279,7 @@ const mostrarFormulario = async (req, res) => {
             }
         });
     } catch {
-        res.status(500).send('No fue posible cargar el formulario de actividad.');
+        res.status(503).send('No fue posible cargar el formulario de actividad.');
     }
 };
 
@@ -297,7 +298,7 @@ const crearActividad = async (req, res) => {
     };
 
     try {
-        const alumno = await cargarAlumnoActivo(alumnoId, res);
+        const alumno = await cargarAlumnoActivo(alumnoId, orientadorId, res);
         if (!alumno) return;
 
         const responderValidacion = (mensaje) => renderizarFormulario(res, {
@@ -344,7 +345,7 @@ const crearActividad = async (req, res) => {
             return;
         }
 
-        await actividadOrientacionModel.crear({
+        const actividadId = await actividadOrientacionModel.crearAutorizada({
             alumno_usuario_id: alumnoId,
             orientador_usuario_id: orientadorId,
             estado_id: estadoPendiente.id,
@@ -353,9 +354,11 @@ const crearActividad = async (req, res) => {
             fecha_asignacion: datos.fecha_programada
         });
 
+        if (!actividadId) return res.status(404).send('Alumno no encontrado.');
+
         res.redirect(`/orientador/alumnos/${alumnoId}?actividad=creada`);
     } catch {
-        res.status(500).send('No fue posible programar la actividad.');
+        res.status(503).send('No fue posible programar la actividad.');
     }
 };
 
@@ -367,7 +370,7 @@ const cargarContextoEstado = async (req, res) => {
         return null;
     }
 
-    const alumno = await cargarAlumnoActivo(alumnoId, res);
+    const alumno = await cargarAlumnoActivo(alumnoId, req.session.usuario.id, res);
     if (!alumno) return null;
 
     const actividad = await actividadOrientacionModel.buscarPorIdYAlumnoConEstado(
@@ -426,7 +429,7 @@ const mostrarFormularioEstado = async (req, res) => {
             error: null
         });
     } catch {
-        res.status(500).send('No fue posible cargar el estado de la actividad.');
+        res.status(503).send('No fue posible cargar el estado de la actividad.');
     }
 };
 
@@ -472,13 +475,17 @@ const actualizarEstado = async (req, res) => {
         });
 
         if (resultado.affectedRows === 0) {
+            const conservaAlcance = await orientadorAlcanceModel.puedeAccederAlumno(
+                req.session.usuario.id, contexto.alumnoId
+            );
+            if (!conservaAlcance) return res.status(404).send('Actividad no encontrada.');
             res.status(409).send('El estado de la actividad cambió. Recarga la página e inténtalo nuevamente.');
             return;
         }
 
         res.redirect(`/orientador/alumnos/${contexto.alumnoId}?actividad=estado-actualizado`);
     } catch {
-        res.status(500).send('No fue posible actualizar el estado de la actividad.');
+        res.status(503).send('No fue posible actualizar el estado de la actividad.');
     }
 };
 

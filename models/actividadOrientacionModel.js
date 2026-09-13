@@ -23,6 +23,26 @@ const crear = async (actividad) => {
     return result.insertId;
 };
 
+const crearAutorizada = async (actividad) => {
+    const [result] = await pool.execute(
+        `INSERT INTO actividades_orientacion (
+            alumno_usuario_id, orientador_usuario_id, estado_id,
+            titulo, instrucciones, fecha_asignacion
+         )
+         SELECT ?, ?, ?, ?, ?, ?
+         FROM alumnos
+         INNER JOIN asignaciones_orientador_grupo AS asignaciones
+            ON asignaciones.grupo_id = alumnos.grupo_id
+         WHERE alumnos.usuario_id = ?
+           AND asignaciones.orientador_usuario_id = ?
+           AND asignaciones.fecha_fin IS NULL`,
+        [actividad.alumno_usuario_id, actividad.orientador_usuario_id, actividad.estado_id,
+            actividad.titulo, actividad.instrucciones, actividad.fecha_asignacion,
+            actividad.alumno_usuario_id, actividad.orientador_usuario_id]
+    );
+    return result.affectedRows === 1 ? result.insertId : null;
+};
+
 const listarRecientesPorAlumno = async (alumnoUsuarioId, limite = 5) => {
     const limiteSeguro = Number.isInteger(limite) && limite > 0 ? limite : 5;
     const [rows] = await pool.execute(
@@ -52,7 +72,7 @@ const listarRecientesPorAlumno = async (alumnoUsuarioId, limite = 5) => {
     return rows;
 };
 
-const obtenerResumenGeneral = async () => {
+const obtenerResumenGeneral = async (orientadorUsuarioId) => {
     const [rows] = await pool.execute(
         `SELECT
             (
@@ -60,32 +80,46 @@ const obtenerResumenGeneral = async () => {
                 FROM alumnos
                 INNER JOIN usuarios ON usuarios.id = alumnos.usuario_id
                 INNER JOIN roles ON roles.id = usuarios.rol_id
+                INNER JOIN asignaciones_orientador_grupo AS asignaciones
+                    ON asignaciones.grupo_id = alumnos.grupo_id
                 WHERE usuarios.activo = 1 AND roles.clave = ?
+                  AND asignaciones.orientador_usuario_id = ? AND asignaciones.fecha_fin IS NULL
             ) AS total_alumnos_activos,
-            (SELECT COUNT(*) FROM seguimientos) AS total_seguimientos,
+            (SELECT COUNT(*) FROM seguimientos INNER JOIN alumnos a ON a.usuario_id = seguimientos.alumno_usuario_id
+             INNER JOIN asignaciones_orientador_grupo ao ON ao.grupo_id = a.grupo_id
+             WHERE ao.orientador_usuario_id = ? AND ao.fecha_fin IS NULL) AS total_seguimientos,
             (
                 SELECT COUNT(*)
                 FROM actividades_orientacion
                 INNER JOIN estados_actividad_orientacion
                     ON estados_actividad_orientacion.id = actividades_orientacion.estado_id
-                WHERE estados_actividad_orientacion.clave = ?
+                INNER JOIN alumnos a ON a.usuario_id = actividades_orientacion.alumno_usuario_id
+                INNER JOIN asignaciones_orientador_grupo ao ON ao.grupo_id = a.grupo_id
+                WHERE estados_actividad_orientacion.clave = ? AND ao.orientador_usuario_id = ? AND ao.fecha_fin IS NULL
             ) AS total_actividades_pendientes,
             (
                 SELECT COUNT(*)
                 FROM actividades_orientacion
                 INNER JOIN estados_actividad_orientacion
                     ON estados_actividad_orientacion.id = actividades_orientacion.estado_id
-                WHERE estados_actividad_orientacion.clave = ?
+                INNER JOIN alumnos a ON a.usuario_id = actividades_orientacion.alumno_usuario_id
+                INNER JOIN asignaciones_orientador_grupo ao ON ao.grupo_id = a.grupo_id
+                WHERE estados_actividad_orientacion.clave = ? AND ao.orientador_usuario_id = ? AND ao.fecha_fin IS NULL
             ) AS total_actividades_en_proceso,
             (
                 SELECT COUNT(*)
                 FROM actividades_orientacion
                 INNER JOIN estados_actividad_orientacion
                     ON estados_actividad_orientacion.id = actividades_orientacion.estado_id
+                INNER JOIN alumnos a ON a.usuario_id = actividades_orientacion.alumno_usuario_id
+                INNER JOIN asignaciones_orientador_grupo ao ON ao.grupo_id = a.grupo_id
                 WHERE estados_actividad_orientacion.clave IN (?, ?)
+                  AND ao.orientador_usuario_id = ? AND ao.fecha_fin IS NULL
                   AND actividades_orientacion.fecha_asignacion < CURRENT_DATE()
             ) AS total_actividades_vencidas`,
-        ['ALUMNO', 'PENDIENTE', 'EN_PROCESO', 'PENDIENTE', 'EN_PROCESO']
+        ['ALUMNO', orientadorUsuarioId, orientadorUsuarioId,
+            'PENDIENTE', orientadorUsuarioId, 'EN_PROCESO', orientadorUsuarioId,
+            'PENDIENTE', 'EN_PROCESO', orientadorUsuarioId]
     );
     const resultado = rows[0] || {};
     const numeroSeguro = (valor) => {
@@ -102,7 +136,7 @@ const obtenerResumenGeneral = async () => {
     };
 };
 
-const listarActividadesQueRequierenAtencion = async (limite = 10) => {
+const listarActividadesQueRequierenAtencion = async (orientadorUsuarioId, limite = 10) => {
     const limiteSeguro = Number.isInteger(limite) && limite > 0 ? limite : 10;
     const [rows] = await pool.execute(
         `SELECT
@@ -123,12 +157,15 @@ const listarActividadesQueRequierenAtencion = async (limite = 10) => {
          INNER JOIN alumnos ON alumnos.usuario_id = actividades_orientacion.alumno_usuario_id
          INNER JOIN usuarios ON usuarios.id = alumnos.usuario_id
          INNER JOIN grupos ON grupos.id = alumnos.grupo_id
+         INNER JOIN asignaciones_orientador_grupo AS asignaciones
+            ON asignaciones.grupo_id = alumnos.grupo_id
          WHERE estados_actividad_orientacion.clave IN (?, ?)
+           AND asignaciones.orientador_usuario_id = ? AND asignaciones.fecha_fin IS NULL
          ORDER BY vencida DESC,
                   actividades_orientacion.fecha_asignacion ASC,
                   actividades_orientacion.id ASC
          LIMIT ?`,
-        ['PENDIENTE', 'EN_PROCESO', String(limiteSeguro)]
+        ['PENDIENTE', 'EN_PROCESO', orientadorUsuarioId, String(limiteSeguro)]
     );
 
     return rows;
@@ -173,14 +210,23 @@ const actualizarEstadoCondicional = async ({
          WHERE id = ?
            AND alumno_usuario_id = ?
            AND orientador_usuario_id = ?
-           AND estado_id = ?`,
+           AND estado_id = ?
+           AND EXISTS (
+               SELECT 1 FROM alumnos
+               INNER JOIN asignaciones_orientador_grupo AS asignaciones
+                  ON asignaciones.grupo_id = alumnos.grupo_id
+               WHERE alumnos.usuario_id = actividades_orientacion.alumno_usuario_id
+                 AND asignaciones.orientador_usuario_id = ?
+                 AND asignaciones.fecha_fin IS NULL
+           )`,
         [
             estadoIdNuevo,
             fechaRealizacion,
             actividadId,
             alumnoUsuarioId,
             orientadorUsuarioId,
-            estadoIdAnterior
+            estadoIdAnterior,
+            orientadorUsuarioId
         ]
     );
 
@@ -195,9 +241,13 @@ const obtenerResumenPersonal = async (orientadorUsuarioId, fechaActual) => {
          FROM actividades_orientacion
          INNER JOIN estados_actividad_orientacion
             ON estados_actividad_orientacion.id = actividades_orientacion.estado_id
+         INNER JOIN alumnos ON alumnos.usuario_id = actividades_orientacion.alumno_usuario_id
+         INNER JOIN asignaciones_orientador_grupo AS asignaciones
+            ON asignaciones.grupo_id = alumnos.grupo_id
          WHERE actividades_orientacion.orientador_usuario_id = ?
+           AND asignaciones.orientador_usuario_id = ? AND asignaciones.fecha_fin IS NULL
            AND estados_actividad_orientacion.clave IN (?, ?)`,
-        [fechaActual, orientadorUsuarioId, 'PENDIENTE', 'EN_PROCESO']
+        [fechaActual, orientadorUsuarioId, orientadorUsuarioId, 'PENDIENTE', 'EN_PROCESO']
     );
     const numeroSeguro = (valor) => {
         const numero = Number(valor);
@@ -229,13 +279,16 @@ const listarAbiertasPorOrientador = async (orientadorUsuarioId, limite = 5, fech
          INNER JOIN alumnos ON alumnos.usuario_id = actividades_orientacion.alumno_usuario_id
          INNER JOIN usuarios ON usuarios.id = alumnos.usuario_id
          INNER JOIN grupos ON grupos.id = alumnos.grupo_id
+         INNER JOIN asignaciones_orientador_grupo AS asignaciones
+            ON asignaciones.grupo_id = alumnos.grupo_id
          WHERE actividades_orientacion.orientador_usuario_id = ?
+           AND asignaciones.orientador_usuario_id = ? AND asignaciones.fecha_fin IS NULL
            AND estados_actividad_orientacion.clave IN (?, ?)
          ORDER BY vencida DESC,
                   actividades_orientacion.fecha_asignacion ASC,
                   actividades_orientacion.id ASC
          LIMIT ?`,
-        [fechaActual, orientadorUsuarioId, 'PENDIENTE', 'EN_PROCESO', String(limiteSeguro)]
+        [fechaActual, orientadorUsuarioId, orientadorUsuarioId, 'PENDIENTE', 'EN_PROCESO', String(limiteSeguro)]
     );
     return rows;
 };
@@ -432,6 +485,7 @@ const buscarDetalleParaOrientador = async (actividadId, alumnoUsuarioId, orienta
 
 module.exports = {
     crear,
+    crearAutorizada,
     listarRecientesPorAlumno,
     obtenerResumenGeneral,
     listarActividadesQueRequierenAtencion,

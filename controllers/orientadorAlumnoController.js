@@ -1,5 +1,5 @@
 const alumnoModel = require('../models/alumnoModel');
-const grupoModel = require('../models/grupoModel');
+const orientadorAlcanceModel = require('../models/orientadorAlcanceModel');
 const seguimientoModel = require('../models/seguimientoModel');
 const actividadOrientacionModel = require('../models/actividadOrientacionModel');
 const crearMenuPorRol = require('../config/roleMenus');
@@ -20,7 +20,8 @@ const crearMenuOrientadorAlumnos = () => crearMenuPorRol(
 
 const listarAlumnos = async (req, res) => {
     try {
-        const grupos = await grupoModel.listarTodosConTurno();
+        const orientadorUsuarioId = Number(req.session.usuario.id);
+        const grupos = await orientadorAlcanceModel.listarGruposVigentes(orientadorUsuarioId);
         const busqueda = normalizarTexto(req.query.q).slice(0, 100);
         const grupoSolicitado = convertirIdPositivo(normalizarTexto(req.query.grupo));
         const grupoId = grupoSolicitado !== null
@@ -39,7 +40,7 @@ const listarAlumnos = async (req, res) => {
             ? Number(req.query.pagina)
             : 1;
         const limite = 10;
-        const filtrosModelo = { busqueda, grupoId, activo };
+        const filtrosModelo = { orientadorUsuarioId, busqueda, grupoId, activo };
         const totalRegistros = await alumnoModel.contarFiltradosParaOrientador(filtrosModelo);
         const totalPaginas = Math.max(1, Math.ceil(totalRegistros / limite));
         const paginaActual = Math.min(paginaSolicitada, totalPaginas);
@@ -87,7 +88,7 @@ const listarAlumnos = async (req, res) => {
             }
         });
     } catch {
-        res.status(500).send('No fue posible cargar la lista de alumnos.');
+        res.status(503).send('No fue posible cargar la lista de alumnos.');
     }
 };
 
@@ -99,7 +100,7 @@ const mostrarDetalleAlumno = async (req, res) => {
     }
 
     try {
-        const resultado = await alumnoModel.buscarDetalleParaOrientadorPorUsuarioId(id);
+        const resultado = await alumnoModel.buscarDetalleParaOrientadorPorUsuarioId(id, req.session.usuario.id);
         if (!resultado) {
             res.status(404).send('Alumno no encontrado.');
             return;
@@ -161,7 +162,7 @@ const mostrarDetalleAlumno = async (req, res) => {
                     : null
         });
     } catch {
-        res.status(500).send('No fue posible cargar el detalle del alumno.');
+        res.status(503).send('No fue posible cargar el detalle del alumno.');
     }
 };
 

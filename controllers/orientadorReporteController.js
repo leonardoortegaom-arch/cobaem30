@@ -1,5 +1,5 @@
 const alumnoModel = require('../models/alumnoModel');
-const grupoModel = require('../models/grupoModel');
+const orientadorAlcanceModel = require('../models/orientadorAlcanceModel');
 const reporteOrientacionModel = require('../models/reporteOrientacionModel');
 const reporteEscritoOrientacionModel = require('../models/reporteEscritoOrientacionModel');
 const reporteOrientacionPdfService = require('../services/reporteOrientacionPdfService');
@@ -45,7 +45,8 @@ const crearMenuReportes = () => crearMenuPorRol(
 
 const listarAlumnos = async (req, res) => {
     try {
-        const grupos = await grupoModel.listarTodosConTurno();
+        const orientadorUsuarioId = Number(req.session.usuario.id);
+        const grupos = await orientadorAlcanceModel.listarGruposVigentes(orientadorUsuarioId);
         const busqueda = normalizarTexto(req.query.q).slice(0, 100);
         const grupoSolicitado = convertirIdPositivo(normalizarTexto(req.query.grupo));
         const grupoId = grupoSolicitado !== null
@@ -62,7 +63,7 @@ const listarAlumnos = async (req, res) => {
             ? Number(req.query.pagina)
             : 1;
         const limite = 10;
-        const filtrosModelo = { busqueda, grupoId, activo };
+        const filtrosModelo = { orientadorUsuarioId, busqueda, grupoId, activo };
         const totalRegistros = await alumnoModel.contarFiltradosParaOrientador(filtrosModelo);
         const totalPaginas = Math.max(1, Math.ceil(totalRegistros / limite));
         const paginaActual = Math.min(paginaSolicitada, totalPaginas);
@@ -157,7 +158,7 @@ const construirReporte = ({ alumno, periodo, orientador, seguimientos = [], acti
 });
 
 const prepararReporte = async (req, alumnoId) => {
-    const resultadoAlumno = await alumnoModel.buscarDetalleParaOrientadorPorUsuarioId(alumnoId);
+    const resultadoAlumno = await alumnoModel.buscarDetalleParaOrientadorPorUsuarioId(alumnoId, req.session.usuario.id);
     if (!resultadoAlumno) return { noEncontrado: true };
 
     const alumno = crearAlumnoSeguro(resultadoAlumno);
@@ -189,7 +190,12 @@ const prepararReporte = async (req, alumnoId) => {
         };
     }
 
-    const contenido = await reporteOrientacionModel.obtenerReporteAlumno(alumnoId, periodo);
+    const contenido = await reporteOrientacionModel.obtenerReporteAlumno(
+        alumnoId, req.session.usuario.id, periodo
+    );
+    if (!await orientadorAlcanceModel.puedeAccederAlumno(req.session.usuario.id, alumnoId)) {
+        return { noEncontrado: true };
+    }
     return {
         alumno,
         periodo,
@@ -234,7 +240,7 @@ const mostrarConfiguracion = async (req, res) => {
     }
 
     try {
-        const resultadoAlumno = await alumnoModel.buscarDetalleParaOrientadorPorUsuarioId(alumnoId);
+        const resultadoAlumno = await alumnoModel.buscarDetalleParaOrientadorPorUsuarioId(alumnoId, req.session.usuario.id);
         if (!resultadoAlumno) {
             res.status(404).send('Alumno no encontrado.');
             return;
@@ -273,7 +279,7 @@ const mostrarVistaPrevia = async (req, res) => {
 
     try {
         if (!desde || !hasta) {
-            const resultadoAlumno = await alumnoModel.buscarDetalleParaOrientadorPorUsuarioId(alumnoId);
+            const resultadoAlumno = await alumnoModel.buscarDetalleParaOrientadorPorUsuarioId(alumnoId, req.session.usuario.id);
             if (!resultadoAlumno) {
                 res.status(404).send('Alumno no encontrado.');
                 return;

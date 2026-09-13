@@ -1,6 +1,6 @@
 const pool = require('../config/database');
 
-const obtenerReporteAlumno = async (alumnoUsuarioId, { desde, hasta }) => {
+const obtenerReporteAlumno = async (alumnoUsuarioId, orientadorUsuarioId, { desde, hasta }) => {
     const [seguimientosResultado, actividadesResultado] = await Promise.all([
         pool.execute(
             `SELECT
@@ -14,11 +14,15 @@ const obtenerReporteAlumno = async (alumnoUsuarioId, { desde, hasta }) => {
              INNER JOIN tipos_seguimiento ON tipos_seguimiento.id = seguimientos.tipo_id
              INNER JOIN usuarios AS orientadores ON orientadores.id = seguimientos.orientador_usuario_id
              WHERE seguimientos.alumno_usuario_id = ?
+               AND EXISTS (SELECT 1 FROM alumnos
+                   INNER JOIN asignaciones_orientador_grupo AS asignaciones ON asignaciones.grupo_id = alumnos.grupo_id
+                   WHERE alumnos.usuario_id = seguimientos.alumno_usuario_id
+                     AND asignaciones.orientador_usuario_id = ? AND asignaciones.fecha_fin IS NULL)
                AND seguimientos.fecha_seguimiento BETWEEN ? AND ?
              ORDER BY seguimientos.fecha_seguimiento ASC,
                       seguimientos.creado_en ASC,
                       seguimientos.id ASC`,
-            [alumnoUsuarioId, desde, hasta]
+            [alumnoUsuarioId, orientadorUsuarioId, desde, hasta]
         ),
         pool.execute(
             `SELECT
@@ -35,6 +39,10 @@ const obtenerReporteAlumno = async (alumnoUsuarioId, { desde, hasta }) => {
              INNER JOIN usuarios AS orientadores
                 ON orientadores.id = actividades_orientacion.orientador_usuario_id
              WHERE actividades_orientacion.alumno_usuario_id = ?
+               AND EXISTS (SELECT 1 FROM alumnos
+                   INNER JOIN asignaciones_orientador_grupo AS asignaciones ON asignaciones.grupo_id = alumnos.grupo_id
+                   WHERE alumnos.usuario_id = actividades_orientacion.alumno_usuario_id
+                     AND asignaciones.orientador_usuario_id = ? AND asignaciones.fecha_fin IS NULL)
                AND COALESCE(
                     actividades_orientacion.fecha_realizacion,
                     actividades_orientacion.fecha_asignacion
@@ -45,7 +53,7 @@ const obtenerReporteAlumno = async (alumnoUsuarioId, { desde, hasta }) => {
                       ) ASC,
                       actividades_orientacion.creado_en ASC,
                       actividades_orientacion.id ASC`,
-            [alumnoUsuarioId, desde, hasta]
+            [alumnoUsuarioId, orientadorUsuarioId, desde, hasta]
         )
     ]);
 

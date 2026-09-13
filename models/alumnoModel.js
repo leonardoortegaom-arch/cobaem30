@@ -37,9 +37,10 @@ const buscarPorUsuarioIdConGrupo = async (usuarioId) => {
     return rows[0] || null;
 };
 
-const construirCondicionesOrientador = ({ busqueda, grupoId, activo } = {}) => {
-    const condiciones = ["roles.clave = 'ALUMNO'"];
-    const parametros = [];
+const construirCondicionesOrientador = ({ orientadorUsuarioId, busqueda, grupoId, activo } = {}) => {
+    const condiciones = ["roles.clave = 'ALUMNO'", 'asignaciones.orientador_usuario_id = ?',
+        'asignaciones.fecha_fin IS NULL'];
+    const parametros = [orientadorUsuarioId];
 
     if (busqueda) {
         const patron = `%${busqueda}%`;
@@ -70,6 +71,7 @@ const construirCondicionesOrientador = ({ busqueda, grupoId, activo } = {}) => {
 };
 
 const listarPaginadoParaOrientador = async ({
+    orientadorUsuarioId,
     busqueda,
     grupoId,
     activo,
@@ -79,6 +81,7 @@ const listarPaginadoParaOrientador = async ({
     const limiteSeguro = Number.isInteger(limite) && limite > 0 ? limite : 10;
     const offsetSeguro = Number.isInteger(offset) && offset >= 0 ? offset : 0;
     const { clausulaWhere, parametros } = construirCondicionesOrientador({
+        orientadorUsuarioId,
         busqueda,
         grupoId,
         activo
@@ -99,6 +102,8 @@ const listarPaginadoParaOrientador = async ({
          INNER JOIN usuarios ON usuarios.id = alumnos.usuario_id
          INNER JOIN roles ON roles.id = usuarios.rol_id
          INNER JOIN grupos ON grupos.id = alumnos.grupo_id
+         INNER JOIN asignaciones_orientador_grupo AS asignaciones
+            ON asignaciones.grupo_id = alumnos.grupo_id
          INNER JOIN turnos ON turnos.id = grupos.turno_id
          ${clausulaWhere}
          ORDER BY grupos.ciclo_escolar DESC, grupos.semestre ASC, grupos.clave ASC, alumnos.matricula ASC
@@ -109,7 +114,7 @@ const listarPaginadoParaOrientador = async ({
     return rows;
 };
 
-const buscarDetalleParaOrientadorPorUsuarioId = async (usuarioId) => {
+const buscarDetalleParaOrientadorPorUsuarioId = async (usuarioId, orientadorUsuarioId) => {
     const [rows] = await pool.execute(
         `SELECT
             usuarios.id AS usuarioId,
@@ -126,18 +131,22 @@ const buscarDetalleParaOrientadorPorUsuarioId = async (usuarioId) => {
          INNER JOIN usuarios ON usuarios.id = alumnos.usuario_id
          INNER JOIN roles ON roles.id = usuarios.rol_id
          INNER JOIN grupos ON grupos.id = alumnos.grupo_id
+         INNER JOIN asignaciones_orientador_grupo AS asignaciones
+            ON asignaciones.grupo_id = alumnos.grupo_id
          INNER JOIN turnos ON turnos.id = grupos.turno_id
          WHERE usuarios.id = ? AND roles.clave = ?
+           AND asignaciones.orientador_usuario_id = ?
+           AND asignaciones.fecha_fin IS NULL
          LIMIT 1`,
-        [usuarioId, 'ALUMNO']
+        [usuarioId, 'ALUMNO', orientadorUsuarioId]
     );
 
     return rows[0] || null;
 };
 
-const contarFiltradosParaOrientador = async ({ busqueda, grupoId, activo } = {}) => {
+const contarFiltradosParaOrientador = async ({ orientadorUsuarioId, busqueda, grupoId, activo } = {}) => {
     const { clausulaWhere, parametros } = construirCondicionesOrientador({
-        busqueda,
+        orientadorUsuarioId, busqueda,
         grupoId,
         activo
     });
@@ -147,6 +156,8 @@ const contarFiltradosParaOrientador = async ({ busqueda, grupoId, activo } = {})
          INNER JOIN usuarios ON usuarios.id = alumnos.usuario_id
          INNER JOIN roles ON roles.id = usuarios.rol_id
          INNER JOIN grupos ON grupos.id = alumnos.grupo_id
+         INNER JOIN asignaciones_orientador_grupo AS asignaciones
+            ON asignaciones.grupo_id = alumnos.grupo_id
          INNER JOIN turnos ON turnos.id = grupos.turno_id
          ${clausulaWhere}`,
         parametros

@@ -2,6 +2,7 @@ const alumnoModel = require('../models/alumnoModel');
 const tipoReporteOrientacionModel = require('../models/tipoReporteOrientacionModel');
 const estadoReporteOrientacionModel = require('../models/estadoReporteOrientacionModel');
 const reporteEscritoOrientacionModel = require('../models/reporteEscritoOrientacionModel');
+const orientadorAlcanceModel = require('../models/orientadorAlcanceModel');
 const crearMenuPorRol = require('../config/roleMenus');
 
 const TIPOS_PERMITIDOS = new Set(['ACADEMICO', 'CONDUCTUAL']);
@@ -122,7 +123,7 @@ const mostrarNuevo = async (req, res) => {
     if (!alumnoId) return res.status(404).send('Alumno no encontrado.');
     try {
         const [resultadoAlumno, tipos] = await Promise.all([
-            alumnoModel.buscarDetalleParaOrientadorPorUsuarioId(alumnoId),
+            alumnoModel.buscarDetalleParaOrientadorPorUsuarioId(alumnoId, req.session.usuario.id),
             tipoReporteOrientacionModel.listarTodos()
         ]);
         if (!resultadoAlumno) return res.status(404).send('Alumno no encontrado.');
@@ -151,7 +152,7 @@ const crearBorrador = async (req, res) => {
     const datos = leerDatos(req.body);
     try {
         const [resultadoAlumno, tipos] = await Promise.all([
-            alumnoModel.buscarDetalleParaOrientadorPorUsuarioId(alumnoId),
+            alumnoModel.buscarDetalleParaOrientadorPorUsuarioId(alumnoId, req.session.usuario.id),
             tipoReporteOrientacionModel.listarTodos()
         ]);
         if (!resultadoAlumno) return res.status(404).send('Alumno no encontrado.');
@@ -184,7 +185,7 @@ const crearBorrador = async (req, res) => {
         }
         if (!estadoBorrador) return res.status(503).send('No fue posible determinar el estado inicial del reporte.');
 
-        const reporteId = await reporteEscritoOrientacionModel.crearBorrador({
+        const reporteId = await reporteEscritoOrientacionModel.crearBorradorAutorizado({
             alumnoUsuarioId: alumnoId,
             orientadorUsuarioId: req.session.usuario.id,
             tipoReporteId: tipo.id,
@@ -197,6 +198,7 @@ const crearBorrador = async (req, res) => {
             conclusiones: datos.conclusiones || null,
             recomendaciones: datos.recomendaciones || null
         });
+        if (!reporteId) return res.status(404).send('Alumno no encontrado.');
         return res.redirect(`/orientador/reportes/${reporteId}/editar?creado=1`);
     } catch {
         return res.status(503).send('No fue posible guardar el borrador. Inténtalo nuevamente.');
@@ -204,13 +206,13 @@ const crearBorrador = async (req, res) => {
 };
 
 const cargarReporteAutorizado = async (reporteId, orientadorId, res) => {
-    const acceso = await reporteEscritoOrientacionModel.buscarAccesoPorId(reporteId);
+    const acceso = await reporteEscritoOrientacionModel.buscarAccesoPorId(reporteId, orientadorId);
     if (!acceso) {
         res.status(404).send('Reporte no encontrado.');
         return null;
     }
     if (Number(acceso.orientador_usuario_id) !== Number(orientadorId)) {
-        res.status(403).send('No tienes autorización para consultar este reporte.');
+        res.status(404).send('Reporte no encontrado.');
         return null;
     }
     if (acceso.estado_clave !== 'BORRADOR') {
@@ -340,6 +342,10 @@ const actualizarBorrador = async (req, res) => {
             recomendaciones: datos.recomendaciones || null
         });
         if (resultado.affectedRows === 0) {
+            const conservaAlcance = await orientadorAlcanceModel.puedeAccederAlumno(
+                req.session.usuario.id, reporte.alumno_usuario_id
+            );
+            if (!conservaAlcance) return res.status(404).send('Reporte no encontrado.');
             return renderizarEditar(res, {
                 status: 409,
                 reporte,
