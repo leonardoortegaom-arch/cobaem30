@@ -1,5 +1,6 @@
 const grupoModel = require('../models/grupoModel');
 const turnoModel = require('../models/turnoModel');
+const asignacionOrientadorGrupoModel = require('../models/asignacionOrientadorGrupoModel');
 const crearMenuAdmin = require('../config/adminMenu');
 
 const datosVacios = {
@@ -105,11 +106,21 @@ const listarGrupos = async (req, res) => {
         const totalRegistros = await grupoModel.contarFiltrados(filtrosModelo);
         const totalPaginas = Math.max(1, Math.ceil(totalRegistros / limite));
         const paginaActual = Math.min(paginaSolicitada, totalPaginas);
-        const grupos = await grupoModel.listarPaginado({
+        const gruposBase = await grupoModel.listarPaginado({
             ...filtrosModelo,
             limite,
             offset: (paginaActual - 1) * limite
         });
+        const asignaciones = await asignacionOrientadorGrupoModel.listarVigentesPorGrupos(
+            gruposBase.map((grupo) => Number(grupo.id))
+        );
+        const orientadoresPorGrupo = new Map(
+            asignaciones.map((asignacion) => [Number(asignacion.grupo_id), asignacion.orientador_nombre])
+        );
+        const grupos = gruposBase.map((grupo) => ({
+            ...grupo,
+            orientador_nombre: orientadoresPorGrupo.get(Number(grupo.id)) || null
+        }));
         const filtros = {
             q: busqueda,
             semestre: semestre ? String(semestre) : '',

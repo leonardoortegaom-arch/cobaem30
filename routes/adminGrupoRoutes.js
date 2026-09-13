@@ -1,6 +1,7 @@
 const express = require('express');
 
 const adminGrupoController = require('../controllers/adminGrupoController');
+const adminGrupoOrientadorController = require('../controllers/adminGrupoOrientadorController');
 const { requireAuth, requireRole } = require('../middlewares/authMiddleware');
 
 const router = express.Router();
@@ -10,6 +11,20 @@ router.get(
     requireAuth,
     requireRole('ADMINISTRADOR'),
     adminGrupoController.mostrarFormularioCrear
+);
+
+router.get(
+    '/:id/orientador',
+    requireAuth,
+    requireRole('ADMINISTRADOR'),
+    adminGrupoOrientadorController.mostrarAsignacion
+);
+
+router.post(
+    '/:id/orientador',
+    requireAuth,
+    requireRole('ADMINISTRADOR'),
+    adminGrupoOrientadorController.guardarAsignacion
 );
 
 router.get(

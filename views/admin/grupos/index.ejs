@@ -92,6 +92,7 @@
               <th>Semestre</th>
               <th>Turno</th>
               <th>Ciclo escolar</th>
+              <th>Orientador vigente</th>
               <th>Estado</th>
               <th>Fecha de registro</th>
               <th>Acciones</th>
@@ -101,7 +102,7 @@
           <tbody>
             <% if (grupos.length === 0) { %>
               <tr>
-                <td colspan="7" class="text-center">No se encontraron grupos con los filtros seleccionados.</td>
+                <td colspan="8" class="text-center">No se encontraron grupos con los filtros seleccionados.</td>
               </tr>
             <% } else { %>
               <% grupos.forEach((grupo) => { %>
@@ -110,6 +111,7 @@
                   <td><%= grupo.semestre %></td>
                   <td><%= grupo.turno_nombre %></td>
                   <td><%= grupo.ciclo_escolar %></td>
+                  <td><%= grupo.orientador_nombre || 'Sin asignar' %></td>
                   <td>
                     <span class="badge-custom <%= grupo.activo ? 'success' : 'warning' %>">
                       <%= grupo.activo ? 'Activo' : 'Inactivo' %>
@@ -119,6 +121,7 @@
                   <td>
                     <div class="admin-table-actions">
                       <a href="/admin/grupos/<%= grupo.id %>/editar" class="btn-admin-edit">Editar</a>
+                      <a href="/admin/grupos/<%= grupo.id %>/orientador" class="btn-admin-password">Gestionar orientador</a>
                       <% if (grupo.activo) { %>
                         <a href="/admin/grupos/<%= grupo.id %>/estado" class="btn-admin-state-danger">Desactivar</a>
                       <% } else { %>

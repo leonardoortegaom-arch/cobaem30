@@ -3524,6 +3524,16 @@ a,
     }
 
 }
+/* Asignación administrativa de orientador por grupo */
+.admin-breadcrumb{display:flex;gap:8px;margin-bottom:18px;color:var(--text-light)}
+.admin-group-orientador-grid{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:22px}
+.admin-current-assignment{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:18px;margin-bottom:22px;border:1px solid var(--border);border-radius:12px;background:#F8F1EB}
+.admin-current-assignment div,.admin-orientador-form{display:grid;gap:14px}
+.admin-current-assignment div{gap:4px}
+.admin-current-assignment span,.admin-empty-assignment,.admin-form-note{color:var(--text-light)}
+@media(max-width:1024px){.admin-group-orientador-grid{grid-template-columns:1fr}}
+@media(max-width:480px){.admin-current-assignment{align-items:flex-start;flex-direction:column}}
+
 /* Dashboard de orientación alineado con el panel administrativo */
 .orientation-dashboard,
 .orientation-dashboard *{

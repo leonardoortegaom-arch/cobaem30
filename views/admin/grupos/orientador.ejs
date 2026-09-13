@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<%- include('../../partials/head', { title }) %>
+<body>
+<div class="dashboard-layout">
+  <%- include('../../partials/sidebar', { menuItems }) %>
+  <main class="dashboard-main admin-group-orientador">
+    <nav class="admin-breadcrumb" aria-label="Ruta de navegación">
+      <a href="/admin/grupos">Grupos</a><span aria-hidden="true">/</span><span>Asignación de orientador</span>
+    </nav>
+    <header class="dashboard-header">
+      <div>
+        <h1>Orientador del grupo</h1>
+        <p>Grupo <%= grupo.clave %> · Semestre <%= grupo.semestre %> · <%= grupo.turno_nombre %> · <%= grupo.ciclo_escolar %></p>
+      </div>
+    </header>
+    <% if (mensaje) { %><div class="alert alert-success" role="status"><%= mensaje %></div><% } %>
+    <div class="admin-group-orientador-grid">
+      <section class="panel-card" aria-labelledby="asignacion-vigente-titulo">
+        <div class="panel-header"><h2 id="asignacion-vigente-titulo">Asignación vigente</h2></div>
+        <% if (vigente) { %>
+          <div class="admin-current-assignment">
+            <div><strong><%= vigente.orientador_nombre %></strong><span>Desde <%= new Date(vigente.fecha_inicio).toLocaleDateString('es-MX', { timeZone: 'UTC' }) %></span></div>
+            <span class="badge-custom success">Vigente</span>
+          </div>
+        <% } else { %>
+          <p class="admin-empty-assignment">Este grupo todavía no tiene un orientador asignado.</p>
+        <% } %>
+        <form method="POST" action="/admin/grupos/<%= grupo.id %>/orientador" class="admin-orientador-form">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="admin-form-group">
+            <label for="orientador_usuario_id">Orientador</label>
+            <select id="orientador_usuario_id" name="orientador_usuario_id" required>
+              <option value="" selected disabled>Selecciona un orientador activo</option>
+              <% orientadores.forEach((orientador) => { %>
+                <option value="<%= orientador.id %>"><%= orientador.nombre_completo %></option>
+              <% }); %>
+            </select>
+          </div>
+          <p class="admin-form-note">Al cambiarlo, la asignación anterior se conservará en el historial.</p>
+          <button class="btn-admin-primary" type="submit" <%= orientadores.length === 0 ? 'disabled' : '' %>><%= vigente ? 'Cambiar orientador' : 'Asignar orientador' %></button>
+        </form>
+      </section>
+      <section class="panel-card" aria-labelledby="historial-orientadores-titulo">
+        <div class="panel-header"><h2 id="historial-orientadores-titulo">Historial de asignaciones</h2></div>
+        <% if (historial.length === 0) { %>
+          <p class="admin-empty-assignment">Todavía no existen asignaciones para este grupo.</p>
+        <% } else { %>
+          <div class="table-responsive">
+            <table class="custom-table">
+              <thead><tr><th>Orientador</th><th>Inicio</th><th>Fin</th><th>Estado</th></tr></thead>
+              <tbody><% historial.forEach((asignacion) => { %><tr>
+                <td><%= asignacion.orientador_nombre %></td>
+                <td><%= new Date(asignacion.fecha_inicio).toLocaleDateString('es-MX', { timeZone: 'UTC' }) %></td>
+                <td><%= asignacion.fecha_fin ? new Date(asignacion.fecha_fin).toLocaleDateString('es-MX', { timeZone: 'UTC' }) : '—' %></td>
+                <td><span class="badge-custom <%= asignacion.fecha_fin ? 'warning' : 'success' %>"><%= asignacion.fecha_fin ? 'Finalizado' : 'Vigente' %></span></td>
+              </tr><% }); %></tbody>
+            </table>
+          </div>
+        <% } %>
+      </section>
+    </div>
+    <div class="admin-form-actions"><a class="btn-admin-secondary" href="/admin/grupos">Volver a Grupos</a></div>
+  </main>
+</div>
+</body>
+</html>
