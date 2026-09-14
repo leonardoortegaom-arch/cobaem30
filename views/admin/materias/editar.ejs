@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="es">
+<%- include('../../partials/head', { title }) %>
+<body><div class="dashboard-layout">
+<%- include('../../partials/sidebar', { menuItems }) %>
+<main class="dashboard-main">
+  <header class="dashboard-header"><div><h1>Editar materia</h1><p>Actualiza la información general de la materia.</p></div></header>
+  <section class="panel-card admin-form-card">
+    <% if (error) { %><div class="alert alert-danger" role="alert"><%= error %></div><% } %>
+    <form method="POST" action="/admin/materias/<%= datos.id %>/editar">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <div class="admin-form-grid">
+        <div class="admin-form-group"><label for="clave">Clave</label><input id="clave" name="clave" type="text" maxlength="30" value="<%= datos.clave %>" required autocomplete="off"></div>
+        <div class="admin-form-group"><label for="nombre">Nombre</label><input id="nombre" name="nombre" type="text" minlength="2" maxlength="150" value="<%= datos.nombre %>" required></div>
+        <div class="admin-form-group admin-form-group-full"><label for="descripcion">Descripción <span>(opcional)</span></label><textarea id="descripcion" name="descripcion" maxlength="500" rows="5"><%= datos.descripcion %></textarea></div>
+      </div>
+      <div class="admin-form-actions"><button type="submit" class="btn-admin-primary">Guardar cambios</button><a href="/admin/materias" class="btn-admin-secondary">Cancelar</a></div>
+    </form>
+  </section>
+</main></div></body></html>

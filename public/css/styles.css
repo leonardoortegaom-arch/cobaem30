@@ -1194,7 +1194,8 @@ DASHBOARD BASE
     gap:14px;
 }
 
-.quick-actions button{
+.quick-actions button,
+.quick-actions a{
     border:none;
     background:#F8FAFC;
     padding:15px;
@@ -1202,9 +1203,13 @@ DASHBOARD BASE
     text-align:left;
     font-weight:500;
     transition:.3s;
+    color:var(--text-dark);
+    text-decoration:none;
+    cursor:pointer;
 }
 
-.quick-actions button:hover{
+.quick-actions button:hover,
+.quick-actions a:hover{
     background:#EEF2FF;
     color:var(--primary);
 }

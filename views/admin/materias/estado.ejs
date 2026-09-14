@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="es">
+<%- include('../../partials/head', { title }) %>
+<body><div class="dashboard-layout">
+<%- include('../../partials/sidebar', { menuItems }) %>
+<main class="dashboard-main">
+  <header class="dashboard-header"><div><h1>Estado de materia</h1><p>Confirma el cambio de disponibilidad de la materia.</p></div></header>
+  <section class="panel-card admin-confirmation-card">
+    <dl class="admin-user-summary">
+      <div><dt>Clave</dt><dd><%= materia.clave %></dd></div>
+      <div><dt>Nombre</dt><dd><%= materia.nombre %></dd></div>
+      <div><dt>Estado actual</dt><dd><%= materia.activo ? 'Activo' : 'Inactivo' %></dd></div>
+    </dl>
+    <h2>¿Deseas <%= accion %> esta materia?</h2>
+    <p>Desactivar una materia impide seleccionarla en operaciones futuras, pero no elimina su registro.</p>
+    <form method="POST" action="/admin/materias/<%= materia.id %>/estado">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>"><input type="hidden" name="accion" value="<%= accion %>">
+      <div class="admin-form-actions"><button type="submit" class="<%= accion === 'desactivar' ? 'btn-admin-danger' : 'btn-admin-activate' %>"><%= accion === 'desactivar' ? 'Desactivar materia' : 'Activar materia' %></button><a href="/admin/materias" class="btn-admin-secondary">Cancelar</a></div>
+    </form>
+  </section>
+</main></div></body></html>

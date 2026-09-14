@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<%- include('../../partials/head', { title }) %>
+<body>
+<div class="dashboard-layout">
+  <%- include('../../partials/sidebar', { menuItems }) %>
+  <main class="dashboard-main">
+    <header class="dashboard-header"><div>
+      <h1>Administración de materias</h1>
+      <p>Consulta y administra el catálogo de materias disponible para la programación académica.</p>
+    </div></header>
+
+    <% if (mensaje) { %><div class="alert alert-success" role="alert"><%= mensaje %></div><% } %>
+
+    <section class="panel-card">
+      <div class="panel-header">
+        <h3>Materias registradas</h3>
+        <a href="/admin/materias/nuevo" class="btn-admin-primary">Registrar materia</a>
+      </div>
+      <form method="GET" action="/admin/materias" class="admin-user-filters">
+        <div class="admin-filter-field admin-filter-search">
+          <label for="materia-q">Buscar</label>
+          <input id="materia-q" name="q" type="search" maxlength="150" value="<%= filtros.q %>" placeholder="Clave o nombre">
+        </div>
+        <div class="admin-filter-field">
+          <label for="materia-estado">Estado</label>
+          <select id="materia-estado" name="estado">
+            <option value="">Todos</option>
+            <option value="activo" <%= filtros.estado === 'activo' ? 'selected' : '' %>>Activos</option>
+            <option value="inactivo" <%= filtros.estado === 'inactivo' ? 'selected' : '' %>>Inactivos</option>
+          </select>
+        </div>
+        <div class="admin-filter-actions">
+          <button type="submit" class="btn-admin-primary">Buscar</button>
+          <a href="/admin/materias" class="btn-admin-secondary">Limpiar</a>
+        </div>
+      </form>
+      <p class="admin-results-count"><%= paginacion.totalRegistros %> materias encontradas</p>
+      <div class="table-responsive">
+        <table class="custom-table">
+          <thead><tr><th>Clave</th><th>Nombre</th><th>Descripción</th><th>Estado</th><th>Fecha de registro</th><th>Acciones</th></tr></thead>
+          <tbody>
+          <% if (materias.length === 0) { %>
+            <tr><td colspan="6" class="text-center">No se encontraron materias.</td></tr>
+          <% } else { materias.forEach((materia) => { %>
+            <tr>
+              <td><%= materia.clave %></td><td><%= materia.nombre %></td><td><%= materia.descripcion || 'Sin descripción' %></td>
+              <td><span class="badge-custom <%= materia.activo ? 'success' : 'warning' %>"><%= materia.activo ? 'Activo' : 'Inactivo' %></span></td>
+              <td><%= new Date(materia.creado_en).toLocaleString('es-MX') %></td>
+              <td><div class="admin-table-actions">
+                <a href="/admin/materias/<%= materia.id %>/editar" class="btn-admin-edit">Editar</a>
+                <a href="/admin/materias/<%= materia.id %>/estado" class="<%= materia.activo ? 'btn-admin-state-danger' : 'btn-admin-state-activate' %>"><%= materia.activo ? 'Desactivar' : 'Activar' %></a>
+              </div></td>
+            </tr>
+          <% }); } %>
+          </tbody>
+        </table>
+      </div>
+      <% if (paginacion.totalPaginas > 1) { %>
+      <nav class="admin-pagination" aria-label="Paginación de materias">
+        <% if (paginacion.tieneAnterior) { %><a href="<%= paginacion.urlAnterior %>" class="admin-page-link">Anterior</a><% } else { %><span class="admin-page-link disabled">Anterior</span><% } %>
+        <% paginacion.enlaces.forEach((enlace) => { %><a href="<%= enlace.url %>" class="admin-page-link <%= enlace.actual ? 'active' : '' %>" <%= enlace.actual ? 'aria-current="page"' : '' %>><%= enlace.numero %></a><% }); %>
+        <% if (paginacion.tieneSiguiente) { %><a href="<%= paginacion.urlSiguiente %>" class="admin-page-link">Siguiente</a><% } else { %><span class="admin-page-link disabled">Siguiente</span><% } %>
+      </nav>
+      <% } %>
+    </section>
+  </main>
+</div>
+</body>
+</html>

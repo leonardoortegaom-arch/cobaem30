@@ -21,7 +21,7 @@ const adminMenuItems = [
         clave: 'materias',
         texto: 'Materias',
         icono: 'fa-solid fa-book',
-        url: '#'
+        url: '/admin/materias'
     },
     {
         clave: 'reportes',
