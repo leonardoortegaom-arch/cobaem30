@@ -1,0 +1,13 @@
+const express = require('express');
+const controller = require('../controllers/adminAulaController');
+const { requireAuth, requireRole } = require('../middlewares/authMiddleware');
+const router = express.Router();
+const proteger = [requireAuth, requireRole('ADMINISTRADOR')];
+router.get('/nuevo', ...proteger, controller.mostrarNueva);
+router.get('/:id/editar', ...proteger, controller.mostrarEditar);
+router.post('/:id/editar', ...proteger, controller.actualizar);
+router.get('/:id/estado', ...proteger, controller.mostrarEstado);
+router.post('/:id/estado', ...proteger, controller.actualizarEstado);
+router.post('/', ...proteger, controller.crear);
+router.get('/', ...proteger, controller.listar);
+module.exports = router;

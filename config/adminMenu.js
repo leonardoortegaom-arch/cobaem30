@@ -24,6 +24,12 @@ const adminMenuItems = [
         url: '/admin/materias'
     },
     {
+        clave: 'aulas',
+        texto: 'Aulas',
+        icono: 'fa-solid fa-door-open',
+        url: '/admin/aulas'
+    },
+    {
         clave: 'reportes',
         texto: 'Reportes',
         icono: 'fa-solid fa-chart-line',
