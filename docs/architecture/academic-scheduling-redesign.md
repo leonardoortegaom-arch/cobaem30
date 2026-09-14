@@ -169,20 +169,13 @@ La transición debe asignar primero el grupo existente a un orientador válido. 
 
 ## 10. Importación XLSX rediseñada
 
-Se recomienda una plantilla normalizada por filas, no una cuadrícula semanal ambigua. Para clases, el contrato propuesto incluye:
+La entrada oficial es la plantilla tabular definida en [Contrato XLSX del horario completo de un grupo](./group-schedule-xlsx-contract.md), no una cuadrícula semanal ambigua. Cada fila representa un bloque completo de clase y utiliza, en orden, `DIA`, `HORA_INICIO`, `HORA_FIN`, `MATERIA_CLAVE`, `DOCENTE_CORREO` y `AULA_CLAVE`.
 
-- `VERSION_PLANTILLA`;
-- `DIA`;
-- `HORA_INICIO`;
-- `HORA_FIN`;
-- `CLAVE_GRUPO`;
-- `CLAVE_MATERIA`;
-- `CORREO_DOCENTE` o un identificador institucional estable;
-- `CLAVE_AULA`.
+El grupo y el periodo académico se seleccionan en el dashboard y no se repiten dentro del archivo. Las materias y aulas se resuelven por sus claves internas; el docente se resuelve exclusivamente por correo. La plantilla tabular es la única entrada oficial: una representación matricial podrá existir en el futuro solo como vista o exportación.
 
 La estrategia aprobada es **reemplazo total, versionado y reversible** dentro de un alcance explícito formado por el periodo académico y el conjunto completo de clases declarado por la importación. La importación deberá exigir:
 
-- tipo y versión de plantilla obligatorios;
+- tipo y versión determinados por el contrato y la estructura de la plantilla oficial, no por una celda aportada por el usuario;
 - hoja con nombre fijo;
 - encabezados exactos y documentados;
 - máximo definido de filas;
@@ -198,7 +191,7 @@ La estrategia aprobada es **reemplazo total, versionado y reversible** dentro de
 - reemplazo total del alcance confirmado, sin mezclar versiones;
 - control de concurrencia;
 - reporte de resultado por fila sin revelar detalles internos;
-- validación de que la identidad del grupo del archivo coincide con el destino autorizado.
+- validación de que el grupo y periodo seleccionados forman un destino autorizado.
 
 El flujo obligatorio es:
 
