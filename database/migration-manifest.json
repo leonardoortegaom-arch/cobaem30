@@ -216,11 +216,25 @@
     {
       "version": 18,
       "identificador": "018",
-      "estado": "PLANNED",
-      "archivo": null,
-      "checksumSha256": null,
-      "descripcion": "Crear catálogos de materias y aulas.",
-      "razonEstado": "Contrato aprobado; SQL aún no creado."
+      "estado": "ACTIVE",
+      "archivo": "018_create_subjects_and_classrooms.sql",
+      "checksumSha256": "f4d5811c1d70a443724688017e09f35d7c9f1b5a36b7fce5105ddcf2497c0d7b",
+      "descripcion": "Crear catálogos normalizados de materias y aulas.",
+      "execution": {
+        "dependsOn": [17],
+        "statementCount": 2,
+        "statements": [
+          {"operation": "CREATE_TABLE", "target": "materias"},
+          {"operation": "CREATE_TABLE", "target": "aulas"}
+        ],
+        "preconditions": [
+          {"type": "MIGRATION_APPLIED", "version": 17},
+          {"type": "TABLE_ABSENT", "target": "materias"},
+          {"type": "TABLE_ABSENT", "target": "aulas"}
+        ],
+        "postconditionContract": "database/migration-contracts/018_subjects_and_classrooms.json",
+        "postconditionChecksumSha256": "4d0320935335d5b4e6157aad23f1e7e4d3c440a2162424f2554efc065930e3f1"
+      }
     },
     {
       "version": 19,

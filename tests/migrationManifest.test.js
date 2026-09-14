@@ -70,7 +70,8 @@ test('2. todos los SQL físicos están manifestados', () => {
         '014_create_teacher_schedules_table.sql',
         '015_create_academic_calendar_catalogs.sql',
         '016_add_academic_calendar_references_to_groups.sql',
-        '017_create_group_staff_assignments.sql'
+        '017_create_group_staff_assignments.sql',
+        '018_create_subjects_and_classrooms.sql'
     ].sort();
     assert.deepEqual(fisicos, declarados);
     assert.deepEqual(fisicos, esperados);
@@ -80,7 +81,7 @@ test('2. todos los SQL físicos están manifestados', () => {
 
 test('3. los checksums reales coinciden', () => {
     const resultado = manifestModule.validarArchivosYChecksums(manifestModule.cargarManifiesto());
-    assert.equal(resultado.totalArchivosSql, 17);
+    assert.equal(resultado.totalArchivosSql, 18);
 });
 
 test('4. LF y CRLF producen el mismo checksum', () => {
@@ -142,12 +143,14 @@ test('13. RESERVED_MISSING con archivo es rechazazada', () => {
 
 test('14. PLANNED con archivo es rechazazada', () => {
     const manifiesto = cargarClonReal();
-    const entrada = manifiesto.migraciones.find((item) => item.version === 18);
-    entrada.archivo = '018_invalida.sql';
+    const entrada = manifiesto.migraciones.find((item) => item.version === 19);
+    entrada.archivo = '019_invalida.sql';
     entrada.checksumSha256 = '0'.repeat(64);
     assert.throws(() => manifestModule.validarEstructuraManifiesto(manifiesto));
     const entradaReal = manifestModule.cargarManifiesto().migraciones.find((item) => item.version === 18);
-    assert.deepEqual({ archivo: entradaReal.archivo, checksum: entradaReal.checksumSha256 }, { archivo: null, checksum: null });
+    assert.equal(entradaReal.estado, 'ACTIVE');
+    assert.equal(entradaReal.archivo, '018_create_subjects_and_classrooms.sql');
+    assert.match(entradaReal.checksumSha256, /^[0-9a-f]{64}$/);
 });
 
 test('15. una ruta con .. es rechazada', () => {
@@ -205,7 +208,7 @@ test('21. 009 y 011–014 permanecen superseded', () => {
     }
 });
 
-test('22. 015 está active y 016–021 permanecen planned', () => {
+test('22. 015 a 018 están active y 019–021 permanecen planned', () => {
     const migraciones = manifestModule.cargarManifiesto().migraciones;
     const activa = migraciones.find((item) => item.version === 15);
     assert.equal(activa.estado, 'ACTIVE');
@@ -224,7 +227,11 @@ test('22. 015 está active y 016–021 permanecen planned', () => {
     assert.equal(activa017.estado, 'ACTIVE');
     assert.equal(activa017.archivo, '017_create_group_staff_assignments.sql');
     assert.equal(manifestModule.calcularChecksumCanonico(path.join(manifestModule.MIGRATIONS_DIR, activa017.archivo)), activa017.checksumSha256);
-    for (let version = 18; version <= 21; version += 1) {
+    const activa018 = migraciones.find((item) => item.version === 18);
+    assert.equal(activa018.estado, 'ACTIVE');
+    assert.equal(activa018.archivo, '018_create_subjects_and_classrooms.sql');
+    assert.equal(manifestModule.calcularChecksumCanonico(path.join(manifestModule.MIGRATIONS_DIR, activa018.archivo)), activa018.checksumSha256);
+    for (let version = 19; version <= 21; version += 1) {
         const entrada = migraciones.find((item) => item.version === version);
         assert.equal(entrada.estado, 'PLANNED');
         assert.equal(entrada.archivo, null);

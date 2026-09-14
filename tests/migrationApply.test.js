@@ -25,6 +25,19 @@ legacy017.archivo = null;
 legacy017.checksumSha256 = null;
 legacy017.razonEstado = 'Fixture previa a 017.';
 delete legacy017.execution;
+const legacy018 = manifest.migraciones.find((item) => item.version === 18);
+legacy018.estado = 'PLANNED';
+legacy018.archivo = null;
+legacy018.checksumSha256 = null;
+legacy018.razonEstado = 'Fixture previa a 018.';
+delete legacy018.execution;
+const pre018Manifest = structuredClone(actualManifest);
+const pre018Entry = pre018Manifest.migraciones.find((item) => item.version === 18);
+pre018Entry.estado = 'PLANNED';
+pre018Entry.archivo = null;
+pre018Entry.checksumSha256 = null;
+pre018Entry.razonEstado = 'Fixture previa a 018.';
+delete pre018Entry.execution;
 const entry015 = manifest.migraciones.find((item) => item.version === 15);
 const contract = apply.cargarContrato(entry015);
 const descriptor = preflight.cargarDescriptor();
@@ -193,7 +206,7 @@ async function simulated017Failure(failAt) {
     };
     try {
         return await apply.ejecutarAdministrativo(adminOptions('--execute', backup.file, backup.hash), true, { log() {} }, {
-            env: adminEnv(), pool: mockPool(connection), manifest: actualManifest,
+            env: adminEnv(), pool: mockPool(connection), manifest: pre018Manifest,
             snapshot: async () => actualSnapshotAfter016(), privileges: async () => ({ estado: 'PRESENT' })
         });
     } finally { fs.rmSync(backup.dir, { recursive: true }); }
@@ -225,8 +238,8 @@ test('46 dry-run después de 015 no encuentra pendientes', async () => {
     assert.match(output.join('\n'), /Migraciones ACTIVE pendientes: ninguna/);
     assert.equal(output.at(-1), 'MIGRATION_UP_DRY_RUN_NO_CHANGES');
 });
-test('47 manifiesto actual selecciona solo 017 con dos CREATE TABLE', () => {
-    const plan = apply.construirPlan(actualManifest, actualSnapshotAfter016());
+test('47 fixture previa a 018 selecciona solo 017 con dos CREATE TABLE', () => {
+    const plan = apply.construirPlan(pre018Manifest, actualSnapshotAfter016());
     assert.deepEqual(plan.map((item) => item.entrada.version), [17]);
     assert.deepEqual(plan[0].statements.map(({ operation, target }) => ({ operation, target })), [
         { operation: 'CREATE_TABLE', target: 'asignaciones_orientador_grupo' },

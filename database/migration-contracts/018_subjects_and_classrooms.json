@@ -1,0 +1,54 @@
+{
+  "versionContrato": 1,
+  "migracion": 18,
+  "identificador": "018",
+  "algoritmoChecksum": "sha256-utf8-lf-v1",
+  "tablas": {
+    "materias": {
+      "engine": "innodb",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_0900_ai_ci",
+      "columnas": [
+        {"nombre":"id","tipo":"int unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"clave","tipo":"varchar(30)","unsigned":false,"nullable":false},
+        {"nombre":"nombre","tipo":"varchar(150)","unsigned":false,"nullable":false},
+        {"nombre":"descripcion","tipo":"varchar(500)","unsigned":false,"nullable":true,"default":null},
+        {"nombre":"activo","tipo":"tinyint(1)","unsigned":false,"nullable":false,"default":"1"},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"},
+        {"nombre":"actualizado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP","extra":"on update CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey": ["id"],
+      "indicesUnicos": [{"columnas":["clave"]}],
+      "indices": [{"columnas":["activo","nombre","id"]}],
+      "foreignKeys": [],
+      "checks": [
+        {"fragmentos":["char_length(trim(clave))",">","0"]},
+        {"fragmentos":["char_length(trim(nombre))",">","0"]},
+        {"fragmentos":["activo","in (0,1)"]}
+      ]
+    },
+    "aulas": {
+      "engine": "innodb",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_0900_ai_ci",
+      "columnas": [
+        {"nombre":"id","tipo":"int unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"clave","tipo":"varchar(30)","unsigned":false,"nullable":false},
+        {"nombre":"nombre","tipo":"varchar(150)","unsigned":false,"nullable":false},
+        {"nombre":"descripcion","tipo":"varchar(500)","unsigned":false,"nullable":true,"default":null},
+        {"nombre":"activo","tipo":"tinyint(1)","unsigned":false,"nullable":false,"default":"1"},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"},
+        {"nombre":"actualizado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP","extra":"on update CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey": ["id"],
+      "indicesUnicos": [{"columnas":["clave"]}],
+      "indices": [{"columnas":["activo","nombre","id"]}],
+      "foreignKeys": [],
+      "checks": [
+        {"fragmentos":["char_length(trim(clave))",">","0"]},
+        {"fragmentos":["char_length(trim(nombre))",">","0"]},
+        {"fragmentos":["activo","in (0,1)"]}
+      ]
+    }
+  }
+}
