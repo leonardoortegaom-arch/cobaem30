@@ -258,6 +258,10 @@ Consecuencias:
 
 ### 8.2 `importaciones_horario`
 
+La definición ejecutable de 019 sustituye los nombres conceptuales anteriores de esta subsección. La tabla conserva exclusivamente `id`, `grupo_id`, `periodo_academico_id`, `nombre_archivo_original`, `archivo_sha256`, `archivo_tamano_bytes`, `total_filas`, `version_formato`, `importado_por_usuario_id` y `creado_en`. No conserva el XLSX, BLOB, base64, rutas, correos copiados, filas originales, previsualizaciones ni intentos fallidos. `version_formato` es obligatorio y sin default; la versión inicial de la plantilla es 1.
+
+La unicidad de grupo, periodo y SHA-256 impide registrar accidentalmente el mismo archivo dos veces en el mismo alcance. Una clave única compuesta de identidad y alcance permite que cada versión compruebe mediante FK que su importación corresponde al mismo grupo-periodo.
+
 ID propuesto `BIGINT UNSIGNED`.
 
 | Columna | Tipo propuesto | Nullable | Default | Clave o índice | Significado |
@@ -281,6 +285,10 @@ ID propuesto `BIGINT UNSIGNED`.
 No almacena binarios, rutas absolutas, credenciales ni detalles internos destinados al navegador. Una vista previa nunca confirmada no crea esta fila ni modifica tablas activas; vive únicamente en almacenamiento temporal aislado y expirable. La conservación del archivo temporal sigue pendiente y debe limpiarse aun cuando no se confirme.
 
 ### 8.3 `versiones_horario`
+
+La definición ejecutable de 019 usa `activa`, `total_clases`, `grupo_activo_id`, `periodo_activo_id`, `desactivada_en` y `actualizado_en`. Las dos columnas de alcance activo son generadas y almacenadas; solo exponen grupo y periodo cuando `activa = 1`, y su unicidad compuesta permite varias versiones inactivas pero una sola activa por grupo-periodo.
+
+Cada versión tiene exactamente un origen: una importación confirmada o una versión anterior copiada para reversión. Las FK compuestas conservan grupo y periodo tanto para la importación como para la autorreferencia, impidiendo cruces de alcance. Una reversión crea una versión nueva, nunca reactiva ni borra una versión histórica. Grupo, periodo y relaciones históricas usan `ON UPDATE RESTRICT`; todas las eliminaciones usan `RESTRICT`.
 
 ID propuesto `BIGINT UNSIGNED`.
 

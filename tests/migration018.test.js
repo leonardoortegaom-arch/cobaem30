@@ -70,8 +70,9 @@ test('19 018 está ACTIVE con dependencia de 017', () => {
     assert.equal(entry.estado, 'ACTIVE');
     assert.deepEqual(entry.execution.dependsOn, [17]);
 });
-test('20 019 a 021 siguen PLANNED', () => {
-    for (let version = 19; version <= 21; version += 1) assert.equal(manifest.migraciones.find((x) => x.version === version).estado, 'PLANNED');
+test('20 019 está ACTIVE y 020 a 021 siguen PLANNED', () => {
+    assert.equal(manifest.migraciones.find((x) => x.version === 19).estado, 'ACTIVE');
+    for (let version = 20; version <= 21; version += 1) assert.equal(manifest.migraciones.find((x) => x.version === version).estado, 'PLANNED');
 });
 test('21 precondición válida cuando ambas tablas están ausentes', () => {
     assert.equal(apply.validarPrecondiciones({ tablas: {}, controlRows: [{ version: 17 }] }, entry), true);
@@ -83,7 +84,7 @@ test('23 aulas existente sin materias se rechaza como parcial', () => {
     assert.throws(() => apply.validarPrecondiciones({ tablas: { aulas: {} }, controlRows: [{ version: 17 }] }, entry));
 });
 test('24 completamente aplicada y registrada deja de estar pendiente', () => {
-    const rows = manifest.migraciones.filter((x) => x.version <= 8 || (x.estado === 'ACTIVE' && x.version <= 18)).map((x) => ({
+    const rows = manifest.migraciones.filter((x) => x.version <= 8 || (x.estado === 'ACTIVE' && x.version <= 19)).map((x) => ({
         version: x.version, archivo: x.archivo, checksum_sha256: x.checksumSha256,
         tipo_registro: x.version === 0 ? 'EJECUTADA' : x.version <= 8 ? 'BASELINE' : 'EJECUTADA'
     }));

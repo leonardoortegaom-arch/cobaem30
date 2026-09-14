@@ -151,6 +151,7 @@ function validarPostcondicion(snapshot, contrato) {
             const a = actual.columnas[col.nombre];
             if (!a || a.tipo !== normalizar(col.tipo) || a.unsigned !== col.unsigned || a.nullable !== col.nullable) errores.push(`COLUMN_${name}_${col.nombre}`);
             if (a && Object.hasOwn(col, 'default') && normalizar(a.default) !== normalizar(col.default)) errores.push(`DEFAULT_${name}_${col.nombre}`);
+            if (a && col.collation && normalizar(a.collation) !== normalizar(col.collation)) errores.push(`COLLATION_${name}_${col.nombre}`);
             if (a && col.extra && !normalizar(a.extra).includes(normalizar(col.extra))) errores.push(`EXTRA_${name}_${col.nombre}`);
             if (a && col.generationExpression
                 && preflightApi.normalizarExpresionGenerada(a.generationExpression) !== preflightApi.normalizarExpresionGenerada(col.generationExpression)) errores.push(`GENERATION_${name}_${col.nombre}`);

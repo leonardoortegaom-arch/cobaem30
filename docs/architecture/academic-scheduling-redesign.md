@@ -209,7 +209,7 @@ El flujo obligatorio es:
 12. Activar únicamente la nueva versión después de completar todas las validaciones.
 13. Realizar rollback completo si falla cualquier operación.
 
-La vista previa no aplica cambios. La operación no borra primero el horario vigente, no permite estados parciales y no acepta silenciosamente usuarios, grupos, materias o aulas inexistentes. Debe registrar autor, fecha, nombre lógico del archivo, resultado y versión, sin guardar el binario XLSX en MySQL. El archivo original no se conservará indefinidamente salvo que se apruebe una política futura.
+La vista previa no aplica cambios. La operación no borra primero el horario vigente, no permite estados parciales y no acepta silenciosamente usuarios, grupos, materias o aulas inexistentes. Una importación confirmada conserva exclusivamente nombre original, SHA-256, tamaño, cantidad de filas, versión del formato, alcance grupo-periodo, administrador y fecha. No guarda el XLSX, BLOB, base64, rutas, correos copiados ni filas originales. Las clases normalizadas de cada versión constituyen la evidencia funcional.
 
 Una reversión debe ser una operación nueva y auditable que active el contenido de una versión anterior como una nueva versión vigente; nunca debe borrar el historial. El horario docente de clases se deriva de esas mismas filas y no se importa por segunda vez. Las actividades no docentes requieren otra plantilla, identificada por su propio tipo y versión.
 

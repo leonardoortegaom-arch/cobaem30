@@ -241,6 +241,7 @@ function construirSnapshotDesdeFilas(datos) {
             nullable: String(campo(fila, 'IS_NULLABLE')).toUpperCase() === 'YES',
             default: normalizarDefault(campo(fila, 'COLUMN_DEFAULT')),
             extra: String(campo(fila, 'EXTRA') || '').toLowerCase(),
+            collation: normalizarNombre(campo(fila, 'COLLATION_NAME')) || null,
             generationExpression: normalizarExpresionGenerada(campo(fila, 'GENERATION_EXPRESSION')),
             ordinal: Number(campo(fila, 'ORDINAL_POSITION'))
         };
@@ -263,6 +264,7 @@ function crearSnapshotCompatible(descriptor, opciones = {}) {
                 nullable: columna.nullable,
                 default: Object.prototype.hasOwnProperty.call(columna, 'default') ? normalizarDefault(columna.default) : null,
                 extra: String(columna.extra || '').toLowerCase(),
+                collation: columna.collation ? normalizarNombre(columna.collation) : null,
                 generationExpression: normalizarExpresionGenerada(columna.generationExpression), ordinal: indice + 1
             };
         });
@@ -391,6 +393,9 @@ function compararTabla(nombre, contrato, real, resultado) {
         agregarRegla(resultado, `NULL_${prefijo}_${columna.nombre.toUpperCase()}`, 'estructura', actual.nullable === columna.nullable, 'Nullability.');
         if (Object.prototype.hasOwnProperty.call(columna, 'default')) {
             agregarRegla(resultado, `DEFAULT_${prefijo}_${columna.nombre.toUpperCase()}`, 'estructura', actual.default === normalizarDefault(columna.default), 'Default contractual.');
+        }
+        if (columna.collation) {
+            agregarRegla(resultado, `COLLATION_${prefijo}_${columna.nombre.toUpperCase()}`, 'estructura', actual.collation === normalizarNombre(columna.collation), 'Collation de columna.');
         }
         if (columna.extra) {
             const fragmentos = columna.extra.toLowerCase().split(/\s+/).filter(Boolean);

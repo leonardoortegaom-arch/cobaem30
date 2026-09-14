@@ -1,0 +1,102 @@
+{
+  "versionContrato": 1,
+  "migracion": 19,
+  "identificador": "019",
+  "algoritmoChecksum": "sha256-utf8-lf-v1",
+  "tablas": {
+    "importaciones_horario": {
+      "engine": "innodb",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_0900_ai_ci",
+      "columnas": [
+        {"nombre":"id","tipo":"bigint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"grupo_id","tipo":"int unsigned","unsigned":true,"nullable":false},
+        {"nombre":"periodo_academico_id","tipo":"int unsigned","unsigned":true,"nullable":false},
+        {"nombre":"nombre_archivo_original","tipo":"varchar(255)","unsigned":false,"nullable":false},
+        {"nombre":"archivo_sha256","tipo":"char(64)","unsigned":false,"nullable":false,"collation":"ascii_bin"},
+        {"nombre":"archivo_tamano_bytes","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"total_filas","tipo":"smallint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"version_formato","tipo":"smallint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"importado_por_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey": ["id"],
+      "indicesUnicos": [
+        {"columnas":["grupo_id","periodo_academico_id","archivo_sha256"]},
+        {"columnas":["id","grupo_id","periodo_academico_id"]}
+      ],
+      "indices": [
+        {"columnas":["grupo_id","periodo_academico_id","creado_en","id"]},
+        {"columnas":["periodo_academico_id"]},
+        {"columnas":["importado_por_usuario_id","creado_en","id"]}
+      ],
+      "foreignKeys": [
+        {"columnas":["grupo_id"],"tablaDestino":"grupos","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["periodo_academico_id"],"tablaDestino":"periodos_academicos","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["importado_por_usuario_id"],"tablaDestino":"usuarios","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"}
+      ],
+      "checks": [
+        {"fragmentos":["char_length(trim(nombre_archivo_original))",">","0"]},
+        {"fragmentos":["archivo_sha256","regexp","^[0-9a-fa-f]{64}$"]},
+        {"fragmentos":["archivo_tamano_bytes",">","0"]},
+        {"fragmentos":["total_filas","between 1 and 500"]},
+        {"fragmentos":["version_formato",">=","1"]}
+      ]
+    },
+    "versiones_horario": {
+      "engine": "innodb",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_0900_ai_ci",
+      "columnas": [
+        {"nombre":"id","tipo":"bigint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"grupo_id","tipo":"int unsigned","unsigned":true,"nullable":false},
+        {"nombre":"periodo_academico_id","tipo":"int unsigned","unsigned":true,"nullable":false},
+        {"nombre":"numero_version","tipo":"int unsigned","unsigned":true,"nullable":false},
+        {"nombre":"importacion_id","tipo":"bigint unsigned","unsigned":true,"nullable":true,"default":null},
+        {"nombre":"version_origen_id","tipo":"bigint unsigned","unsigned":true,"nullable":true,"default":null},
+        {"nombre":"activa","tipo":"tinyint(1)","unsigned":false,"nullable":false,"default":"0"},
+        {"nombre":"total_clases","tipo":"smallint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"grupo_activo_id","tipo":"int unsigned","unsigned":true,"nullable":true,"extra":"stored generated","generationExpression":"case when activa = 1 then grupo_id else null end"},
+        {"nombre":"periodo_activo_id","tipo":"int unsigned","unsigned":true,"nullable":true,"extra":"stored generated","generationExpression":"case when activa = 1 then periodo_academico_id else null end"},
+        {"nombre":"creada_por_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"activada_en","tipo":"timestamp","unsigned":false,"nullable":true,"default":null},
+        {"nombre":"desactivada_en","tipo":"timestamp","unsigned":false,"nullable":true,"default":null},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"},
+        {"nombre":"actualizado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP","extra":"on update CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey": ["id"],
+      "indicesUnicos": [
+        {"columnas":["grupo_id","periodo_academico_id","numero_version"]},
+        {"columnas":["grupo_activo_id","periodo_activo_id"]},
+        {"columnas":["importacion_id"]},
+        {"columnas":["id","grupo_id","periodo_academico_id"]}
+      ],
+      "indices": [
+        {"columnas":["periodo_academico_id"]},
+        {"columnas":["importacion_id","grupo_id","periodo_academico_id"]},
+        {"columnas":["version_origen_id","grupo_id","periodo_academico_id"]},
+        {"columnas":["creada_por_usuario_id","creado_en","id"]}
+      ],
+      "foreignKeys": [
+        {"columnas":["grupo_id"],"tablaDestino":"grupos","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["periodo_academico_id"],"tablaDestino":"periodos_academicos","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["creada_por_usuario_id"],"tablaDestino":"usuarios","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"},
+        {"columnas":["importacion_id","grupo_id","periodo_academico_id"],"tablaDestino":"importaciones_horario","columnasDestino":["id","grupo_id","periodo_academico_id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["version_origen_id","grupo_id","periodo_academico_id"],"tablaDestino":"versiones_horario","columnasDestino":["id","grupo_id","periodo_academico_id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"}
+      ],
+      "checks": [
+        {"fragmentos":["numero_version",">=","1"]},
+        {"fragmentos":["total_clases","between 1 and 500"]},
+        {"fragmentos":["activa","in (0, 1)"]},
+        {"fragmentos":["importacion_id is not null","version_origen_id is null","or","importacion_id is null","version_origen_id is not null"]},
+        {"fragmentos":["activa = 0","or","activada_en is not null","desactivada_en is null"]},
+        {"fragmentos":["desactivada_en is null","or","activada_en is not null","desactivada_en >= activada_en"]}
+      ]
+    }
+  },
+  "invariantesDatos": [
+    "NEW_TABLES_EMPTY",
+    "NO_SCHEDULE_FILE_STORED",
+    "EXISTING_ACADEMIC_DATA_UNCHANGED"
+  ]
+}

@@ -239,11 +239,31 @@
     {
       "version": 19,
       "identificador": "019",
-      "estado": "PLANNED",
-      "archivo": null,
-      "checksumSha256": null,
+      "estado": "ACTIVE",
+      "archivo": "019_create_schedule_imports_and_versions.sql",
+      "checksumSha256": "dfac7251580eedeed671affafff4bf56ef762fb828fb2173aedde739ad5f578d",
       "descripcion": "Crear importaciones y versiones de horario.",
-      "razonEstado": "Contrato aprobado; SQL aún no creado."
+      "execution": {
+        "dependsOn": [18],
+        "statementCount": 2,
+        "statements": [
+          {"operation": "CREATE_TABLE", "target": "importaciones_horario"},
+          {"operation": "CREATE_TABLE", "target": "versiones_horario"}
+        ],
+        "preconditions": [
+          {"type": "MIGRATION_APPLIED", "version": 18},
+          {"type": "TABLE_ABSENT", "target": "importaciones_horario"},
+          {"type": "TABLE_ABSENT", "target": "versiones_horario"},
+          {"type": "TABLE_PRESENT", "target": "grupos"},
+          {"type": "TABLE_PRESENT", "target": "periodos_academicos"},
+          {"type": "TABLE_PRESENT", "target": "usuarios"},
+          {"type": "COLUMN_MATCH", "table": "grupos", "target": "id", "columnType": "int unsigned", "nullable": false},
+          {"type": "COLUMN_MATCH", "table": "periodos_academicos", "target": "id", "columnType": "int unsigned", "nullable": false},
+          {"type": "COLUMN_MATCH", "table": "usuarios", "target": "id", "columnType": "bigint unsigned", "nullable": false}
+        ],
+        "postconditionContract": "database/migration-contracts/019_schedule_imports_and_versions.json",
+        "postconditionChecksumSha256": "9430292479abfcf8a2c5953e3bfff5eacff923599976349991f6e4510afde0ef"
+      }
     },
     {
       "version": 20,
