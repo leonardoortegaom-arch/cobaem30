@@ -9,6 +9,7 @@ const {
     QUERIES,
     cargarDescriptor,
     validarDescriptor,
+    normalizarEspaciosComasFueraLiterales,
     normalizarClausula,
     normalizarExpresionGenerada,
     validarSqlLectura,
@@ -260,4 +261,42 @@ test('68 expresión generada distinta en 017 produce deriva', () => {
     const snapshot = snapshotTras016(); aplicarContrato(snapshot, 17);
     snapshot.tablas.asignaciones_orientador_grupo.columnas.grupo_vigente_id.generationExpression = 'grupo_id';
     assert.equal(comparar(snapshot).clasificacion, 'SCHEMA_DRIFT_DETECTED');
+});
+test('69 normaliza espacios alrededor de comas fuera de literales', () => {
+    assert.equal(normalizarClausula('activa IN (0, 1)'), 'activa in (0,1)');
+    assert.equal(normalizarClausula('activa IN ( 0 , 1 )'), 'activa in ( 0,1 )');
+});
+test('70 conserva comas dentro de strings e identificadores delimitados', () => {
+    assert.equal(normalizarEspaciosComasFueraLiterales("'a, b', \"c, d\", `e, f`"), "'a, b',\"c, d\",`e, f`");
+    assert.notEqual(normalizarClausula("valor = 'a, b'"), normalizarClausula("valor = 'a,b'"));
+});
+test('71 reconoce escapes y comillas SQL duplicadas sin tocar su contenido', () => {
+    const original = "valor IN ('a, b''c', \"d, e\\\"f\", `g, h``i`)";
+    const normalized = normalizarEspaciosComasFueraLiterales(original);
+    assert.match(normalized, /'a, b''c'/);
+    assert.match(normalized, /\"d, e\\\"f\"/);
+    assert.match(normalized, /`g, h``i`/);
+});
+test('72 conserva comas dentro de comentarios SQL', () => {
+    const original = 'a, b -- comentario, intacto\nc, d /* bloque, intacto */ e, f # linea, intacta\ng, h';
+    const normalized = normalizarEspaciosComasFueraLiterales(original);
+    assert.match(normalized, /-- comentario, intacto/);
+    assert.match(normalized, /\/\* bloque, intacto \*\//);
+    assert.match(normalized, /# linea, intacta/);
+    assert.match(normalized, /^a,b/);
+});
+test('73 no altera precedencia lógica ni agrupación aritmética', () => {
+    assert.notEqual(normalizarClausula('(a = 1 OR b = 1) AND c = 1'), normalizarClausula('a = 1 OR b = 1 AND c = 1'));
+    assert.notEqual(normalizarClausula('(a + b) * c'), normalizarClausula('a + (b * c)'));
+    assert.notEqual(normalizarClausula('NOT (a = 1 OR b = 1)'), normalizarClausula('(NOT a = 1) OR b = 1'));
+});
+test('74 funciones normalizan solo whitespace separador y CASE conserva estructura', () => {
+    assert.equal(normalizarClausula('coalesce(a, b, c)'), 'coalesce(a,b,c)');
+    assert.equal(normalizarClausula('coalesce(a,b,c)'), 'coalesce(a,b,c)');
+    assert.notEqual(normalizarClausula('case when a = 1 then (case when b = 1 then 1 else 0 end) else 0 end'),
+        normalizarClausula('case when a = 1 or b = 1 then 1 else 0 end'));
+});
+test('75 diferencias reales de valores y operadores permanecen visibles', () => {
+    assert.notEqual(normalizarClausula('activa IN (0,1)'), normalizarClausula('activa IN (0,2)'));
+    assert.notEqual(normalizarClausula('activa IN (0,1)'), normalizarClausula('activa NOT IN (0,1)'));
 });

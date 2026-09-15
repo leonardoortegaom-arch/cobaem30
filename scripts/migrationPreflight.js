@@ -139,8 +139,66 @@ function normalizarDefault(valor) {
     return String(valor).toLowerCase().replace(/current_timestamp\(\)/g, 'current_timestamp').trim();
 }
 
+function normalizarEspaciosComasFueraLiterales(valor) {
+    const texto = String(valor || '');
+    let resultado = '';
+    let estado = 'normal';
+    for (let indice = 0; indice < texto.length; indice += 1) {
+        const caracter = texto[indice];
+        const siguiente = texto[indice + 1];
+        if (estado === 'linea') {
+            resultado += caracter;
+            if (caracter === '\n') estado = 'normal';
+            continue;
+        }
+        if (estado === 'bloque') {
+            resultado += caracter;
+            if (caracter === '*' && siguiente === '/') {
+                resultado += siguiente;
+                indice += 1;
+                estado = 'normal';
+            }
+            continue;
+        }
+        if (estado !== 'normal') {
+            resultado += caracter;
+            const delimitador = estado === 'simple' ? "'" : estado === 'doble' ? '"' : '`';
+            if (caracter === '\\' && siguiente !== undefined) {
+                resultado += siguiente;
+                indice += 1;
+            } else if (caracter === delimitador) {
+                if (siguiente === delimitador) {
+                    resultado += siguiente;
+                    indice += 1;
+                } else estado = 'normal';
+            }
+            continue;
+        }
+        if (caracter === '-' && siguiente === '-' && /\s/.test(texto[indice + 2] || '')) {
+            resultado += `${caracter}${siguiente}`;
+            indice += 1;
+            estado = 'linea';
+        } else if (caracter === '#') {
+            resultado += caracter;
+            estado = 'linea';
+        } else if (caracter === '/' && siguiente === '*') {
+            resultado += `${caracter}${siguiente}`;
+            indice += 1;
+            estado = 'bloque';
+        } else if (caracter === "'" || caracter === '"' || caracter === '`') {
+            resultado += caracter;
+            estado = caracter === "'" ? 'simple' : caracter === '"' ? 'doble' : 'backtick';
+        } else if (caracter === ',') {
+            resultado = resultado.replace(/\s+$/g, '');
+            resultado += ',';
+            while (/\s/.test(texto[indice + 1] || '')) indice += 1;
+        } else resultado += caracter;
+    }
+    return resultado;
+}
+
 function normalizarClausula(valor) {
-    return String(valor || '')
+    return normalizarEspaciosComasFueraLiterales(valor)
         .toLowerCase()
         .replace(/`/g, '')
         .replace(/\(\s*to_days\(([^)]+)\)\s*-\s*to_days\(([^)]+)\)\s*\)/g, 'datediff($1, $2)')
@@ -685,6 +743,7 @@ module.exports = {
     QUERIES,
     cargarDescriptor,
     validarDescriptor,
+    normalizarEspaciosComasFueraLiterales,
     normalizarClausula,
     normalizarExpresionGenerada,
     validarSqlLectura,

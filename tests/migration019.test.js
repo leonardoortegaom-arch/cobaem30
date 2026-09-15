@@ -381,3 +381,18 @@ test('50 opciones desconocidas y combinación de modos se rechazan', () => {
     assert.throws(() => apply.parsearArgumentos(['recover-registration', '--version=019', '--dry-run', '--unknown']), (error) => error.code === 'UNKNOWN_OPTION');
     assert.throws(() => apply.parsearArgumentos(['recover-registration', '--version=019', '--dry-run', '--execute']), (error) => error.code === 'MODE_REQUIRED');
 });
+test('51 cláusulas CHECK reales de MySQL satisfacen los seis contratos de 019', () => {
+    const snapshot = recoverySnapshot();
+    snapshot.controlRows.push(appliedRow(entry));
+    snapshot.tablas.versiones_horario.checks = [
+        '(`activa` in (0,1))',
+        '((`activa` = 0) or ((`activada_en` is not null) and (`desactivada_en` is null)))',
+        '((`desactivada_en` is null) or ((`activada_en` is not null) and (`desactivada_en` >= `activada_en`)))',
+        '(`numero_version` >= 1)',
+        '(((`importacion_id` is not null) and (`version_origen_id` is null)) or ((`importacion_id` is null) and (`version_origen_id` is not null)))',
+        '(`total_clases` between 1 and 500)'
+    ].map((clause) => preflight.normalizarClausula(clause));
+    const result = preflight.compararSnapshotConDescriptor(snapshot, preflight.cargarDescriptor(), manifest);
+    assert.equal(result.fallidas, 0, JSON.stringify(result.reglas.filter((rule) => !rule.ok).map((rule) => rule.codigo)));
+    assert.ok(result.reglas.filter((rule) => rule.codigo.startsWith('CHECK_VERSIONES_HORARIO_')).every((rule) => rule.ok));
+});
