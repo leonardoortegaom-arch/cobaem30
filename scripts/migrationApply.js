@@ -13,8 +13,13 @@ const RELEASE_LOCK_SQL = 'SELECT RELEASE_LOCK(?) AS lock_liberado';
 const INSERT_SQL = `INSERT INTO schema_migrations
     (version, archivo, checksum_sha256, tipo_registro, duracion_ms, lote_ejecucion)
     VALUES (?, ?, ?, 'EJECUTADA', ?, ?)`;
+const RECOVERY_COUNTS_SQL = `SELECT
+    (SELECT COUNT(*) FROM importaciones_horario) AS importaciones_horario,
+    (SELECT COUNT(*) FROM versiones_horario) AS versiones_horario`;
+const RECOVERY_ROW_SQL = `SELECT version, archivo, checksum_sha256, tipo_registro
+    FROM schema_migrations WHERE version = ?`;
 const MODES = new Set(['--dry-run', '--execute-preflight', '--execute']);
-const VALUE_OPTIONS = new Set(['--confirm', '--backup-file', '--backup-sha256']);
+const VALUE_OPTIONS = new Set(['--confirm', '--backup-file', '--backup-sha256', '--version']);
 const FLAG_OPTIONS = new Set(['--dry-run', '--execute-preflight', '--execute', '--acknowledge-ddl-autocommit']);
 
 function errorSeguro(code, stage, message = 'Operación de migración rechazada.') {
@@ -24,7 +29,7 @@ function errorSeguro(code, stage, message = 'Operación de migración rechazada.
 function parsearArgumentos(args) {
     const comando = args[0] || 'help';
     if (comando === 'help') return { comando, flags: new Set(), valores: {} };
-    if (comando !== 'up') throw errorSeguro('COMMAND_NOT_ALLOWED', 'ARGUMENTS');
+    if (!['up', 'recover-registration'].includes(comando)) throw errorSeguro('COMMAND_NOT_ALLOWED', 'ARGUMENTS');
     const flags = new Set(); const valores = {};
     for (const arg of args.slice(1)) {
         if (/^--(?:password|migration-db-password)(?:=|$)/i.test(arg)) throw errorSeguro('PASSWORD_CLI_FORBIDDEN', 'ARGUMENTS');
@@ -36,6 +41,8 @@ function parsearArgumentos(args) {
     }
     const modes = [...MODES].filter((mode) => flags.has(mode));
     if (modes.length !== 1) throw errorSeguro('MODE_REQUIRED', 'ARGUMENTS');
+    if (comando === 'up' && Object.hasOwn(valores, '--version')) throw errorSeguro('UNKNOWN_OPTION', 'ARGUMENTS');
+    if (comando === 'recover-registration' && valores['--version'] !== '019') throw errorSeguro('RECOVERY_VERSION_NOT_ALLOWED', 'RECOVERY_ARGUMENTS');
     return { comando, flags, valores, mode: modes[0] };
 }
 
@@ -49,6 +56,18 @@ function validarBarreras(opciones, env = process.env) {
     if (String(env.MIGRATION_DB_ALLOW_WRITES || '').trim() !== 'ACTIVE_MIGRATIONS_ONLY') throw errorSeguro('WRITE_GUARD_REQUIRED', 'CONFIG');
     const mapped = { ...env, MIGRATION_DB_ALLOW_WRITES: 'BASELINE_V008_ONLY' };
     return baselineApi.validarConfiguracionAdministrativa(mapped);
+}
+
+function validarBarrerasRecuperacion(opciones, env = process.env) {
+    if (opciones.valores['--confirm'] !== 'RECOVER-MIGRATION-019') throw errorSeguro('CONFIRMATION_REQUIRED', 'RECOVERY_ARGUMENTS');
+    if (!opciones.valores['--backup-file']) throw errorSeguro('BACKUP_REQUIRED', 'RECOVERY_BACKUP');
+    const hash = opciones.valores['--backup-sha256'];
+    if (!/^[0-9a-f]{64}$/i.test(hash || '')) throw errorSeguro('BACKUP_HASH_INVALID', 'RECOVERY_BACKUP');
+    baselineApi.verificarRespaldo(opciones.valores['--backup-file'], hash);
+    if (String(env.MIGRATION_DB_ALLOW_WRITES || '').trim() !== 'REGISTRATION_RECOVERY_ONLY') {
+        throw errorSeguro('WRITE_GUARD_REQUIRED', 'RECOVERY_CONFIG');
+    }
+    return baselineApi.validarConfiguracionAdministrativa({ ...env, MIGRATION_DB_ALLOW_WRITES: 'BASELINE_V008_ONLY' });
 }
 
 function separarSentenciasSql(sql) {
@@ -187,6 +206,131 @@ function construirPlan(manifiesto, snapshot) {
     });
 }
 
+function validarEstadoRecuperacion(manifiesto, snapshot, version = 19) {
+    if (version !== 19) throw errorSeguro('RECOVERY_VERSION_NOT_ALLOWED', 'RECOVERY_STATE');
+    const entrada = manifiesto.migraciones.find((item) => item.version === version);
+    if (!entrada || entrada.estado !== 'ACTIVE') throw errorSeguro('RECOVERY_MIGRATION_INVALID', 'RECOVERY_STATE');
+    const estado = validarRegistrosAplicados(manifiesto, snapshot.controlRows);
+    if (estado.applied.has(version)) throw errorSeguro('RECOVERY_ALREADY_RECORDED', 'RECOVERY_STATE');
+    if (estado.pending.length === 0 || estado.pending[0].version !== version) {
+        throw errorSeguro('RECOVERY_NOT_NEXT_MIGRATION', 'RECOVERY_STATE');
+    }
+    const previas = manifiesto.migraciones.filter((item) => item.estado === 'ACTIVE'
+        && item.version > manifiesto.legacyBaselineThrough && item.version < version);
+    if (previas.some((item) => !estado.applied.has(item.version))) throw errorSeguro('RECOVERY_PREDECESSOR_MISSING', 'RECOVERY_STATE');
+    const statements = validarSqlMigracion(entrada);
+    if (statements.length !== 2 || statements.some((item) => item.operation !== 'CREATE_TABLE')) {
+        throw errorSeguro('RECOVERY_SQL_NOT_CREATE_TABLES', 'RECOVERY_STRUCTURE');
+    }
+    const contrato = cargarContrato(entrada);
+    validarPostcondicion(snapshot, contrato);
+    return { entrada, contrato, statements };
+}
+
+async function contarFilasRecuperacion(connection, deps = {}) {
+    if (deps.countRows) return deps.countRows(connection);
+    const [rows] = await connection.execute(RECOVERY_COUNTS_SQL);
+    return rows && rows[0] ? rows[0] : {};
+}
+
+function validarTablasRecuperacionVacias(conteos) {
+    if (Number(conteos.importaciones_horario) !== 0 || Number(conteos.versiones_horario) !== 0) {
+        throw errorSeguro('RECOVERY_TABLES_NOT_EMPTY', 'RECOVERY_TABLES_EMPTY');
+    }
+    return true;
+}
+
+function validarFilaRecuperada(rows, entrada) {
+    if (!Array.isArray(rows) || rows.length !== 1) throw errorSeguro('RECOVERY_RECORD_VERIFICATION_FAILED', 'RECOVERY_REGISTRATION');
+    const row = rows[0];
+    if (Number(row.version) !== entrada.version || row.archivo !== entrada.archivo
+        || row.checksum_sha256 !== entrada.checksumSha256 || row.tipo_registro !== 'EJECUTADA') {
+        throw errorSeguro('RECOVERY_RECORD_VERIFICATION_FAILED', 'RECOVERY_REGISTRATION');
+    }
+    return true;
+}
+
+async function validarPrivilegioInsert(connection, deps = {}) {
+    const resultado = deps.privileges
+        ? await deps.privileges(connection)
+        : await baselineApi.verificarPrivilegiosAdministrativos(connection);
+    if (resultado.estado === 'UNKNOWN' && (!Array.isArray(resultado.faltantes) || resultado.faltantes.includes('INSERT'))) {
+        throw errorSeguro('PRIVILEGES_UNKNOWN', 'RECOVERY_PRIVILEGES');
+    }
+    if (Array.isArray(resultado.faltantes) && resultado.faltantes.includes('INSERT')) {
+        throw errorSeguro('PRIVILEGES_INSUFFICIENT', 'RECOVERY_PRIVILEGES');
+    }
+    return true;
+}
+
+async function ejecutarRecuperacionDryRun(output = {}, deps = {}) {
+    const log = output.log || console.log;
+    const manifiesto = deps.manifest || cargarContexto();
+    const pool = deps.pool || crearPoolLectura();
+    return conRecursos(pool, async (connection) => {
+        log('RECOVERY_ARGUMENTS_VALID');
+        const snapshot = deps.snapshot ? await deps.snapshot(connection) : await obtenerEstado(connection);
+        const contexto = validarEstadoRecuperacion(manifiesto, snapshot);
+        log('RECOVERY_STATE_VALID');
+        log('RECOVERY_STRUCTURE_VALID');
+        validarTablasRecuperacionVacias(await contarFilasRecuperacion(connection, deps));
+        log('RECOVERY_TABLES_EMPTY');
+        log('RECOVERY_DRY_RUN_COMPLETE_NO_CHANGES');
+        return contexto;
+    });
+}
+
+async function ejecutarRecuperacionAdministrativa(opciones, execute, output = {}, deps = {}) {
+    const log = output.log || console.log;
+    log('RECOVERY_ARGUMENTS_VALID');
+    const config = validarBarrerasRecuperacion(opciones, deps.env || process.env);
+    log('RECOVERY_BACKUP_VALID');
+    const manifiesto = deps.manifest || cargarContexto();
+    log('RECOVERY_CONFIG_VALID');
+    const pool = deps.pool || (deps.crearPool || crearPoolAdmin)(config);
+    try {
+        return await conRecursos(pool, async (connection) => {
+            log('RECOVERY_CONNECTED');
+            log('RECOVERY_LOCK_ACQUIRED');
+            const snapshot = deps.snapshot ? await deps.snapshot(connection) : await obtenerEstado(connection);
+            const contexto = validarEstadoRecuperacion(manifiesto, snapshot);
+            log('RECOVERY_STATE_VALID');
+            log('RECOVERY_STRUCTURE_VALID');
+            validarTablasRecuperacionVacias(await contarFilasRecuperacion(connection, deps));
+            log('RECOVERY_TABLES_EMPTY');
+            await validarPrivilegioInsert(connection, deps);
+            log('RECOVERY_PRIVILEGES_PRESENT');
+            if (!execute) {
+                log('RECOVERY_EXECUTE_PREFLIGHT_COMPLETE_NO_CHANGES');
+                return contexto;
+            }
+            await connection.beginTransaction();
+            try {
+                const [result] = await connection.execute(INSERT_SQL, [contexto.entrada.version, contexto.entrada.archivo,
+                    contexto.entrada.checksumSha256, 0, (deps.randomUUID || crypto.randomUUID)()]);
+                if (result?.affectedRows !== 1) throw errorSeguro('RECOVERY_RECORD_FAILED', 'RECOVERY_REGISTRATION');
+                const [beforeCommit] = await connection.execute(RECOVERY_ROW_SQL, [contexto.entrada.version]);
+                validarFilaRecuperada(beforeCommit, contexto.entrada);
+                await connection.commit();
+            } catch (error) {
+                await connection.rollback();
+                if (!error?.stage) {
+                    throw errorSeguro(/^[A-Z0-9_]+$/.test(error?.code || '') ? error.code : 'RECOVERY_RECORD_FAILED', 'RECOVERY_REGISTRATION');
+                }
+                throw error;
+            }
+            const [afterCommit] = await connection.execute(RECOVERY_ROW_SQL, [contexto.entrada.version]);
+            validarFilaRecuperada(afterCommit, contexto.entrada);
+            log('RECOVERY_REGISTRATION_RECORDED');
+            log('RECOVERY_COMPLETE');
+            return contexto;
+        }, true);
+    } catch (error) {
+        if (!error?.stage) throw errorSeguro('RECOVERY_TECHNICAL_ERROR', 'RECOVERY_CONNECTION');
+        throw error;
+    }
+}
+
 function cargarContexto() {
     const manifiesto = manifestApi.cargarManifiesto(); manifestApi.validarArchivosYChecksums(manifiesto); return manifiesto;
 }
@@ -276,14 +420,24 @@ async function ejecutarCli(args, output = {}, deps = {}) {
     const log = output.log || console.log; const err = output.error || console.error;
     try {
         const options = parsearArgumentos(args);
-        if (options.comando === 'help') { log('Uso: migrationApply.js up <--dry-run|--execute-preflight|--execute>'); log('No existen down, repair ni force.'); return 0; }
+        if (options.comando === 'help') {
+            log('Uso: migrationApply.js up <--dry-run|--execute-preflight|--execute>');
+            log('     migrationApply.js recover-registration --version=019 <--dry-run|--execute-preflight|--execute>');
+            log('No existen down, repair, force ni recuperación para otras versiones.'); return 0;
+        }
+        if (options.comando === 'recover-registration') {
+            if (options.mode === '--dry-run') { await ejecutarRecuperacionDryRun(output, deps); return 0; }
+            await ejecutarRecuperacionAdministrativa(options, options.mode === '--execute', output, deps); return 0;
+        }
         if (options.mode === '--dry-run') { await ejecutarDryRun(output, deps); return 0; }
         await ejecutarAdministrativo(options, options.mode === '--execute', output, deps); return 0;
     } catch (e) { err(mensajeSeguro(e)); return 2; }
 }
 
-module.exports = { LOCK_NAME, GET_LOCK_SQL, RELEASE_LOCK_SQL, INSERT_SQL, parsearArgumentos, validarBarreras,
+module.exports = { LOCK_NAME, GET_LOCK_SQL, RELEASE_LOCK_SQL, INSERT_SQL, RECOVERY_COUNTS_SQL, RECOVERY_ROW_SQL,
+    parsearArgumentos, validarBarreras, validarBarrerasRecuperacion,
     separarSentenciasSql, clasificarSentenciaDeclarada, validarSqlMigracion, cargarContrato, validarRegistrosAplicados, validarPrecondiciones,
-    validarPostcondicion, construirPlan, ejecutarDryRun, ejecutarAdministrativo, mensajeSeguro, ejecutarCli };
+    validarPostcondicion, construirPlan, validarEstadoRecuperacion, validarTablasRecuperacionVacias, validarFilaRecuperada,
+    ejecutarDryRun, ejecutarAdministrativo, ejecutarRecuperacionDryRun, ejecutarRecuperacionAdministrativa, mensajeSeguro, ejecutarCli };
 
 if (require.main === module) ejecutarCli(process.argv.slice(2)).then((code) => { process.exitCode = code; });

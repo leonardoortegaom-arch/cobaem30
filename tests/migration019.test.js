@@ -63,6 +63,31 @@ function snapshotBefore019() {
     return snapshot;
 }
 
+function recoverySnapshot() {
+    const snapshot = snapshotBefore019();
+    for (const [name, spec] of Object.entries(contract.tablas)) snapshot.tablas[name] = tableFromContract(spec);
+    snapshot.tablas.versiones_horario.columnas.grupo_activo_id.generationExpression = 'case when (activa = 1) then grupo_id else null end';
+    snapshot.tablas.versiones_horario.columnas.periodo_activo_id.generationExpression = 'case when (activa = 1) then periodo_academico_id else null end';
+    return snapshot;
+}
+
+function mockPool(connection) {
+    return { ended: false, async getConnection() { return connection; }, async end() { this.ended = true; } };
+}
+
+function recoveryOptions(mode, backup, hash) {
+    const args = ['recover-registration', '--version=019', mode];
+    if (mode !== '--dry-run') args.push('--confirm=RECOVER-MIGRATION-019', `--backup-file=${backup}`, `--backup-sha256=${hash}`);
+    return apply.parsearArgumentos(args);
+}
+
+function recoveryEnv() {
+    return {
+        MIGRATION_DB_ALLOW_WRITES: 'REGISTRATION_RECOVERY_ONLY', MIGRATION_DB_HOST: 'localhost',
+        MIGRATION_DB_PORT: '3306', MIGRATION_DB_NAME: 'test', MIGRATION_DB_USER: 'test', MIGRATION_DB_PASSWORD: 'test'
+    };
+}
+
 test('01 archivo y contrato 019 están presentes', () => {
     assert.ok(fs.statSync(sqlPath).isFile());
     assert.ok(fs.statSync(path.join(manifestApi.PROJECT_ROOT, entry.execution.postconditionContract)).isFile());
@@ -234,4 +259,125 @@ test('31 fallo de la segunda sentencia no registra 019', async () => {
 });
 test('32 no existe reparación destructiva ni datos iniciales', () => {
     assert.doesNotMatch(normalized, /\b(drop|truncate|alter)\b|\bvalues\s*\(/);
+});
+
+test('33 normaliza la expresión real de grupo_activo_id', () => {
+    assert.equal(preflight.normalizarExpresionGenerada('case when (activa = 1) then grupo_id else null end'),
+        preflight.normalizarExpresionGenerada('case when activa = 1 then grupo_id else null end'));
+});
+test('34 normaliza la expresión real de periodo_activo_id', () => {
+    assert.equal(preflight.normalizarExpresionGenerada('case when (activa = 1) then periodo_academico_id else null end'),
+        preflight.normalizarExpresionGenerada('case when activa = 1 then periodo_academico_id else null end'));
+});
+test('35 no confunde expresiones con precedencia lógica distinta', () => {
+    assert.notEqual(preflight.normalizarExpresionGenerada('(a = 1 or b = 1) and c = 1'),
+        preflight.normalizarExpresionGenerada('a = 1 or b = 1 and c = 1'));
+});
+test('36 conserva paréntesis de funciones, aritmética y CASE anidado', () => {
+    for (const expression of ['coalesce((a + b), 0)', '(a + b) * c', 'case when a = 1 then (case when b = 1 then 1 else 0 end) else 0 end']) {
+        assert.match(preflight.normalizarExpresionGenerada(expression), /\(/);
+    }
+});
+test('37 recovery dry-run valida estructura real y no escribe', async () => {
+    const calls = []; const connection = { async execute(sql) { calls.push(sql); return [[]]; }, release() {} };
+    const pool = mockPool(connection); const logs = [];
+    await apply.ejecutarRecuperacionDryRun({ log: (line) => logs.push(line) }, {
+        manifest, pool, snapshot: async () => recoverySnapshot(), countRows: async () => ({ importaciones_horario: 0, versiones_horario: 0 })
+    });
+    assert.ok(logs.includes('RECOVERY_DRY_RUN_COMPLETE_NO_CHANGES'));
+    assert.equal(calls.length, 0); assert.equal(pool.ended, true);
+});
+test('38 execute-preflight de recuperación usa solo SELECT y no escribe', async () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'recovery019-')); const backup = path.join(directory, 'backup.sql');
+    fs.writeFileSync(backup, 'backup'); const hash = crypto.createHash('sha256').update('backup').digest('hex');
+    const calls = []; const connection = { async execute(sql) { calls.push(sql); return [[{ lock_obtenido: 1 }]]; }, release() {} };
+    const pool = mockPool(connection); const logs = [];
+    try {
+        await apply.ejecutarRecuperacionAdministrativa(recoveryOptions('--execute-preflight', backup, hash), false, { log: (line) => logs.push(line) }, {
+            env: recoveryEnv(), manifest, pool, snapshot: async () => recoverySnapshot(),
+            countRows: async () => ({ importaciones_horario: 0, versiones_horario: 0 }), privileges: async () => ({ estado: 'PRESENT', faltantes: [] })
+        });
+        assert.ok(logs.includes('RECOVERY_EXECUTE_PREFLIGHT_COMPLETE_NO_CHANGES'));
+        assert.ok(calls.every((sql) => /^SELECT\b/i.test(sql.trim())));
+    } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+});
+test('39 recuperación simulada registra exactamente una fila', async () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'recovery019-')); const backup = path.join(directory, 'backup.sql');
+    fs.writeFileSync(backup, 'backup'); const hash = crypto.createHash('sha256').update('backup').digest('hex');
+    const calls = []; let committed = false; const row = appliedRow(entry);
+    const connection = {
+        async execute(sql, params) {
+            calls.push({ sql, params });
+            if (/GET_LOCK/.test(sql)) return [[{ lock_obtenido: 1 }]];
+            if (/RELEASE_LOCK/.test(sql)) return [[{ lock_liberado: 1 }]];
+            if (/^INSERT INTO schema_migrations/.test(sql)) return [{ affectedRows: 1 }];
+            if (/^SELECT version/.test(sql)) return [[row]];
+            return [[]];
+        }, async beginTransaction() {}, async commit() { committed = true; }, async rollback() {}, release() {}
+    };
+    const pool = mockPool(connection);
+    try {
+        await apply.ejecutarRecuperacionAdministrativa(recoveryOptions('--execute', backup, hash), true, { log() {} }, {
+            env: recoveryEnv(), manifest, pool, snapshot: async () => recoverySnapshot(),
+            countRows: async () => ({ importaciones_horario: 0, versiones_horario: 0 }), privileges: async () => ({ estado: 'PRESENT', faltantes: [] }), randomUUID: () => '00000000-0000-4000-8000-000000000019'
+        });
+        const inserts = calls.filter((call) => /^INSERT INTO schema_migrations/.test(call.sql));
+        assert.equal(inserts.length, 1); assert.equal(inserts[0].params[0], 19); assert.equal(committed, true); assert.equal(pool.ended, true);
+        assert.equal(calls.some((call) => /^(CREATE|ALTER|DROP|UPDATE|DELETE)\b/i.test(call.sql.trim())), false);
+    } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+});
+test('40 rechaza una versión de recuperación distinta de 019', () => {
+    assert.throws(() => apply.parsearArgumentos(['recover-registration', '--version=018', '--dry-run']), (error) => error.code === 'RECOVERY_VERSION_NOT_ALLOWED');
+});
+test('41 rechaza 019 ya registrada', () => {
+    const snapshot = recoverySnapshot(); snapshot.controlRows.push(appliedRow(entry));
+    assert.throws(() => apply.validarEstadoRecuperacion(manifest, snapshot), (error) => error.code === 'RECOVERY_ALREADY_RECORDED');
+});
+for (const [number, table] of [[42, 'importaciones_horario'], [43, 'versiones_horario']]) {
+    test(`${number} rechaza tabla ${table} ausente`, () => {
+        const snapshot = recoverySnapshot(); delete snapshot.tablas[table];
+        assert.throws(() => apply.validarEstadoRecuperacion(manifest, snapshot), (error) => error.code === 'POSTCONDITION_MISMATCH');
+    });
+}
+test('44 rechaza una postcondición estructural incorrecta', () => {
+    const snapshot = recoverySnapshot(); snapshot.tablas.versiones_horario.columnas.activa.nullable = true;
+    assert.throws(() => apply.validarEstadoRecuperacion(manifest, snapshot), (error) => error.code === 'POSTCONDITION_MISMATCH');
+});
+for (const [number, counts] of [[45, { importaciones_horario: 1, versiones_horario: 0 }], [46, { importaciones_horario: 0, versiones_horario: 1 }]]) {
+    test(`${number} rechaza tablas de recuperación con registros`, () => {
+        assert.throws(() => apply.validarTablasRecuperacionVacias(counts), (error) => error.code === 'RECOVERY_TABLES_NOT_EMPTY');
+    });
+}
+test('47 rechaza checksum SQL diferente', () => {
+    const changed = structuredClone(manifest); changed.migraciones.find((item) => item.version === 19).checksumSha256 = '0'.repeat(64);
+    assert.throws(() => apply.validarEstadoRecuperacion(changed, recoverySnapshot()), (error) => error.code === 'SQL_CHECKSUM_MISMATCH');
+});
+test('48 rechaza cuando falta la predecesora 018', () => {
+    const snapshot = recoverySnapshot(); snapshot.controlRows = snapshot.controlRows.filter((row) => Number(row.version) !== 18);
+    assert.throws(() => apply.validarEstadoRecuperacion(manifest, snapshot));
+});
+test('49 fallo del INSERT hace rollback y libera recursos', async () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'recovery019-')); const backup = path.join(directory, 'backup.sql');
+    fs.writeFileSync(backup, 'backup'); const hash = crypto.createHash('sha256').update('backup').digest('hex');
+    let rolledBack = false; let released = false;
+    const connection = {
+        async execute(sql) {
+            if (/GET_LOCK/.test(sql)) return [[{ lock_obtenido: 1 }]];
+            if (/RELEASE_LOCK/.test(sql)) return [[{ lock_liberado: 1 }]];
+            if (/^INSERT/.test(sql)) throw Object.assign(new Error('internal'), { code: 'ER_ACCESS_DENIED_ERROR' });
+            return [[]];
+        }, async beginTransaction() {}, async commit() {}, async rollback() { rolledBack = true; }, release() { released = true; }
+    };
+    const pool = mockPool(connection);
+    try {
+        await assert.rejects(apply.ejecutarRecuperacionAdministrativa(recoveryOptions('--execute', backup, hash), true, { log() {} }, {
+            env: recoveryEnv(), manifest, pool, snapshot: async () => recoverySnapshot(),
+            countRows: async () => ({ importaciones_horario: 0, versiones_horario: 0 }), privileges: async () => ({ estado: 'PRESENT', faltantes: [] })
+        }), (error) => error.stage === 'RECOVERY_REGISTRATION' && error.code === 'ER_ACCESS_DENIED_ERROR');
+        assert.equal(rolledBack, true); assert.equal(released, true); assert.equal(pool.ended, true);
+    } finally { fs.rmSync(directory, { recursive: true, force: true }); }
+});
+test('50 opciones desconocidas y combinación de modos se rechazan', () => {
+    assert.throws(() => apply.parsearArgumentos(['recover-registration', '--version=019', '--dry-run', '--unknown']), (error) => error.code === 'UNKNOWN_OPTION');
+    assert.throws(() => apply.parsearArgumentos(['recover-registration', '--version=019', '--dry-run', '--execute']), (error) => error.code === 'MODE_REQUIRED');
 });

@@ -151,6 +151,12 @@ function normalizarClausula(valor) {
 function normalizarExpresionGenerada(valor) {
     let expresion = normalizarClausula(valor)
         .replace(/\(\s*([a-z_][a-z0-9_]*\s+is\s+null)\s*\)/g, '$1');
+    const predicadoAtomico = /\(\s*([a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)?\s*(?:<=>|<=|>=|<>|!=|=|<|>)\s*(?:-?\d+(?:\.\d+)?|null|true|false|'(?:''|[^'])*'|[a-z_][a-z0-9_]*(?:\.[a-z_][a-z0-9_]*)?))\s*\)/g;
+    let anterior;
+    do {
+        anterior = expresion;
+        expresion = expresion.replace(predicadoAtomico, '$1');
+    } while (expresion !== anterior);
     while (expresion.startsWith('(') && expresion.endsWith(')')) {
         expresion = expresion.slice(1, -1).trim();
     }
