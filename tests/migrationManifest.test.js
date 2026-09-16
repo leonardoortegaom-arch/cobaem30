@@ -72,7 +72,8 @@ test('2. todos los SQL físicos están manifestados', () => {
         '016_add_academic_calendar_references_to_groups.sql',
         '017_create_group_staff_assignments.sql',
         '018_create_subjects_and_classrooms.sql',
-        '019_create_schedule_imports_and_versions.sql'
+        '019_create_schedule_imports_and_versions.sql',
+        '020_create_scheduled_classes.sql'
     ].sort();
     assert.deepEqual(fisicos, declarados);
     assert.deepEqual(fisicos, esperados);
@@ -82,7 +83,7 @@ test('2. todos los SQL físicos están manifestados', () => {
 
 test('3. los checksums reales coinciden', () => {
     const resultado = manifestModule.validarArchivosYChecksums(manifestModule.cargarManifiesto());
-    assert.equal(resultado.totalArchivosSql, 19);
+    assert.equal(resultado.totalArchivosSql, 20);
 });
 
 test('4. LF y CRLF producen el mismo checksum', () => {
@@ -144,8 +145,8 @@ test('13. RESERVED_MISSING con archivo es rechazazada', () => {
 
 test('14. PLANNED con archivo es rechazazada', () => {
     const manifiesto = cargarClonReal();
-    const entrada = manifiesto.migraciones.find((item) => item.version === 20);
-    entrada.archivo = '020_invalida.sql';
+    const entrada = manifiesto.migraciones.find((item) => item.version === 21);
+    entrada.archivo = '021_invalida.sql';
     entrada.checksumSha256 = '0'.repeat(64);
     assert.throws(() => manifestModule.validarEstructuraManifiesto(manifiesto));
     const entradaReal = manifestModule.cargarManifiesto().migraciones.find((item) => item.version === 18);
@@ -209,7 +210,7 @@ test('21. 009 y 011–014 permanecen superseded', () => {
     }
 });
 
-test('22. 015 a 019 están active y 020–021 permanecen planned', () => {
+test('22. 015 a 020 están active y 021 permanece planned', () => {
     const migraciones = manifestModule.cargarManifiesto().migraciones;
     const activa = migraciones.find((item) => item.version === 15);
     assert.equal(activa.estado, 'ACTIVE');
@@ -236,12 +237,14 @@ test('22. 015 a 019 están active y 020–021 permanecen planned', () => {
     assert.equal(activa019.estado, 'ACTIVE');
     assert.equal(activa019.archivo, '019_create_schedule_imports_and_versions.sql');
     assert.equal(manifestModule.calcularChecksumCanonico(path.join(manifestModule.MIGRATIONS_DIR, activa019.archivo)), activa019.checksumSha256);
-    for (let version = 20; version <= 21; version += 1) {
-        const entrada = migraciones.find((item) => item.version === version);
-        assert.equal(entrada.estado, 'PLANNED');
-        assert.equal(entrada.archivo, null);
-        assert.equal(entrada.checksumSha256, null);
-    }
+    const activa020 = migraciones.find((item) => item.version === 20);
+    assert.equal(activa020.estado, 'ACTIVE');
+    assert.equal(activa020.archivo, '020_create_scheduled_classes.sql');
+    assert.equal(manifestModule.calcularChecksumCanonico(path.join(manifestModule.MIGRATIONS_DIR, activa020.archivo)), activa020.checksumSha256);
+    const planeada021 = migraciones.find((item) => item.version === 21);
+    assert.equal(planeada021.estado, 'PLANNED');
+    assert.equal(planeada021.archivo, null);
+    assert.equal(planeada021.checksumSha256, null);
 });
 
 test('23. el módulo no importa mysql2, dotenv ni database.js', () => {

@@ -16,6 +16,10 @@ const sqlPath = path.join(manifestApi.MIGRATIONS_DIR, entry.archivo || '');
 const sql = fs.readFileSync(sqlPath, 'utf8');
 const normalized = sql.replace(/--[^\r\n]*/g, '').toLowerCase();
 const contract = apply.cargarContrato(entry);
+const manifestBefore020 = structuredClone(manifest);
+const entry020Fixture = manifestBefore020.migraciones.find((item) => item.version === 20);
+Object.assign(entry020Fixture, { estado: 'PLANNED', archivo: null, checksumSha256: null, razonEstado: 'Fixture previa a 020.' });
+delete entry020Fixture.execution;
 
 function tableFromContract(spec) {
     const columnas = Object.fromEntries(spec.columnas.map((column, index) => [column.nombre, {
@@ -203,22 +207,21 @@ test('27 019 está ACTIVE y depende de 018', () => {
     assert.equal(entry.estado, 'ACTIVE');
     assert.deepEqual(entry.execution.dependsOn, [18]);
 });
-test('28 020 y 021 permanecen PLANNED', () => {
-    for (const version of [20, 21]) {
-        const migration = manifest.migraciones.find((item) => item.version === version);
-        assert.equal(migration.estado, 'PLANNED');
-        assert.equal(migration.archivo, null);
-    }
+test('28 020 está ACTIVE y 021 permanece PLANNED', () => {
+    assert.equal(manifest.migraciones.find((item) => item.version === 20).estado, 'ACTIVE');
+    const migration = manifest.migraciones.find((item) => item.version === 21);
+    assert.equal(migration.estado, 'PLANNED');
+    assert.equal(migration.archivo, null);
 });
 test('29 checksums de SQL y contrato coinciden', () => {
     assert.equal(manifestApi.calcularChecksumCanonico(sqlPath), entry.checksumSha256);
     assert.equal(manifestApi.calcularChecksumCanonico(path.join(manifestApi.PROJECT_ROOT, entry.execution.postconditionContract)), entry.execution.postconditionChecksumSha256);
 });
-test('30 una 019 aplicada y registrada deja de estar pendiente', () => {
+test('30 una 019 aplicada y registrada deja únicamente 020 pendiente', () => {
     const snapshot = snapshotBefore019();
     for (const [name, spec] of Object.entries(contract.tablas)) snapshot.tablas[name] = tableFromContract(spec);
     snapshot.controlRows.push(appliedRow(entry));
-    assert.deepEqual(apply.construirPlan(manifest, snapshot), []);
+    assert.deepEqual(apply.construirPlan(manifest, snapshot).map((item) => item.entrada.version), [20]);
 });
 test('31 fallo de la segunda sentencia no registra 019', async () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'migration019-'));
@@ -249,7 +252,7 @@ test('31 fallo de la segunda sentencia no registra 019', async () => {
     };
     try {
         await assert.rejects(apply.ejecutarAdministrativo(options, true, { log() {} }, {
-            env, pool, manifest, snapshot: async () => snapshotBefore019(), privileges: async () => ({ estado: 'PRESENT' })
+            env, pool, manifest: manifestBefore020, snapshot: async () => snapshotBefore019(), privileges: async () => ({ estado: 'PRESENT' })
         }));
         assert.equal(calls.filter((statement) => /^CREATE TABLE/.test(statement)).length, 2);
         assert.equal(calls.some((statement) => /^INSERT INTO schema_migrations/.test(statement)), false);

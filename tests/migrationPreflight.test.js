@@ -199,7 +199,7 @@ test('45 estado almacenado incorrecto de 015 se rechaza', () => {
 test('46 versión desconocida registrada se rechaza', () => {
     assert.throws(() => analizarFilasControl(manifiesto, [...filasBaseline(), { ...filaAplicada(15), version: 999 }]), (e) => e.code === 'UNKNOWN_APPLIED_VERSION');
 });
-for (const [numero, version, estado] of [[47,20,'PLANNED'],[48,9,'SUPERSEDED_NOT_APPLIED'],[49,10,'RESERVED_MISSING']]) {
+for (const [numero, version, estado] of [[47,21,'PLANNED'],[48,9,'SUPERSEDED_NOT_APPLIED'],[49,10,'RESERVED_MISSING']]) {
     test(`${numero} registro ${estado} se rechaza`, () => {
         const entrada = manifiesto.migraciones.find((item) => item.version === version);
         const fila = { version, archivo: entrada.archivo, checksum_sha256: entrada.checksumSha256, tipo_registro: 'EJECUTADA' };
@@ -223,6 +223,9 @@ test('52 varias ACTIVE posteriores válidas son compatibles', () => {
     const e19 = futuro.migraciones.find((item) => item.version === 19);
     Object.assign(e19, { estado: 'PLANNED', archivo: null, checksumSha256: null, razonEstado: 'Fixture previa a 019.' });
     delete e19.execution;
+    const e20 = futuro.migraciones.find((item) => item.version === 20);
+    Object.assign(e20, { estado: 'PLANNED', archivo: null, checksumSha256: null, razonEstado: 'Fixture previa a 020.' });
+    delete e20.execution;
     for (const [version, checksum] of [[16,'1'],[17,'2']]) {
         Object.assign(futuro.migraciones.find((item) => item.version === version), { estado: 'ACTIVE', archivo: `${version}.sql`, checksumSha256: checksum.repeat(64) });
     }

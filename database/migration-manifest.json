@@ -268,11 +268,31 @@
     {
       "version": 20,
       "identificador": "020",
-      "estado": "PLANNED",
-      "archivo": null,
-      "checksumSha256": null,
-      "descripcion": "Crear clases programadas como fuente única de horarios.",
-      "razonEstado": "Contrato aprobado; SQL aún no creado."
+      "estado": "ACTIVE",
+      "archivo": "020_create_scheduled_classes.sql",
+      "checksumSha256": "ea8bed6746aa9531edc4609232df32d2dbb5a23cba6bc28cc7d15deaf4fc1546",
+      "descripcion": "Crear clases programadas como fuente única normalizada de horarios.",
+      "execution": {
+        "dependsOn": [19],
+        "statementCount": 1,
+        "statements": [
+          {"operation": "CREATE_TABLE", "target": "clases_programadas"}
+        ],
+        "preconditions": [
+          {"type": "MIGRATION_APPLIED", "version": 19},
+          {"type": "TABLE_ABSENT", "target": "clases_programadas"},
+          {"type": "TABLE_PRESENT", "target": "versiones_horario"},
+          {"type": "TABLE_PRESENT", "target": "materias"},
+          {"type": "TABLE_PRESENT", "target": "usuarios"},
+          {"type": "TABLE_PRESENT", "target": "aulas"},
+          {"type": "COLUMN_MATCH", "table": "versiones_horario", "target": "id", "columnType": "bigint unsigned", "nullable": false},
+          {"type": "COLUMN_MATCH", "table": "materias", "target": "id", "columnType": "int unsigned", "nullable": false},
+          {"type": "COLUMN_MATCH", "table": "usuarios", "target": "id", "columnType": "bigint unsigned", "nullable": false},
+          {"type": "COLUMN_MATCH", "table": "aulas", "target": "id", "columnType": "int unsigned", "nullable": false}
+        ],
+        "postconditionContract": "database/migration-contracts/020_scheduled_classes.json",
+        "postconditionChecksumSha256": "3423a7a8166461be8578373912eef7d38f2bb3a73351754f6b2ed96318018b13"
+      }
     },
     {
       "version": 21,

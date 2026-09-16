@@ -1,0 +1,68 @@
+{
+  "versionContrato": 1,
+  "migracion": 20,
+  "identificador": "020",
+  "algoritmoChecksum": "sha256-utf8-lf-v1",
+  "alcance": {
+    "derivadoExclusivamenteDe": "versiones_horario",
+    "foreignKey": ["version_horario_id"],
+    "columnasNoDuplicadas": ["grupo_id", "periodo_academico_id"]
+  },
+  "conteoInicial": 0,
+  "tablasPreservadas": [
+    "versiones_horario",
+    "materias",
+    "usuarios",
+    "aulas"
+  ],
+  "columnasProhibidas": {
+    "clases_programadas": [
+      "grupo_id",
+      "periodo_academico_id",
+      "activo",
+      "actualizado_en",
+      "materia_clave",
+      "docente_correo",
+      "aula_clave",
+      "tutor_usuario_id",
+      "orientador_usuario_id"
+    ]
+  },
+  "tablas": {
+    "clases_programadas": {
+      "engine": "innodb",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_0900_ai_ci",
+      "columnas": [
+        {"nombre":"id","tipo":"bigint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"version_horario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"materia_id","tipo":"int unsigned","unsigned":true,"nullable":false},
+        {"nombre":"docente_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"aula_id","tipo":"int unsigned","unsigned":true,"nullable":true,"default":null},
+        {"nombre":"dia_semana","tipo":"tinyint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"hora_inicio","tipo":"time","unsigned":false,"nullable":false},
+        {"nombre":"hora_fin","tipo":"time","unsigned":false,"nullable":false},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey": ["id"],
+      "indicesUnicos": [
+        {"columnas":["version_horario_id","dia_semana","hora_inicio","hora_fin"]}
+      ],
+      "indices": [
+        {"columnas":["docente_usuario_id","dia_semana","hora_inicio","hora_fin","version_horario_id"]},
+        {"columnas":["aula_id","dia_semana","hora_inicio","hora_fin","version_horario_id"]},
+        {"columnas":["materia_id","version_horario_id"]}
+      ],
+      "foreignKeys": [
+        {"columnas":["version_horario_id"],"tablaDestino":"versiones_horario","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["materia_id"],"tablaDestino":"materias","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["docente_usuario_id"],"tablaDestino":"usuarios","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["aula_id"],"tablaDestino":"aulas","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"}
+      ],
+      "checks": [
+        {"fragmentos":["dia_semana","between 1 and 6"]},
+        {"fragmentos":["hora_inicio","<","hora_fin"]}
+      ]
+    }
+  }
+}
