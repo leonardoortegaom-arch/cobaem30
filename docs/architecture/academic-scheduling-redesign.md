@@ -92,14 +92,11 @@ Se propone una única entidad conceptual, `clase_programada`, con:
 
 El horario del grupo se consulta por grupo y el horario del docente por docente. Ambos representan los mismos registros; una clase no debe duplicarse en tablas diferentes.
 
-Actividades no docentes como asesoría, reunión, atención a padres o planeación deben mantenerse separadas de las clases. “Disponible” o “Libre” no debe persistirse: la disponibilidad es la ausencia de un bloque ocupado.
+Las actividades docentes no lectivas recurrentes, como asesoría, reunión periódica, atención a padres o planeación, deben mantenerse separadas de las clases. “Disponible” o “Libre” no debe persistirse: la disponibilidad es la ausencia de un bloque ocupado.
 
-Existen dos alternativas:
+La decisión institucional definitiva es utilizar una tabla separada para estas actividades, acompañada por el catálogo obligatorio `tipos_actividad_docente`. El modelo es semanal, pertenece a un periodo académico y admite únicamente lunes a viernes. No combina clases y actividades en una tabla polimórfica, no representa eventos de fecha única y no relaciona artificialmente una actividad con un grupo, una materia o una versión de horario.
 
-1. Una tabla separada para bloques de actividad docente, con docente, tipo, ubicación, periodo, día y horas.
-2. Una tabla polimórfica de eventos que combine clases y actividades mediante referencias opcionales y reglas según el tipo.
-
-Se recomienda la tabla separada para actividades docentes. Es más sencilla de validar, evita combinaciones nulas ambiguas y mantiene la integridad de las clases sin condicionales polimórficos complejos.
+El contrato normativo se encuentra en [teacher-non-teaching-activities-contract.md](teacher-non-teaching-activities-contract.md). Los eventos excepcionales fechados se resolverán posteriormente mediante otra entidad.
 
 ## 7. Catálogos necesarios
 
@@ -110,7 +107,7 @@ Se recomienda la tabla separada para actividades docentes. Es más sencilla de v
 | Periodos académicos | Delimitar intervalos dentro de un ciclo | Clave semántica, ciclo, fechas, orden y estado | Obligatorio |
 | Materias | Evitar nombres variables y relacionar clases | Clave institucional estable; estado | Obligatorio para clases programadas |
 | Aulas | Detectar ocupación y normalizar ubicaciones | Clave estable; estado | Catálogo obligatorio; referencia opcional en cada clase |
-| Tipos de actividad docente | Clasificar bloques no lectivos | Clave semántica; estado | Obligatorio al implementar actividades no docentes |
+| Tipos de actividad docente | Clasificar bloques no lectivos | Clave semántica; estado | Obligatorio y creado vacío por 021 |
 
 No se recomienda `ENUM` para conceptos administrativos que puedan crecer o cambiar. Los catálogos permiten evolucionar sin alterar la estructura de las tablas consumidoras.
 
@@ -211,7 +208,7 @@ El flujo obligatorio es:
 
 La vista previa no aplica cambios. La operación no borra primero el horario vigente, no permite estados parciales y no acepta silenciosamente usuarios, grupos, materias o aulas inexistentes. Una importación confirmada conserva exclusivamente nombre original, SHA-256, tamaño, cantidad de filas, versión del formato, alcance grupo-periodo, administrador y fecha. No guarda el XLSX, BLOB, base64, rutas, correos copiados ni filas originales. Las clases normalizadas de cada versión constituyen la evidencia funcional.
 
-Una reversión debe ser una operación nueva y auditable que active el contenido de una versión anterior como una nueva versión vigente; nunca debe borrar el historial. El horario docente de clases se deriva de esas mismas filas y no se importa por segunda vez. Las actividades no docentes requieren otra plantilla, identificada por su propio tipo y versión.
+Una reversión debe ser una operación nueva y auditable que active el contenido de una versión anterior como una nueva versión vigente; nunca debe borrar el historial. El horario docente de clases se deriva de esas mismas filas y no se importa por segunda vez. Las actividades no lectivas no forman parte de la plantilla de grupos; una plantilla propia futura tendrá formato y versión independientes.
 
 ## 11. Estrategia de migración desde 008
 
@@ -392,13 +389,15 @@ Los nombres son provisionales y siguen las convenciones en español del proyecto
 
 ### `actividades_docente_no_lectivas`
 
-- **Responsabilidad:** registrar asesorías, reuniones, atención a padres, planeación y otros bloques que no son clases.
-- **Campos conceptuales:** identificador, docente, periodo, tipo de actividad, día, horas, aula opcional, estado, versión o lote cuando corresponda y timestamps.
-- **Claves y relaciones:** referencia docente, periodo, catálogo de tipos y opcionalmente aula; no referencia materia ni suplanta una clase.
+- **Responsabilidad:** registrar bloques semanales recurrentes que no son clases, sin mezclar eventos excepcionales de fecha única.
+- **Campos conceptuales:** identificador, docente, periodo, tipo de actividad, título, observaciones opcionales, día de lunes a viernes, horas flexibles, vigencia por fechas, aula opcional, creador y marca de creación.
+- **Claves y relaciones:** referencia obligatoriamente docente, periodo, catálogo de tipos y creador, y opcionalmente aula; no referencia grupo, versión de horario ni materia, y no suplanta una clase.
 - **Cardinalidad:** un docente puede tener muchos bloques; cada bloque corresponde a un tipo.
-- **Historial:** conserva versiones o vigencias sin convertir “Libre” en un registro.
-- **Integridad:** horario válido y sin solapamiento del docente ni aula; tipo activo.
-- **Fase:** posterior a N7, cuando se apruebe su contrato institucional y plantilla propia.
+- **Historial:** `fecha_inicio` abre la vigencia y `fecha_fin` nullable la cierra; un cambio sustantivo cierra la fila anterior y crea otra. No usa versiones de horario, eliminación física ni un booleano como sustituto del historial.
+- **Integridad:** `dia_semana` entre 1 y 5, hora inicial anterior a hora final y fecha final igual o posterior a la inicial. Los solapamientos del docente y, cuando aplique, del aula se validan contra clases activas y otras actividades dentro de una transacción con bloqueos.
+- **Autorización:** solamente ADMINISTRADOR crea, reemplaza o cierra; DOCENTE consulta sus propias actividades sin modificarlas.
+- **Fase:** 021 crea el catálogo vacío y la estructura. La interfaz, una plantilla propia y los eventos excepcionales pertenecen a fases posteriores.
+- **Contrato:** [teacher-non-teaching-activities-contract.md](teacher-non-teaching-activities-contract.md).
 
 ### `importaciones_horario`
 
@@ -451,6 +450,7 @@ erDiagram
 
     PERIODO_ACADEMICO ||--o{ ACTIVIDAD_DOCENTE_NO_LECTIVA : contextualiza
     USUARIO_DOCENTE ||--o{ ACTIVIDAD_DOCENTE_NO_LECTIVA : realiza
+    TIPO_ACTIVIDAD_DOCENTE ||--o{ ACTIVIDAD_DOCENTE_NO_LECTIVA : clasifica
     AULA o|--o{ ACTIVIDAD_DOCENTE_NO_LECTIVA : ubica
 ```
 

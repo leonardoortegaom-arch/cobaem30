@@ -121,7 +121,7 @@ Restricciones:
 | 018 | Catálogos de materias y aulas | 015 | `materias`, `aulas` | No | Sí antes de referencias | Bajo |
 | 019 | Importaciones y versiones | 016, 018 | `importaciones_horario`, `versiones_horario` | No | Sí antes de versiones reales | Medio |
 | 020 | Fuente única de clases | 019 | `clases_programadas` | No | Sí antes de clases reales | Alto por integridad temporal |
-| 021 | Actividades no lectivas | 015, 018 | `actividades_docente_no_lectivas` | No | Sí antes de bloques reales | Medio |
+| 021 | Actividades no lectivas | 015, 018 | `tipos_actividad_docente`, `actividades_docente_no_lectivas` | No | Sí antes de tipos o bloques reales | Medio |
 
 Las cargas institucionales y el mapeo del grupo heredado no se mezclan con estas migraciones estructurales. Son operaciones asistidas posteriores, con validación, respaldo y auditoría propios.
 
@@ -340,6 +340,14 @@ Reglas:
 
 ## 10. `actividades_docente_no_lectivas`
 
+La definición institucional definitiva sustituye la propuesta anterior de `concepto` libre y estado booleano. 021 deberá crear el catálogo vacío `tipos_actividad_docente` y la tabla separada de actividades semanales recurrentes. El contrato normativo completo está en [teacher-non-teaching-activities-contract.md](teacher-non-teaching-activities-contract.md).
+
+### `tipos_actividad_docente`
+
+Catálogo obligatorio con identificador compatible, clave semántica única, nombre, estado administrativo y timestamps según las convenciones vigentes. Comienza vacío, no usa `ENUM` y no incorpora tipos institucionales inventados.
+
+### `actividades_docente_no_lectivas`
+
 ID propuesto `BIGINT UNSIGNED`.
 
 | Columna | Tipo propuesto | Nullable | Default | Clave o índice | Significado |
@@ -347,16 +355,29 @@ ID propuesto `BIGINT UNSIGNED`.
 | `id` | `BIGINT UNSIGNED` | No | autogenerado | PK | Bloque no lectivo |
 | `docente_usuario_id` | `BIGINT UNSIGNED` | No | — | FK e índice temporal | Docente |
 | `periodo_academico_id` | `INT UNSIGNED` | No | — | FK e índice temporal | Periodo |
-| `concepto` | `VARCHAR(100)` | No | — | — | Tipo o concepto controlado |
+| `tipo_actividad_docente_id` | ID compatible con catálogo | No | — | FK | Tipo institucional |
+| `titulo` | `VARCHAR(150)` | No | — | — | Título breve no vacío |
+| `observaciones` | `VARCHAR(500)` | Sí | nulo | — | Texto plano opcional |
 | `dia_semana` | `TINYINT UNSIGNED` | No | — | Índice temporal | Día normalizado |
 | `hora_inicio` | `TIME` | No | — | Índice temporal | Inicio |
 | `hora_fin` | `TIME` | No | — | Índice temporal | Fin |
 | `aula_id` | `INT UNSIGNED` | Sí | nulo | FK e índice temporal | Aula opcional |
-| `activo` | `BOOLEAN` | No | verdadero | Índice si es selectivo | Vigencia funcional |
+| `fecha_inicio` | `DATE` | No | — | Índice de vigencia | Inicio inclusivo de vigencia |
+| `fecha_fin` | `DATE` | Sí | nulo | Índice de vigencia | Fin inclusivo; nulo indica vigencia abierta |
+| `creado_por_usuario_id` | `BIGINT UNSIGNED` | No | — | FK | Administrador creador |
 | `creado_en` | `TIMESTAMP` | No | fecha actual | — | Auditoría |
-| `actualizado_en` | `TIMESTAMP` | No | fecha actual | — | Auditoría de cambio |
 
-Es independiente de clases, no crea grupos ficticios, participa en conflictos de docente y aula y no se importa silenciosamente desde plantillas de clases. Un catálogo de tipos puede incorporarse después cuando exista definición institucional.
+Reglas definitivas:
+
+- Es semanal recurrente, pertenece obligatoriamente a un periodo y admite únicamente `dia_semana` de 1 a 5.
+- `hora_inicio < hora_fin`; si existe `fecha_fin`, no puede ser anterior a `fecha_inicio`.
+- Un cambio sustantivo cierra la fila anterior y crea otra; no hay eliminación física, versiones completas ni un booleano como historial.
+- Solo ADMINISTRADOR crea, reemplaza o cierra. DOCENTE consulta sus actividades sin escritura.
+- Todas las FK usan `ON DELETE RESTRICT`; las acciones `ON UPDATE` se fijarán conservadoramente en el contrato SQL de 021.
+- No contiene `grupo_id`, `version_horario_id`, `materia_id`, `concepto`, `descripcion` ni `ubicacion_texto`.
+- Es independiente de clases y no se importa desde la plantilla XLSX de grupos. Una plantilla propia futura tendrá formato y versión independientes.
+- Los eventos excepcionales fechados pertenecen a una entidad futura y no comparten esta tabla.
+- Los conflictos de docente y aula contra clases activas y otras actividades se validan en aplicación, dentro de una transacción con bloqueos; no se sustituyen con `CHECK` entre filas.
 
 ## 11. Alcance transaccional de una importación
 
@@ -455,7 +476,7 @@ Antes de materializar índices se revisarán consultas reales con `EXPLAIN`. No 
 | 018 | Retirar catálogos si vacíos | Conservar materias/aulas inactivas e históricas | Desactivar mantenimiento |
 | 019 | Retirar tablas si vacías | Conservar importaciones/versiones | Desactivar importación y mantener lectura |
 | 020 | Retirar tabla si vacía | Conservar clases y volver temporalmente a módulos desconectados solo si fueran compatibles | Desactivar proyecciones nuevas |
-| 021 | Retirar tabla si vacía | Conservar bloques históricos | Desactivar gestión no lectiva |
+| 021 | Retirar ambas tablas si están vacías | Conservar catálogo y bloques históricos | Desactivar gestión no lectiva |
 
 Una vez creados datos reales, rollback significa desactivar funcionalidad y aplicar una migración compensatoria ensayada; no implica destruir históricos ni editar migraciones ya aplicadas.
 
@@ -606,11 +627,14 @@ Esta matriz consolida el contrato propuesto. “Fecha actual” representa el pa
 | `actividades_docente_no_lectivas` | `id` | `BIGINT UNSIGNED` | No | autogenerado | PK | Actividad |
 | `actividades_docente_no_lectivas` | `docente_usuario_id` | `BIGINT UNSIGNED` | No | — | FK e índice temporal | Docente |
 | `actividades_docente_no_lectivas` | `periodo_academico_id` | `INT UNSIGNED` | No | — | FK e índice temporal | Periodo |
-| `actividades_docente_no_lectivas` | `concepto` | `VARCHAR(100)` | No | — | — | Concepto controlado |
+| `actividades_docente_no_lectivas` | `tipo_actividad_docente_id` | ID compatible con catálogo | No | — | FK | Tipo institucional |
+| `actividades_docente_no_lectivas` | `titulo` | `VARCHAR(150)` | No | — | — | Título breve |
+| `actividades_docente_no_lectivas` | `observaciones` | `VARCHAR(500)` | Sí | nulo | — | Texto plano opcional |
 | `actividades_docente_no_lectivas` | `dia_semana` | `TINYINT UNSIGNED` | No | — | Índice temporal | Día |
 | `actividades_docente_no_lectivas` | `hora_inicio` | `TIME` | No | — | Índice temporal | Inicio |
 | `actividades_docente_no_lectivas` | `hora_fin` | `TIME` | No | — | Índice temporal | Fin |
 | `actividades_docente_no_lectivas` | `aula_id` | `INT UNSIGNED` | Sí | nulo | FK e índice temporal | Aula opcional |
-| `actividades_docente_no_lectivas` | `activo` | `BOOLEAN` | No | verdadero | Índice sujeto a selectividad | Estado |
+| `actividades_docente_no_lectivas` | `fecha_inicio` | `DATE` | No | — | Índice de vigencia | Inicio inclusivo |
+| `actividades_docente_no_lectivas` | `fecha_fin` | `DATE` | Sí | nulo | Índice de vigencia | Fin inclusivo o vigencia abierta |
+| `actividades_docente_no_lectivas` | `creado_por_usuario_id` | `BIGINT UNSIGNED` | No | — | FK | Administrador creador |
 | `actividades_docente_no_lectivas` | `creado_en` | `TIMESTAMP` | No | fecha actual | — | Auditoría |
-| `actividades_docente_no_lectivas` | `actualizado_en` | `TIMESTAMP` | No | fecha actual y actualización automática | — | Auditoría |
