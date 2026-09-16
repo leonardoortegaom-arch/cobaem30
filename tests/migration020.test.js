@@ -139,10 +139,10 @@ test('26 checksums SQL y contrato coinciden', () => {
     assert.equal(manifestApi.calcularChecksumCanonico(sqlPath), entry.checksumSha256);
     assert.equal(manifestApi.calcularChecksumCanonico(path.join(manifestApi.PROJECT_ROOT, entry.execution.postconditionContract)), entry.execution.postconditionChecksumSha256);
 });
-test('27 020 está ACTIVE, depende de 019 y 021 permanece PLANNED', () => {
+test('27 020 está ACTIVE, depende de 019 y 021 ya tiene su propio contrato ACTIVE', () => {
     assert.equal(entry.estado, 'ACTIVE');
     assert.deepEqual(entry.execution.dependsOn, [19]);
-    assert.equal(manifest.migraciones.find((item) => item.version === 21).estado, 'PLANNED');
+    assert.equal(manifest.migraciones.find((item) => item.version === 21).estado, 'ACTIVE');
 });
 test('28 precondición es válida cuando la tabla está ausente', () => assert.equal(apply.validarPrecondiciones(snapshotBefore020(), entry), true));
 test('29 estructura existente no registrada se rechaza', () => {
@@ -150,11 +150,11 @@ test('29 estructura existente no registrada se rechaza', () => {
     snapshot.tablas.clases_programadas = tableFromContract(contract.tablas.clases_programadas);
     assert.throws(() => apply.construirPlan(manifest, snapshot), (error) => error.code === 'UNREGISTERED_PARTIAL_STRUCTURE');
 });
-test('30 aplicada y registrada deja de estar pendiente', () => {
+test('30 aplicada y registrada deja únicamente 021 pendiente', () => {
     const snapshot = snapshotBefore020();
     snapshot.tablas.clases_programadas = tableFromContract(contract.tablas.clases_programadas);
     snapshot.controlRows.push(appliedRow(entry));
-    assert.deepEqual(apply.construirPlan(manifest, snapshot), []);
+    assert.deepEqual(apply.construirPlan(manifest, snapshot).map((item) => item.entrada.version), [21]);
 });
 test('31 el contrato rechaza grupo_id o periodo_academico_id añadidos', () => {
     for (const forbidden of ['grupo_id', 'periodo_academico_id']) {

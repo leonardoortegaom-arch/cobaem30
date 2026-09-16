@@ -201,9 +201,15 @@ test('46 versión desconocida registrada se rechaza', () => {
 });
 for (const [numero, version, estado] of [[47,21,'PLANNED'],[48,9,'SUPERSEDED_NOT_APPLIED'],[49,10,'RESERVED_MISSING']]) {
     test(`${numero} registro ${estado} se rechaza`, () => {
-        const entrada = manifiesto.migraciones.find((item) => item.version === version);
+        const fixture = clonar(manifiesto);
+        if (version === 21) {
+            const planned = fixture.migraciones.find((item) => item.version === 21);
+            Object.assign(planned, { estado: 'PLANNED', archivo: null, checksumSha256: null, razonEstado: 'Fixture PLANNED.' });
+            delete planned.execution;
+        }
+        const entrada = fixture.migraciones.find((item) => item.version === version);
         const fila = { version, archivo: entrada.archivo, checksum_sha256: entrada.checksumSha256, tipo_registro: 'EJECUTADA' };
-        assert.throws(() => analizarFilasControl(manifiesto, [...filasBaseline(), fila]), (e) => e.code === 'NON_EXECUTABLE_RECORDED');
+        assert.throws(() => analizarFilasControl(fixture, [...filasBaseline(), fila]), (e) => e.code === 'NON_EXECUTABLE_RECORDED');
     });
 }
 test('50 baseline incompleto no es compensado por 015', () => {
@@ -226,6 +232,9 @@ test('52 varias ACTIVE posteriores válidas son compatibles', () => {
     const e20 = futuro.migraciones.find((item) => item.version === 20);
     Object.assign(e20, { estado: 'PLANNED', archivo: null, checksumSha256: null, razonEstado: 'Fixture previa a 020.' });
     delete e20.execution;
+    const e21 = futuro.migraciones.find((item) => item.version === 21);
+    Object.assign(e21, { estado: 'PLANNED', archivo: null, checksumSha256: null, razonEstado: 'Fixture previa a 021.' });
+    delete e21.execution;
     for (const [version, checksum] of [[16,'1'],[17,'2']]) {
         Object.assign(futuro.migraciones.find((item) => item.version === version), { estado: 'ACTIVE', archivo: `${version}.sql`, checksumSha256: checksum.repeat(64) });
     }

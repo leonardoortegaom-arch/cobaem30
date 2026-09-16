@@ -1,0 +1,107 @@
+{
+  "versionContrato": 1,
+  "migracion": 21,
+  "identificador": "021",
+  "algoritmoChecksum": "sha256-utf8-lf-v1",
+  "tablasPreservadas": [
+    "usuarios",
+    "periodos_academicos",
+    "aulas",
+    "clases_programadas"
+  ],
+  "columnasProhibidas": {
+    "actividades_docente_no_lectivas": [
+      "grupo_id",
+      "materia_id",
+      "version_horario_id",
+      "activo",
+      "concepto",
+      "descripcion",
+      "ubicacion_texto",
+      "fecha_evento",
+      "docente_nombre",
+      "docente_correo"
+    ]
+  },
+  "tablas": {
+    "tipos_actividad_docente": {
+      "engine": "innodb",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_0900_ai_ci",
+      "columnas": [
+        {"nombre":"id","tipo":"int unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"clave","tipo":"varchar(30)","unsigned":false,"nullable":false},
+        {"nombre":"nombre","tipo":"varchar(150)","unsigned":false,"nullable":false},
+        {"nombre":"descripcion","tipo":"varchar(500)","unsigned":false,"nullable":true,"default":null},
+        {"nombre":"activo","tipo":"tinyint(1)","unsigned":false,"nullable":false,"default":"1"},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"},
+        {"nombre":"actualizado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP","extra":"on update CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey": ["id"],
+      "indicesUnicos": [
+        {"columnas":["clave"]}
+      ],
+      "indices": [
+        {"columnas":["activo","nombre","id"]}
+      ],
+      "foreignKeys": [],
+      "checks": [
+        {"fragmentos":["char_length(trim(clave))",">","0"]},
+        {"fragmentos":["char_length(trim(nombre))",">","0"]},
+        {"fragmentos":["activo","in (0, 1)"]}
+      ]
+    },
+    "actividades_docente_no_lectivas": {
+      "engine": "innodb",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_0900_ai_ci",
+      "columnas": [
+        {"nombre":"id","tipo":"bigint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"docente_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"periodo_academico_id","tipo":"int unsigned","unsigned":true,"nullable":false},
+        {"nombre":"tipo_actividad_docente_id","tipo":"int unsigned","unsigned":true,"nullable":false},
+        {"nombre":"aula_id","tipo":"int unsigned","unsigned":true,"nullable":true,"default":null},
+        {"nombre":"titulo","tipo":"varchar(150)","unsigned":false,"nullable":false},
+        {"nombre":"observaciones","tipo":"varchar(500)","unsigned":false,"nullable":true,"default":null},
+        {"nombre":"dia_semana","tipo":"tinyint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"hora_inicio","tipo":"time","unsigned":false,"nullable":false},
+        {"nombre":"hora_fin","tipo":"time","unsigned":false,"nullable":false},
+        {"nombre":"fecha_inicio","tipo":"date","unsigned":false,"nullable":false},
+        {"nombre":"fecha_fin","tipo":"date","unsigned":false,"nullable":true,"default":null},
+        {"nombre":"creado_por_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"},
+        {"nombre":"actualizado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP","extra":"on update CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey": ["id"],
+      "indicesUnicos": [],
+      "indices": [
+        {"columnas":["docente_usuario_id","periodo_academico_id","fecha_inicio","fecha_fin","dia_semana","hora_inicio","hora_fin"]},
+        {"columnas":["aula_id","periodo_academico_id","fecha_inicio","fecha_fin","dia_semana","hora_inicio","hora_fin"]},
+        {"columnas":["periodo_academico_id","fecha_inicio","fecha_fin","dia_semana","hora_inicio","hora_fin"]},
+        {"columnas":["tipo_actividad_docente_id","periodo_academico_id"]},
+        {"columnas":["creado_por_usuario_id"]}
+      ],
+      "foreignKeys": [
+        {"columnas":["docente_usuario_id"],"tablaDestino":"usuarios","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["periodo_academico_id"],"tablaDestino":"periodos_academicos","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["tipo_actividad_docente_id"],"tablaDestino":"tipos_actividad_docente","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["aula_id"],"tablaDestino":"aulas","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["creado_por_usuario_id"],"tablaDestino":"usuarios","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"}
+      ],
+      "checks": [
+        {"fragmentos":["dia_semana","between 1 and 5"]},
+        {"fragmentos":["hora_inicio","<","hora_fin"]},
+        {"fragmentos":["fecha_fin is null","or","fecha_fin >= fecha_inicio"]},
+        {"fragmentos":["char_length(trim(titulo))",">","0"]},
+        {"fragmentos":["observaciones is null","or","char_length(trim(observaciones))",">","0"]}
+      ]
+    }
+  },
+  "invariantesDatos": [
+    "NEW_TABLES_EMPTY",
+    "EXISTING_USERS_UNCHANGED",
+    "EXISTING_PERIODS_UNCHANGED",
+    "EXISTING_CLASSROOMS_UNCHANGED",
+    "EXISTING_SCHEDULED_CLASSES_UNCHANGED"
+  ]
+}

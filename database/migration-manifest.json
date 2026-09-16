@@ -297,11 +297,32 @@
     {
       "version": 21,
       "identificador": "021",
-      "estado": "PLANNED",
-      "archivo": null,
-      "checksumSha256": null,
-      "descripcion": "Crear actividades docentes no lectivas.",
-      "razonEstado": "Contrato aprobado; SQL aún no creado."
+      "estado": "ACTIVE",
+      "archivo": "021_create_teacher_non_teaching_activities.sql",
+      "checksumSha256": "1acfc4ab59de6f467a4fc2f08e8a2d09f7e1eaf5f260e749a76d4d22ab5f5f93",
+      "descripcion": "Crear catálogo y actividades docentes no lectivas con vigencia histórica.",
+      "execution": {
+        "dependsOn": [20],
+        "statementCount": 2,
+        "statements": [
+          {"operation": "CREATE_TABLE", "target": "tipos_actividad_docente"},
+          {"operation": "CREATE_TABLE", "target": "actividades_docente_no_lectivas"}
+        ],
+        "preconditions": [
+          {"type": "MIGRATION_APPLIED", "version": 20},
+          {"type": "TABLE_ABSENT", "target": "tipos_actividad_docente"},
+          {"type": "TABLE_ABSENT", "target": "actividades_docente_no_lectivas"},
+          {"type": "TABLE_PRESENT", "target": "usuarios"},
+          {"type": "TABLE_PRESENT", "target": "periodos_academicos"},
+          {"type": "TABLE_PRESENT", "target": "aulas"},
+          {"type": "TABLE_PRESENT", "target": "clases_programadas"},
+          {"type": "COLUMN_MATCH", "table": "usuarios", "target": "id", "columnType": "bigint unsigned", "nullable": false},
+          {"type": "COLUMN_MATCH", "table": "periodos_academicos", "target": "id", "columnType": "int unsigned", "nullable": false},
+          {"type": "COLUMN_MATCH", "table": "aulas", "target": "id", "columnType": "int unsigned", "nullable": false}
+        ],
+        "postconditionContract": "database/migration-contracts/021_teacher_non_teaching_activities.json",
+        "postconditionChecksumSha256": "6f76f4866a1b2086cd0ea8fb8938e2c6a7e6fcadf72ca2c1909be2ab6b2e8d2d"
+      }
     }
   ]
 }
