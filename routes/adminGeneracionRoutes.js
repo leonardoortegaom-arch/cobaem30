@@ -1,0 +1,13 @@
+const express = require('express');
+const controller = require('../controllers/adminGeneracionController');
+const { requireAuth, requireRole } = require('../middlewares/authMiddleware');
+const router = express.Router();
+const admin = [requireAuth, requireRole('ADMINISTRADOR')];
+router.get('/nuevo', ...admin, controller.mostrarNueva);
+router.get('/:id/editar', ...admin, controller.mostrarEditar);
+router.post('/:id/editar', ...admin, controller.actualizar);
+router.get('/:id/estado', ...admin, controller.mostrarEstado);
+router.post('/:id/estado', ...admin, controller.actualizarEstado);
+router.post('/', ...admin, controller.crear);
+router.get('/', ...admin, controller.listar);
+module.exports = router;

@@ -4183,3 +4183,16 @@ a,
         justify-content: center;
     }
 }
+.admin-calendar-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin: 0 0 1.25rem;
+}
+
+@media (max-width: 480px) {
+  .admin-calendar-nav > a {
+    width: 100%;
+    text-align: center;
+  }
+}

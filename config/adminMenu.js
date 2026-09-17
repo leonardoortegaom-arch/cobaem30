@@ -30,6 +30,12 @@ const adminMenuItems = [
         url: '/admin/aulas'
     },
     {
+        clave: 'calendario',
+        texto: 'Calendario acadÃ©mico',
+        icono: 'fa-solid fa-calendar-days',
+        url: '/admin/generaciones'
+    },
+    {
         clave: 'reportes',
         texto: 'Reportes',
         icono: 'fa-solid fa-chart-line',
