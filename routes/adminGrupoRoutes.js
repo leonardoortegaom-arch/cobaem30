@@ -2,9 +2,24 @@ const express = require('express');
 
 const adminGrupoController = require('../controllers/adminGrupoController');
 const adminGrupoOrientadorController = require('../controllers/adminGrupoOrientadorController');
+const adminGrupoCalendarioController = require('../controllers/adminGrupoCalendarioController');
 const { requireAuth, requireRole } = require('../middlewares/authMiddleware');
 
 const router = express.Router();
+
+router.get(
+    '/:id/calendario',
+    requireAuth,
+    requireRole('ADMINISTRADOR'),
+    adminGrupoCalendarioController.mostrar
+);
+
+router.post(
+    '/:id/calendario',
+    requireAuth,
+    requireRole('ADMINISTRADOR'),
+    adminGrupoCalendarioController.guardar
+);
 
 router.get(
     '/nuevo',

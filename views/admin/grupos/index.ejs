@@ -75,6 +75,16 @@
           </select>
         </div>
 
+        <div class="admin-filter-field">
+          <label for="grupos-filtro-normalizacion">Calendario</label>
+          <select id="grupos-filtro-normalizacion" name="normalizacion">
+            <option value="">Todos</option>
+            <option value="configurado" <%= filtros.normalizacion === 'configurado' ? 'selected' : '' %>>Configurados</option>
+            <option value="pendiente" <%= filtros.normalizacion === 'pendiente' ? 'selected' : '' %>>Pendientes</option>
+            <option value="inactivo" <%= filtros.normalizacion === 'inactivo' ? 'selected' : '' %>>Con configuración inactiva</option>
+          </select>
+        </div>
+
         <div class="admin-filter-actions">
           <button type="submit" class="btn-admin-primary">Buscar</button>
           <a href="/admin/grupos" class="btn-admin-secondary">Limpiar filtros</a>
@@ -92,6 +102,9 @@
               <th>Semestre</th>
               <th>Turno</th>
               <th>Ciclo escolar</th>
+              <th>Generación</th>
+              <th>Periodo y ciclo</th>
+              <th>Calendario</th>
               <th>Orientador vigente</th>
               <th>Estado</th>
               <th>Fecha de registro</th>
@@ -102,7 +115,7 @@
           <tbody>
             <% if (grupos.length === 0) { %>
               <tr>
-                <td colspan="8" class="text-center">No se encontraron grupos con los filtros seleccionados.</td>
+                <td colspan="11" class="text-center">No se encontraron grupos con los filtros seleccionados.</td>
               </tr>
             <% } else { %>
               <% grupos.forEach((grupo) => { %>
@@ -111,6 +124,9 @@
                   <td><%= grupo.semestre %></td>
                   <td><%= grupo.turno_nombre %></td>
                   <td><%= grupo.ciclo_escolar %></td>
+                  <td><%= grupo.generacion_anio_inicio ? `${grupo.generacion_anio_inicio}-${grupo.generacion_anio_fin}` : 'Sin asignar' %></td>
+                  <td><%= grupo.periodo_nombre ? `${grupo.periodo_nombre} / ${grupo.ciclo_normalizado_nombre}` : 'Sin asignar' %></td>
+                  <td><span class="badge-custom <%= grupo.estado_calendario === 'CONFIGURADO' ? 'success' : 'warning' %>"><%= grupo.estado_calendario === 'CONFIGURADO' ? 'Configurado' : grupo.estado_calendario === 'CONFIGURACION_INACTIVA' ? 'Configuración inactiva' : 'Pendiente de configurar' %></span></td>
                   <td><%= grupo.orientador_nombre || 'Sin asignar' %></td>
                   <td>
                     <span class="badge-custom <%= grupo.activo ? 'success' : 'warning' %>">
@@ -121,6 +137,7 @@
                   <td>
                     <div class="admin-table-actions">
                       <a href="/admin/grupos/<%= grupo.id %>/editar" class="btn-admin-edit">Editar</a>
+                      <a href="/admin/grupos/<%= grupo.id %>/calendario" class="btn-admin-password"><%= grupo.generacion_id && grupo.periodo_academico_id ? 'Cambiar periodo' : 'Configurar calendario' %></a>
                       <a href="/admin/grupos/<%= grupo.id %>/orientador" class="btn-admin-password">Gestionar orientador</a>
                       <% if (grupo.activo) { %>
                         <a href="/admin/grupos/<%= grupo.id %>/estado" class="btn-admin-state-danger">Desactivar</a>

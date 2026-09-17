@@ -7,7 +7,9 @@ const datosVacios = {
     clave: '',
     semestre: '',
     turno_id: '',
-    ciclo_escolar: ''
+    ciclo_escolar: '',
+    generacion_id: '',
+    periodo_academico_id: ''
 };
 
 const normalizarTexto = (valor) => typeof valor === 'string' ? valor.trim() : '';
@@ -16,7 +18,9 @@ const obtenerDatosFormulario = (body = {}) => ({
     clave: normalizarTexto(body.clave),
     semestre: normalizarTexto(body.semestre),
     turno_id: normalizarTexto(body.turno_id),
-    ciclo_escolar: normalizarTexto(body.ciclo_escolar)
+    ciclo_escolar: normalizarTexto(body.ciclo_escolar),
+    generacion_id: normalizarTexto(body.generacion_id),
+    periodo_academico_id: normalizarTexto(body.periodo_academico_id)
 });
 
 const convertirEnteroPositivo = (valor) => {
@@ -40,12 +44,18 @@ const renderizarFormulario = async (
     res,
     { status = 200, error = null, datos = datosVacios } = {}
 ) => {
-    const turnos = await turnoModel.listarTodos();
+    const [turnos, generaciones, periodos] = await Promise.all([
+        turnoModel.listarTodos(),
+        grupoModel.listarGeneracionesActivas(),
+        grupoModel.listarPeriodosActivosConCicloActivo()
+    ]);
 
     return res.status(status).render('admin/grupos/nuevo', {
         title: 'Crear grupo | COBAEM 30',
         menuItems: crearMenuAdmin('grupos'),
         turnos,
+        generaciones,
+        periodos,
         error,
         datos
     });
@@ -90,6 +100,13 @@ const listarGrupos = async (req, res) => {
             : estadoSolicitado === 'inactivo'
                 ? false
                 : undefined;
+        const normalizacionSolicitada = normalizarTexto(req.query.normalizacion);
+        const estadosNormalizacion = {
+            configurado: 'CONFIGURADO',
+            pendiente: 'PENDIENTE',
+            inactivo: 'CONFIGURACION_INACTIVA'
+        };
+        const estadoCalendario = estadosNormalizacion[normalizacionSolicitada];
         const paginaSolicitada = typeof req.query.pagina === 'string'
             && /^\d+$/.test(req.query.pagina)
             && Number(req.query.pagina) > 0
@@ -101,7 +118,8 @@ const listarGrupos = async (req, res) => {
             semestre,
             turnoId,
             cicloEscolar,
-            activo
+            activo,
+            estadoCalendario
         };
         const totalRegistros = await grupoModel.contarFiltrados(filtrosModelo);
         const totalPaginas = Math.max(1, Math.ceil(totalRegistros / limite));
@@ -126,7 +144,8 @@ const listarGrupos = async (req, res) => {
             semestre: semestre ? String(semestre) : '',
             turno: turnoId ? String(turnoId) : '',
             ciclo: cicloEscolar,
-            estado: typeof activo === 'boolean' ? estadoSolicitado : ''
+            estado: typeof activo === 'boolean' ? estadoSolicitado : '',
+            normalizacion: estadoCalendario ? normalizacionSolicitada : ''
         };
         const construirUrlPagina = (pagina) => {
             const parametros = new URLSearchParams();
@@ -135,6 +154,7 @@ const listarGrupos = async (req, res) => {
             if (filtros.turno) parametros.set('turno', filtros.turno);
             if (filtros.ciclo) parametros.set('ciclo', filtros.ciclo);
             if (filtros.estado) parametros.set('estado', filtros.estado);
+            if (filtros.normalizacion) parametros.set('normalizacion', filtros.normalizacion);
             parametros.set('pagina', String(pagina));
             return `/admin/grupos?${parametros.toString()}`;
         };
@@ -224,27 +244,19 @@ const crearGrupo = async (req, res) => {
             return;
         }
 
-        if (!cicloEscolarValido(datos.ciclo_escolar)) {
-            await responderValidacion('El ciclo escolar debe tener el formato AAAA-AAAA y el segundo año debe ser posterior al primero.');
+        const generacionId = convertirEnteroPositivo(datos.generacion_id);
+        const periodoId = convertirEnteroPositivo(datos.periodo_academico_id);
+        if (!generacionId || !periodoId) {
+            await responderValidacion('Selecciona una generación y un periodo académico activos.');
             return;
         }
 
-        const grupoExistente = await grupoModel.buscarDuplicado(
-            datos.clave,
-            datos.ciclo_escolar,
-            turno.id
-        );
-        if (grupoExistente) {
-            await responderValidacion('Ya existe un grupo con esa clave, ciclo escolar y turno.');
-            return;
-        }
-
-        await grupoModel.crear({
-            turno_id: turno.id,
+        await grupoModel.crearNormalizado({
+            turnoId: turno.id,
             clave: datos.clave,
             semestre,
-            ciclo_escolar: datos.ciclo_escolar,
-            activo: true
+            generacionId,
+            periodoId
         });
 
         res.redirect('/admin/grupos?creado=1');
@@ -252,6 +264,15 @@ const crearGrupo = async (req, res) => {
         if (error.code === 'ER_DUP_ENTRY') {
             try {
                 await responderValidacion('Ya existe un grupo con esa clave, ciclo escolar y turno.');
+            } catch {
+                res.status(503).send('No fue posible crear el grupo.');
+            }
+            return;
+        }
+
+        if (['GENERACION_NO_DISPONIBLE', 'PERIODO_NO_DISPONIBLE'].includes(error.codigo)) {
+            try {
+                await responderValidacion('La generación, el periodo o su ciclo ya no están disponibles.');
             } catch {
                 res.status(503).send('No fue posible crear el grupo.');
             }
@@ -270,7 +291,7 @@ const mostrarFormularioEditar = async (req, res) => {
     }
 
     try {
-        const grupo = await grupoModel.buscarPorIdConTurno(id);
+        const grupo = await grupoModel.buscarPorIdConCalendario(id);
         if (!grupo) {
             res.status(404).send('Grupo no encontrado.');
             return;
@@ -282,7 +303,13 @@ const mostrarFormularioEditar = async (req, res) => {
                 clave: grupo.clave,
                 semestre: String(grupo.semestre),
                 turno_id: String(grupo.turno_id),
-                ciclo_escolar: grupo.ciclo_escolar
+                ciclo_escolar: grupo.ciclo_escolar,
+                generacion_id: grupo.generacion_id,
+                periodo_academico_id: grupo.periodo_academico_id,
+                generacion_anio_inicio: grupo.generacion_anio_inicio,
+                generacion_anio_fin: grupo.generacion_anio_fin,
+                periodo_nombre: grupo.periodo_nombre,
+                ciclo_normalizado_nombre: grupo.ciclo_normalizado_nombre
             }
         });
     } catch {
@@ -309,11 +336,20 @@ const actualizarGrupo = async (req, res) => {
     });
 
     try {
-        const grupoActual = await grupoModel.buscarPorIdConTurno(id);
+        const grupoActual = await grupoModel.buscarPorIdConCalendario(id);
         if (!grupoActual) {
             res.status(404).send('Grupo no encontrado.');
             return;
         }
+
+        Object.assign(datos, {
+            generacion_id: grupoActual.generacion_id,
+            periodo_academico_id: grupoActual.periodo_academico_id,
+            generacion_anio_inicio: grupoActual.generacion_anio_inicio,
+            generacion_anio_fin: grupoActual.generacion_anio_fin,
+            periodo_nombre: grupoActual.periodo_nombre,
+            ciclo_normalizado_nombre: grupoActual.ciclo_normalizado_nombre
+        });
 
         if (!datos.clave) {
             await responderValidacion('La clave es obligatoria.');
@@ -343,14 +379,17 @@ const actualizarGrupo = async (req, res) => {
             return;
         }
 
-        if (!cicloEscolarValido(datos.ciclo_escolar)) {
+        const cicloEscolar = grupoActual.generacion_id !== null && grupoActual.periodo_academico_id !== null
+            ? grupoActual.ciclo_escolar
+            : datos.ciclo_escolar;
+        if (!cicloEscolarValido(cicloEscolar)) {
             await responderValidacion('El ciclo escolar debe tener el formato AAAA-AAAA y el segundo año debe ser posterior al primero.');
             return;
         }
 
         const grupoDuplicado = await grupoModel.buscarDuplicado(
             datos.clave,
-            datos.ciclo_escolar,
+            cicloEscolar,
             turno.id
         );
         if (grupoDuplicado && Number(grupoDuplicado.id) !== id) {
@@ -362,7 +401,7 @@ const actualizarGrupo = async (req, res) => {
             turno_id: turno.id,
             clave: datos.clave,
             semestre,
-            ciclo_escolar: datos.ciclo_escolar
+            ciclo_escolar: cicloEscolar
         });
 
         res.redirect('/admin/grupos?actualizado=1');

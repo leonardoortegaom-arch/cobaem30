@@ -54,14 +54,14 @@
             </select>
           </div>
 
-          <div class="admin-form-group">
-            <label for="ciclo_escolar">Ciclo escolar</label>
-            <input id="ciclo_escolar" name="ciclo_escolar" type="text" inputmode="numeric" pattern="[0-9]{4}-[0-9]{4}" maxlength="9" value="<%= datos.ciclo_escolar %>" placeholder="2026-2029" required autocomplete="off">
-          </div>
+          <div class="admin-form-group"><label for="generacion_id">Generación</label><select id="generacion_id" name="generacion_id" required><option value="">Selecciona</option><% generaciones.forEach(g => { %><option value="<%= g.id %>" <%= String(datos.generacion_id) === String(g.id) ? 'selected' : '' %>><%= g.anio_inicio %>-<%= g.anio_fin %></option><% }) %></select></div>
+          <div class="admin-form-group"><label for="periodo_academico_id">Periodo académico</label><select id="periodo_academico_id" name="periodo_academico_id" required><option value="">Selecciona</option><% periodos.forEach(p => { %><option value="<%= p.id %>" <%= String(datos.periodo_academico_id) === String(p.id) ? 'selected' : '' %>><%= p.nombre %> — <%= p.ciclo_nombre %></option><% }) %></select></div>
         </div>
 
+        <% if (!generaciones.length || !periodos.length) { %><div class="alert alert-warning" role="alert">Primero registra y activa una generación, un ciclo y un periodo académico.</div><% } %>
+
         <div class="admin-form-actions">
-          <button type="submit" class="btn-admin-primary">Guardar grupo</button>
+          <button type="submit" class="btn-admin-primary" <%= !generaciones.length || !periodos.length ? 'disabled' : '' %>>Guardar grupo</button>
           <a href="/admin/grupos" class="btn-admin-secondary">Cancelar</a>
         </div>
       </form>

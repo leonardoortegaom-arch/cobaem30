@@ -54,9 +54,17 @@
 
           <div class="admin-form-group">
             <label for="ciclo_escolar">Ciclo escolar</label>
-            <input id="ciclo_escolar" name="ciclo_escolar" type="text" inputmode="numeric" pattern="[0-9]{4}-[0-9]{4}" maxlength="9" value="<%= datos.ciclo_escolar %>" placeholder="2026-2029" required autocomplete="off">
+            <input id="ciclo_escolar" name="ciclo_escolar" type="text" inputmode="numeric" pattern="[0-9]{4}-[0-9]{4}" maxlength="9" value="<%= datos.ciclo_escolar %>" placeholder="2026-2029" required autocomplete="off" <%= datos.generacion_id && datos.periodo_academico_id ? 'readonly' : '' %>>
+            <% if (datos.generacion_id && datos.periodo_academico_id) { %><small>Dato heredado conservado sin cambios.</small><% } %>
           </div>
         </div>
+
+        <% if (datos.generacion_id && datos.periodo_academico_id) { %>
+          <div class="alert alert-info" role="status">
+            Configuración académica: generación <%= datos.generacion_anio_inicio %>-<%= datos.generacion_anio_fin %>, periodo <%= datos.periodo_nombre %>, ciclo <%= datos.ciclo_normalizado_nombre %>.
+          </div>
+        <% } %>
+        <p><a href="/admin/grupos/<%= datos.id %>/calendario">Configurar calendario académico normalizado</a></p>
 
         <div class="admin-form-actions">
           <button type="submit" class="btn-admin-primary">Guardar cambios</button>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<%- include('../../partials/head', { title }) %>
+<body>
+<div class="dashboard-layout">
+  <%- include('../../partials/sidebar', { menuItems }) %>
+  <main class="dashboard-main">
+    <header class="dashboard-header"><div><h1>Calendario académico del grupo</h1><p>Vincula explícitamente el grupo con una generación y un periodo activos.</p></div></header>
+    <% if (mensaje) { %><div class="alert alert-success" role="alert"><%= mensaje %></div><% } %>
+    <% if (error) { %><div class="alert alert-danger" role="alert"><%= error %></div><% } %>
+    <section class="panel-card admin-form-card">
+      <dl class="admin-user-summary">
+        <div><dt>Grupo</dt><dd><%= grupo.clave %></dd></div>
+        <div><dt>Semestre</dt><dd><%= grupo.semestre %></dd></div>
+        <div><dt>Turno</dt><dd><%= grupo.turno_nombre %></dd></div>
+        <div><dt>Ciclo escolar (dato heredado)</dt><dd><%= grupo.ciclo_escolar %></dd></div>
+        <div><dt>Generación actual</dt><dd><%= grupo.generacion_anio_inicio ? `${grupo.generacion_anio_inicio}-${grupo.generacion_anio_fin}` : 'Sin configurar' %></dd></div>
+        <div><dt>Periodo actual</dt><dd><%= grupo.periodo_nombre || 'Sin configurar' %></dd></div>
+        <div><dt>Ciclo normalizado</dt><dd><%= grupo.ciclo_normalizado_nombre || 'Sin configurar' %></dd></div>
+        <div><dt>Estado</dt><dd><span class="badge-custom <%= grupo.estado_calendario === 'CONFIGURADO' ? 'success' : 'warning' %>"><%= grupo.estado_calendario === 'CONFIGURADO' ? 'Configurado' : grupo.estado_calendario === 'CONFIGURACION_INACTIVA' ? 'Configuración inactiva' : 'Pendiente de configurar' %></span></dd></div>
+      </dl>
+      <% if (!generaciones.length || !periodos.length) { %>
+        <div class="alert alert-warning" role="alert">Necesitas al menos una generación activa y un periodo cuyo ciclo esté activo antes de configurar este grupo.</div>
+        <div class="admin-form-actions"><a class="btn-admin-primary" href="/admin/generaciones">Administrar generaciones</a><a class="btn-admin-secondary" href="/admin/periodos-academicos">Administrar periodos</a></div>
+      <% } else { %>
+        <form method="POST" action="/admin/grupos/<%= grupo.id %>/calendario">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="admin-form-grid">
+            <div class="admin-form-group"><label for="generacion_id">Generación</label><select id="generacion_id" name="generacion_id" required><option value="">Selecciona</option><% generaciones.forEach(g => { %><option value="<%= g.id %>" <%= String(datos.generacion_id) === String(g.id) ? 'selected' : '' %>><%= g.anio_inicio %>-<%= g.anio_fin %></option><% }) %></select></div>
+            <div class="admin-form-group"><label for="periodo_academico_id">Periodo académico</label><select id="periodo_academico_id" name="periodo_academico_id" required><option value="">Selecciona</option><% periodos.forEach(p => { %><option value="<%= p.id %>" <%= String(datos.periodo_academico_id) === String(p.id) ? 'selected' : '' %>><%= p.nombre %> — <%= p.ciclo_nombre %></option><% }) %></select></div>
+          </div>
+          <p class="admin-filter-hint">El ciclo escolar heredado no se modifica. Cambiar la generación se bloqueará si ya existe historial de horarios.</p>
+          <div class="admin-form-actions"><button class="btn-admin-primary" type="submit">Guardar configuración</button><a class="btn-admin-secondary" href="/admin/grupos">Volver a grupos</a></div>
+        </form>
+      <% } %>
+    </section>
+  </main>
+</div>
+</body>
+</html>
