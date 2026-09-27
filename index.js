@@ -26,6 +26,7 @@ const orientadorSeguimientoRoutes = require('./routes/orientadorSeguimientoRoute
 const orientadorHistorialRoutes = require('./routes/orientadorHistorialRoutes');
 const orientadorReporteRoutes = require('./routes/orientadorReporteRoutes');
 const alumnoActividadRoutes = require('./routes/alumnoActividadRoutes');
+const alumnoMateriaRoutes = require('./routes/alumnoMateriaRoutes');
 
 
 const app = express();
@@ -57,6 +58,7 @@ app.use('/orientador/seguimientos', orientadorSeguimientoRoutes);
 app.use('/orientador/historial', orientadorHistorialRoutes);
 app.use('/orientador/reportes', orientadorReporteRoutes);
 app.use('/alumno/actividades', alumnoActividadRoutes);
+app.use('/alumno/materias', alumnoMateriaRoutes);
 
 app.use(csrfErrorHandler);
 

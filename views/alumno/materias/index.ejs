@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="es">
+<%- include('../../partials/head', { title }) %>
+<body>
+<div class="dashboard-layout">
+  <%- include('../../partials/sidebar', { menuItems }) %>
+  <main class="dashboard-main student-subjects">
+    <header class="student-subjects-header">
+      <div><h1>Mis materias</h1><p>Consulta las materias, docentes y bloques semanales publicados para tu grupo.</p></div>
+    </header>
+    <% if (modoDemostracion) { %>
+      <div class="student-subjects-demo" role="status"><i class="fa-solid fa-flask" aria-hidden="true"></i><span>Contenido de demostración. Será reemplazado automáticamente cuando se publique el horario académico oficial.</span></div>
+    <% } %>
+    <% if (estado === 'ACTIVE_SCHEDULE_EMPTY') { %><div class="alert alert-warning" role="alert">El horario oficial está activo, pero todavía no contiene clases programadas.</div><% } %>
+    <section class="student-subjects-summary" aria-label="Resumen de materias">
+      <article><i class="fa-solid fa-book" aria-hidden="true"></i><div><strong><%= resumen.materias %></strong><span>Materias</span></div></article>
+      <article><i class="fa-solid fa-calendar-week" aria-hidden="true"></i><div><strong><%= resumen.bloques %></strong><span>Bloques semanales</span></div></article>
+      <article><i class="fa-solid fa-chalkboard-user" aria-hidden="true"></i><div><strong><%= resumen.docentes %></strong><span>Docentes</span></div></article>
+    </section>
+    <% if (materias.length === 0) { %>
+      <section class="panel-card student-subjects-empty"><i class="fa-solid fa-book-open" aria-hidden="true"></i><h2>Aún no hay materias disponibles</h2><p><%= estado === 'GROUP_CALENDAR_PENDING' ? 'Tu grupo todavía no tiene configurado su calendario académico.' : estado === 'NO_ACTIVE_SCHEDULE' ? 'Todavía no se ha publicado un horario oficial para tu grupo.' : 'Consulta nuevamente cuando se publiquen las clases.' %></p></section>
+    <% } else { %>
+      <section class="student-subjects-grid" aria-label="Materias publicadas">
+        <% materias.forEach((materia) => { %>
+          <article class="panel-card student-subject-card">
+            <header><span class="student-subject-key"><%= materia.clave %></span><span><%= materia.cantidadBloques %> <%= materia.cantidadBloques === 1 ? 'bloque' : 'bloques' %></span></header>
+            <h2><%= materia.nombre %></h2>
+            <% if (materia.descripcion) { %><p class="student-subject-description"><%= materia.descripcion %></p><% } %>
+            <div class="student-subject-teachers"><strong><%= materia.docentes.length === 1 ? 'Docente' : 'Docentes' %></strong><ul><% materia.docentes.forEach((docente) => { %><li><%= docente %></li><% }) %></ul></div>
+            <div class="student-subject-blocks"><% materia.bloques.forEach((bloque) => { %><div class="student-subject-block"><span class="student-subject-day"><%= bloque.dia %></span><span><i class="fa-regular fa-clock" aria-hidden="true"></i> <%= bloque.horaInicio %>–<%= bloque.horaFin %></span><span><i class="fa-solid fa-location-dot" aria-hidden="true"></i> <%= bloque.aula %></span></div><% }) %></div>
+          </article>
+        <% }) %>
+      </section>
+    <% } %>
+  </main>
+</div>
+</body>
+</html>

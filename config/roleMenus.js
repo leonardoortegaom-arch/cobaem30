@@ -10,7 +10,7 @@ const menusPorRol = {
     ],
     ALUMNO: [
         { texto: 'Inicio', icono: 'fa-solid fa-house', url: '/dashboard/alumno', activo: true },
-        { texto: 'Mis materias', icono: 'fa-solid fa-book', url: '#' },
+        { texto: 'Mis materias', icono: 'fa-solid fa-book', url: '/alumno/materias' },
         { texto: 'Actividades', icono: 'fa-solid fa-list-check', url: '/alumno/actividades' },
         { texto: 'Seguimiento', icono: 'fa-solid fa-chart-line', deshabilitado: true },
         { texto: 'Perfil', icono: 'fa-solid fa-user', url: '#' }
@@ -24,7 +24,7 @@ const menusPorRol = {
     ]
 };
 
-const crearMenuPorRol = (rol, { dashboardActivo = true } = {}) => {
+const crearMenuPorRol = (rol, { dashboardActivo = true, opcionActiva = null } = {}) => {
     if (rol === 'ADMINISTRADOR') {
         return crearMenuAdmin(dashboardActivo ? 'dashboard' : null);
     }
@@ -32,7 +32,7 @@ const crearMenuPorRol = (rol, { dashboardActivo = true } = {}) => {
     const menu = menusPorRol[rol] || [];
     return menu.map((item) => ({
         ...item,
-        activo: dashboardActivo && Boolean(item.activo)
+        activo: opcionActiva ? item.url === opcionActiva : dashboardActivo && Boolean(item.activo)
     }));
 };
 

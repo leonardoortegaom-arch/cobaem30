@@ -1131,6 +1131,35 @@ DASHBOARD BASE
     margin:0;
 }
 
+.student-dashboard-subject-link{color:inherit;text-decoration:none}
+.student-subjects{background:var(--bg);min-width:0}
+.student-subjects-header{margin-bottom:22px}
+.student-subjects-header h1{color:var(--primary);margin-bottom:6px}
+.student-subjects-header p{color:var(--text-muted);margin:0}
+.student-subjects-demo{display:flex;gap:12px;align-items:center;padding:14px 16px;margin-bottom:20px;border:1px solid #e8d39b;border-radius:12px;background:#fff8df;color:#624d18}
+.student-subjects-demo i{color:var(--primary)}
+.student-subjects-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-bottom:22px}
+.student-subjects-summary article{display:flex;align-items:center;gap:14px;padding:18px;background:#fff;border-radius:14px;box-shadow:var(--shadow)}
+.student-subjects-summary i{display:grid;place-items:center;width:42px;height:42px;border-radius:10px;background:#f7ecef;color:var(--primary)}
+.student-subjects-summary strong{display:block;color:var(--primary);font-size:1.45rem}
+.student-subjects-summary span{color:var(--text-muted)}
+.student-subjects-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}
+.student-subject-card{min-width:0}
+.student-subject-card header{display:flex;justify-content:space-between;gap:12px;align-items:center;color:var(--text-muted);font-size:.85rem}
+.student-subject-key,.student-subject-day{display:inline-flex;padding:5px 9px;border-radius:999px;background:#f7ecef;color:var(--primary);font-weight:700}
+.student-subject-card h2{margin:14px 0 6px;color:var(--primary);overflow-wrap:anywhere}
+.student-subject-description{color:var(--text-muted);overflow-wrap:anywhere}
+.student-subject-teachers{margin:16px 0}
+.student-subject-teachers ul{margin:6px 0 0;padding-left:20px}
+.student-subject-teachers li{overflow-wrap:anywhere}
+.student-subject-blocks{display:grid;gap:9px}
+.student-subject-block{display:grid;grid-template-columns:minmax(75px,.7fr) 1fr 1fr;gap:10px;align-items:center;padding:11px;border-radius:10px;background:#faf7f2;color:var(--text)}
+.student-subjects-empty{text-align:center;padding:44px 20px}
+.student-subjects-empty i{font-size:2rem;color:var(--primary)}
+.student-subjects-empty h2{color:var(--primary)}
+@media (max-width:1024px){.student-subjects-grid{grid-template-columns:1fr}}
+@media (max-width:640px){.student-subjects-summary{grid-template-columns:1fr}.student-subject-block{grid-template-columns:1fr}.student-subject-card header{align-items:flex-start;flex-direction:column}.student-subjects{padding-left:16px;padding-right:16px}}
+
 .dashboard-grid{
     display:grid;
     grid-template-columns:2fr 1fr;
