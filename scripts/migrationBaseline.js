@@ -248,23 +248,22 @@ function crearPoolAdministrativo(configuracion) {
     return mysql.createPool(configuracion);
 }
 
-async function verificarPrivilegiosAdministrativos(conexion) {
+async function verificarPrivilegiosAdministrativos(conexion, requeridos = ['SELECT', 'CREATE', 'INSERT']) {
     let filas;
     let roles;
     try {
         const [cuentas] = await conexion.execute(CURRENT_ACCOUNT_SQL);
         const cuenta = String(cuentas && cuentas[0] && cuentas[0].cuenta_efectiva || '');
         const separador = cuenta.lastIndexOf('@');
-        if (separador < 1) return { estado: 'UNKNOWN', faltantes: ['SELECT', 'CREATE', 'INSERT'] };
+        if (separador < 1) return { estado: 'UNKNOWN', faltantes: [...requeridos] };
         const escapar = (valor) => valor.replace(/'/g, "''");
         const grantee = `'${escapar(cuenta.slice(0, separador))}'@'${escapar(cuenta.slice(separador + 1))}'`;
         [filas] = await conexion.execute(PRIVILEGES_SQL, [grantee, grantee]);
         [roles] = await conexion.execute(ENABLED_ROLES_SQL);
     } catch {
-        return { estado: 'UNKNOWN', faltantes: ['SELECT', 'CREATE', 'INSERT'] };
+        return { estado: 'UNKNOWN', faltantes: [...requeridos] };
     }
     const presentes = new Set((filas || []).map((fila) => String(fila.PRIVILEGE_TYPE || fila.privilege_type || '').toUpperCase()));
-    const requeridos = ['SELECT', 'CREATE', 'INSERT'];
     const faltantes = requeridos.filter((permiso) => !presentes.has(permiso));
     if (faltantes.length === 0) return { estado: 'PRESENT', faltantes: [] };
     if (Array.isArray(roles) && roles.length > 0) return { estado: 'UNKNOWN', faltantes };

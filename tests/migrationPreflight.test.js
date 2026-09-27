@@ -235,6 +235,9 @@ test('52 varias ACTIVE posteriores válidas son compatibles', () => {
     const e21 = futuro.migraciones.find((item) => item.version === 21);
     Object.assign(e21, { estado: 'PLANNED', archivo: null, checksumSha256: null, razonEstado: 'Fixture previa a 021.' });
     delete e21.execution;
+    const e22 = futuro.migraciones.find((item) => item.version === 22);
+    Object.assign(e22, { estado: 'PLANNED', archivo: null, checksumSha256: null, razonEstado: 'Fixture previa a 022.' });
+    delete e22.execution;
     for (const [version, checksum] of [[16,'1'],[17,'2']]) {
         Object.assign(futuro.migraciones.find((item) => item.version === version), { estado: 'ACTIVE', archivo: `${version}.sql`, checksumSha256: checksum.repeat(64) });
     }

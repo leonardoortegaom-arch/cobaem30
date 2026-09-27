@@ -45,6 +45,8 @@ const QUERIES = Object.freeze({
     turnos: `SELECT clave FROM turnos WHERE clave IN (?, ?)`,
     tiposSeguimiento: `SELECT clave FROM tipos_seguimiento WHERE clave IN (?, ?, ?, ?)`,
     estadosActividad: `SELECT clave FROM estados_actividad_orientacion WHERE clave IN (?, ?, ?, ?, ?)`,
+    estadosActividadFilas: `SELECT clave, nombre, descripcion, orden, activo
+        FROM estados_actividad_orientacion ORDER BY orden, clave`,
     tiposReporte: `SELECT clave FROM tipos_reporte_orientacion WHERE clave IN (?, ?)`,
     estadosReporte: `SELECT clave FROM estados_reporte_orientacion WHERE clave IN (?, ?)`,
     controlRows: `SELECT version, archivo, checksum_sha256, tipo_registro, aplicada_en
@@ -314,6 +316,7 @@ function construirSnapshotDesdeFilas(datos) {
     return {
         tablas,
         catalogos: datos.catalogos || {},
+        filasCatalogo: datos.filasCatalogo || {},
         controlRows: datos.controlRows || []
     };
 }
@@ -347,6 +350,7 @@ function crearSnapshotCompatible(descriptor, opciones = {}) {
     return {
         tablas,
         catalogos: Object.fromEntries(Object.entries(descriptor.catalogosMinimos).map(([tabla, claves]) => [tabla, [...claves]])),
+        filasCatalogo: opciones.filasCatalogo || {},
         controlRows: opciones.control === 'complete' ? (opciones.controlRows || []) : []
     };
 }
@@ -493,6 +497,33 @@ function compararTabla(nombre, contrato, real, resultado) {
     });
 }
 
+function filaCatalogoCoincide(actual, esperada) {
+    return Object.entries(esperada).every(([campoEsperado, valorEsperado]) => {
+        const valorActual = campo(actual, campoEsperado);
+        return typeof valorEsperado === 'number'
+            ? Number(valorActual) === valorEsperado
+            : String(valorActual) === String(valorEsperado);
+    });
+}
+
+function compararFilasCatalogo(contrato, snapshot, resultado) {
+    for (const [tabla, esperadas] of Object.entries(contrato.filasCatalogo || {})) {
+        const reales = snapshot.filasCatalogo?.[tabla] || [];
+        for (const esperada of esperadas) {
+            const candidatas = reales.filter((fila) => filaCatalogoCoincide(fila, esperada));
+            agregarRegla(resultado, `CATALOG_ROW_${tabla.toUpperCase()}_${esperada.clave}`,
+                'catalogos', candidatas.length === 1, 'Fila contractual de catálogo.');
+        }
+        const cardinalidad = contrato.cardinalidadExacta?.[tabla];
+        if (Number.isInteger(cardinalidad)) {
+            const claves = new Set(esperadas.map((fila) => fila.clave));
+            const relevantes = reales.filter((fila) => claves.has(String(campo(fila, 'clave'))));
+            agregarRegla(resultado, `CATALOG_CARDINALITY_${tabla.toUpperCase()}`, 'catalogos',
+                relevantes.length === cardinalidad, 'Cardinalidad contractual de catálogo.');
+        }
+    }
+}
+
 function cargarContratoAplicado(entrada) {
     if (!entrada.execution || typeof entrada.execution.postconditionContract !== 'string') {
         throw crearError('Migracion ACTIVE sin contrato de postcondicion.', 'ACTIVE_CONTRACT_INVALID');
@@ -577,6 +608,7 @@ function compararSnapshotConDescriptor(snapshot, descriptor, manifiesto) {
             composicion = componerContratosAplicados(manifiesto, snapshot.controlRows);
             for (const { entrada, contrato } of composicion.contratos) {
                 for (const [nombre, tabla] of Object.entries(contrato.tablas)) compararTabla(nombre, tabla, snapshot.tablas[nombre], resultado);
+                compararFilasCatalogo(contrato, snapshot, resultado);
                 agregarRegla(resultado, `ACTIVE_CONTRACT_${entrada.identificador}`, 'control', true, 'Contrato ACTIVE aplicado y validado.');
             }
         } catch {
@@ -628,7 +660,7 @@ async function consultarSnapshot(adaptador, descriptor) {
         indexes: await ejecutarConsultaLectura(adaptador, 'indexes'),
         foreignKeys: await ejecutarConsultaLectura(adaptador, 'foreignKeys'),
         checks: await ejecutarConsultaLectura(adaptador, 'checks'),
-        catalogos: {}, controlRows: []
+        catalogos: {}, filasCatalogo: {}, controlRows: []
     };
     const nombresTablas = new Set(datos.tables.map((fila) => normalizarNombre(campo(fila, 'TABLE_NAME'))));
     for (const [tabla, claveConsulta] of Object.entries(CATALOG_QUERY_KEYS)) {
@@ -637,6 +669,9 @@ async function consultarSnapshot(adaptador, descriptor) {
             ? (await ejecutarConsultaLectura(adaptador, claveConsulta, claves)).map((fila) => String(campo(fila, 'clave')))
             : [];
     }
+    datos.filasCatalogo.estados_actividad_orientacion = nombresTablas.has('estados_actividad_orientacion')
+        ? await ejecutarConsultaLectura(adaptador, 'estadosActividadFilas')
+        : [];
     if (nombresTablas.has('schema_migrations')) {
         datos.controlRows = await ejecutarConsultaLectura(adaptador, 'controlRows');
     }

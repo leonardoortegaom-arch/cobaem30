@@ -84,12 +84,12 @@ test('22 materias existente sin aulas se rechaza como parcial', () => {
 test('23 aulas existente sin materias se rechaza como parcial', () => {
     assert.throws(() => apply.validarPrecondiciones({ tablas: { aulas: {} }, controlRows: [{ version: 17 }] }, entry));
 });
-test('24 018 aplicada y registrada deja 020 y 021 pendientes', () => {
+test('24 018 aplicada y registrada deja 020, 021 y 022 pendientes', () => {
     const rows = manifest.migraciones.filter((x) => x.version <= 8 || (x.estado === 'ACTIVE' && x.version <= 19)).map((x) => ({
         version: x.version, archivo: x.archivo, checksum_sha256: x.checksumSha256,
         tipo_registro: x.version === 0 ? 'EJECUTADA' : x.version <= 8 ? 'BASELINE' : 'EJECUTADA'
     }));
-    assert.deepEqual(apply.validarRegistrosAplicados(manifest, rows).pending.map((item) => item.version), [20, 21]);
+    assert.deepEqual(apply.validarRegistrosAplicados(manifest, rows).pending.map((item) => item.version), [20, 21, 22]);
 });
 test('25 fallo en segunda sentencia ocurre antes del registro', () => {
     const source = fs.readFileSync(path.join(root, 'scripts/migrationApply.js'), 'utf8');

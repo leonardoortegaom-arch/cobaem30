@@ -175,11 +175,14 @@ function validarEstructuraManifiesto(manifiesto) {
             }
             const targets = new Set();
             for (const statement of ejecucion.statements) {
-                if (!statement || !['CREATE_TABLE', 'ALTER_TABLE'].includes(statement.operation) || !/^[a-z][a-z0-9_]*$/.test(statement.target || '')
+                const operacionCatalogoValida = entrada.version === 22
+                    && statement.operation === 'INSERT_CATALOG_ROW'
+                    && statement.target === 'estados_actividad_orientacion';
+                if (!statement || (!['CREATE_TABLE', 'ALTER_TABLE'].includes(statement.operation) && !operacionCatalogoValida) || !/^[a-z][a-z0-9_]*$/.test(statement.target || '')
                     || targets.has(statement.target)) throw crearError(`Operación o target inválido en ${entrada.identificador}.`);
                 targets.add(statement.target);
             }
-            const tiposPrecondicion = new Set(['MIGRATION_APPLIED', 'TABLE_ABSENT', 'TABLE_PRESENT', 'COLUMN_ABSENT', 'INDEX_ABSENT', 'FOREIGN_KEY_ABSENT', 'COLUMN_MATCH']);
+            const tiposPrecondicion = new Set(['MIGRATION_APPLIED', 'TABLE_ABSENT', 'TABLE_PRESENT', 'COLUMN_ABSENT', 'INDEX_ABSENT', 'FOREIGN_KEY_ABSENT', 'COLUMN_MATCH', 'CATALOG_VALUE_ABSENT']);
             if (!Array.isArray(ejecucion.preconditions) || !ejecucion.preconditions.length
                 || ejecucion.preconditions.some((item) => !item || !tiposPrecondicion.has(item.type))) {
                 throw crearError(`Precondiciones incoherentes en ${entrada.identificador}.`);
@@ -193,6 +196,14 @@ function validarEstructuraManifiesto(manifiesto) {
             for (const item of ejecucion.preconditions) {
                 if (item.type === 'MIGRATION_APPLIED') {
                     if (!Number.isInteger(item.version) || item.version < 0 || item.version >= entrada.version) throw crearError(`Dependencia invalida en ${entrada.identificador}.`);
+                    continue;
+                }
+                if (item.type === 'CATALOG_VALUE_ABSENT') {
+                    if (entrada.version !== 22 || item.table !== 'estados_actividad_orientacion'
+                        || !['clave', 'nombre', 'orden'].includes(item.column)
+                        || !['string', 'number'].includes(typeof item.value)) {
+                        throw crearError(`Precondición de catálogo inválida en ${entrada.identificador}.`);
+                    }
                     continue;
                 }
                 if (!/^[a-z][a-z0-9_]*$/.test(item.target || '') || (item.table !== undefined && !/^[a-z][a-z0-9_]*$/.test(item.table))) {

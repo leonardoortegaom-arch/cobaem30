@@ -100,6 +100,14 @@ function separarSentenciasSql(sql) {
 function clasificarSentenciaDeclarada(sql, declarada) {
     if (/\bIF\s+NOT\s+EXISTS\b/i.test(sql)) throw errorSeguro('IF_NOT_EXISTS_FORBIDDEN', 'SQL_VALIDATION');
     const operation = declarada && declarada.operation;
+    if (operation === 'INSERT_CATALOG_ROW') {
+        if (declarada.target !== 'estados_actividad_orientacion') {
+            throw errorSeguro('STATEMENT_TARGET_OR_ORDER_MISMATCH', 'SQL_VALIDATION');
+        }
+        const patron = /^INSERT\s+INTO\s+estados_actividad_orientacion\s*\(\s*clave\s*,\s*nombre\s*,\s*descripcion\s*,\s*orden\s*,\s*activo\s*\)\s*VALUES\s*\(\s*'RECHAZADA'\s*,\s*'Rechazada'\s*,\s*'La evidencia requiere correcciones antes de considerarse realizada\.'\s*,\s*6\s*,\s*1\s*\)$/i;
+        if (!patron.test(sql)) throw errorSeguro('SQL_OPERATION_FORBIDDEN', 'SQL_VALIDATION');
+        return { operation, target: declarada.target, sql };
+    }
     const pattern = operation === 'ALTER_TABLE'
         ? /^ALTER\s+TABLE\s+`?([a-zA-Z][a-zA-Z0-9_]*)`?\s+/i
         : /^CREATE\s+TABLE\s+`?([a-zA-Z][a-zA-Z0-9_]*)`?\s*\(/i;
@@ -114,7 +122,10 @@ function clasificarSentenciaDeclarada(sql, declarada) {
 function validarSqlMigracion(entrada, directorio = path.join(manifestApi.PROJECT_ROOT, 'database', 'migrations')) {
     const ruta = path.resolve(directorio, entrada.archivo);
     if (manifestApi.calcularChecksumCanonico(ruta) !== entrada.checksumSha256) throw errorSeguro('SQL_CHECKSUM_MISMATCH', 'SQL_VALIDATION');
-    const sentencias = separarSentenciasSql(fs.readFileSync(ruta, 'utf8'));
+    const contenido = fs.readFileSync(ruta, 'utf8');
+    if (entrada.execution.statements.some((item) => item.operation === 'INSERT_CATALOG_ROW')
+        && /--|#|\/\*/.test(contenido)) throw errorSeguro('SQL_COMMENT_FORBIDDEN', 'SQL_VALIDATION');
+    const sentencias = separarSentenciasSql(contenido);
     if (sentencias.length !== entrada.execution.statementCount) throw errorSeguro('STATEMENT_COUNT_MISMATCH', 'SQL_VALIDATION');
     const clasificadas = sentencias.map((sql, index) => clasificarSentenciaDeclarada(sql, entrada.execution.statements[index]));
     return clasificadas;
@@ -150,6 +161,9 @@ function validarPrecondiciones(snapshot, entrada) {
         else if (item.type === 'COLUMN_MATCH') {
             const columna = tabla && tabla.columnas[item.target];
             valida = Boolean(columna) && columna.tipo === normalizar(item.columnType) && columna.nullable === item.nullable;
+        } else if (item.type === 'CATALOG_VALUE_ABSENT') {
+            const filas = snapshot.filasCatalogo?.[item.table] || [];
+            valida = !filas.some((fila) => String(fila[item.column]) === String(item.value));
         }
         if (!valida) throw errorSeguro('UNREGISTERED_PARTIAL_STRUCTURE', 'PRECONDITIONS');
     }
@@ -184,6 +198,20 @@ function validarPostcondicion(snapshot, contrato) {
     for (const [tabla, columnas] of Object.entries(contrato.columnasProhibidas || {})) {
         const actual = snapshot.tablas[tabla];
         if (actual && columnas.some((columna) => actual.columnas[columna])) errores.push(`FORBIDDEN_COLUMNS_${tabla}`);
+    }
+    for (const [tabla, esperadas] of Object.entries(contrato.filasCatalogo || {})) {
+        const reales = snapshot.filasCatalogo?.[tabla] || [];
+        for (const esperada of esperadas) {
+            const coincidencias = reales.filter((fila) => Object.entries(esperada).every(([clave, valor]) => (
+                typeof valor === 'number' ? Number(fila[clave]) === valor : String(fila[clave]) === String(valor)
+            )));
+            if (coincidencias.length !== 1) errores.push(`CATALOG_ROW_${tabla}_${esperada.clave}`);
+        }
+        const cardinalidad = contrato.cardinalidadExacta?.[tabla];
+        if (Number.isInteger(cardinalidad)) {
+            const claves = new Set(esperadas.map((fila) => fila.clave));
+            if (reales.filter((fila) => claves.has(String(fila.clave))).length !== cardinalidad) errores.push(`CATALOG_CARDINALITY_${tabla}`);
+        }
     }
     if (errores.length) throw errorSeguro('POSTCONDITION_MISMATCH', 'POSTCONDITION');
     return true;
@@ -358,7 +386,11 @@ async function ejecutarDryRun(output = {}, deps = {}) {
         const plan = construirPlan(manifiesto, snapshot);
         log(`Migraciones ACTIVE pendientes: ${plan.map((p) => p.entrada.identificador).join(', ') || 'ninguna'}.`);
         for (const item of plan) { log(`${item.entrada.identificador}: ${item.statements.length} sentencias.`); item.statements.forEach((s) => log(`  ${s.operation} ${s.target}`)); }
-        log('Advertencia: el DDL de MySQL puede producir autocommit y estructura parcial.');
+        if (plan.some((item) => item.statements.some((statement) => statement.operation !== 'INSERT_CATALOG_ROW'))) {
+            log('Advertencia: el DDL de MySQL puede producir autocommit y estructura parcial.');
+        } else if (plan.length > 0) {
+            log('La operación de catálogo se aplicará transaccionalmente junto con su registro.');
+        }
         log('MIGRATION_UP_DRY_RUN_NO_CHANGES'); return plan;
     });
 }
@@ -370,13 +402,56 @@ async function ejecutarAdministrativo(opciones, execute, output = {}, deps = {})
         log('MIGRATION_CONNECTED'); log('MIGRATION_LOCK_ACQUIRED');
         const snapshot = deps.snapshot ? await deps.snapshot(connection) : await obtenerEstado(connection);
         const plan = construirPlan(manifiesto, snapshot); log('MIGRATION_STATE_VALID'); log('MIGRATION_PRECONDITIONS_VALID'); log('MIGRATION_SQL_VALID');
-        const privileges = deps.privileges ? await deps.privileges(connection) : await baselineApi.verificarPrivilegiosAdministrativos(connection);
+        const soloCatalogo = plan.length > 0 && plan.every((item) => item.statements.every((statement) => statement.operation === 'INSERT_CATALOG_ROW'));
+        const privileges = deps.privileges ? await deps.privileges(connection, soloCatalogo ? ['SELECT', 'INSERT'] : ['SELECT', 'CREATE', 'INSERT'])
+            : await baselineApi.verificarPrivilegiosAdministrativos(connection, soloCatalogo ? ['SELECT', 'INSERT'] : ['SELECT', 'CREATE', 'INSERT']);
         if (privileges.estado !== 'PRESENT') throw errorSeguro(privileges.estado === 'INSUFFICIENT' ? 'PRIVILEGES_INSUFFICIENT' : 'PRIVILEGES_UNKNOWN', 'PRIVILEGES');
         log('MIGRATION_PRIVILEGES_PRESENT');
         if (!execute) { log('MIGRATION_EXECUTE_PREFLIGHT_COMPLETE_NO_CHANGES'); return plan; }
         const batch = (deps.randomUUID || crypto.randomUUID)();
         for (const item of plan) {
             const start = Date.now();
+            const esCatalogo = item.statements.every((statement) => statement.operation === 'INSERT_CATALOG_ROW');
+            if (esCatalogo) {
+                await connection.beginTransaction();
+                try {
+                    const statement = item.statements[0];
+                    let applied;
+                    try {
+                        [applied] = await connection.execute(statement.sql);
+                    } catch (cause) {
+                        const error = errorSeguro(
+                            /^[A-Z0-9_]+$/.test(cause?.code || '') ? cause.code : 'STATEMENT_EXECUTION_FAILED',
+                            'STATEMENT_APPLICATION'
+                        );
+                        error.version = item.entrada.version;
+                        error.statement = 1;
+                        throw error;
+                    }
+                    if (applied?.affectedRows !== 1) throw errorSeguro('CATALOG_INSERT_FAILED', 'STATEMENT_APPLICATION');
+                    log('MIGRATION_STATEMENTS_APPLIED');
+                    const after = deps.snapshotAfter ? await deps.snapshotAfter(connection, item) : await obtenerEstado(connection);
+                    validarPostcondicion(after, item.contrato); log('MIGRATION_POSTCONDITION_VALID');
+                    const [result] = await connection.execute(INSERT_SQL, [item.entrada.version, item.entrada.archivo, item.entrada.checksumSha256, Date.now() - start, batch]);
+                    if (result?.affectedRows !== 1) throw errorSeguro('MIGRATION_RECORD_FAILED', 'RECORD');
+                    const beforeCommit = deps.snapshotBeforeCommit ? await deps.snapshotBeforeCommit(connection, item) : await obtenerEstado(connection);
+                    const pendingRow = beforeCommit.controlRows.find((row) => Number(row.version) === item.entrada.version);
+                    if (!pendingRow || pendingRow.archivo !== item.entrada.archivo || pendingRow.checksum_sha256 !== item.entrada.checksumSha256) {
+                        throw errorSeguro('PRE_COMMIT_VERIFICATION_FAILED', 'RECORD');
+                    }
+                    validarPostcondicion(beforeCommit, item.contrato);
+                    await connection.commit();
+                } catch (error) {
+                    await connection.rollback();
+                    throw error;
+                }
+                log('MIGRATION_RECORDED');
+                const verified = deps.snapshotVerified ? await deps.snapshotVerified(connection, item) : await obtenerEstado(connection);
+                const row = verified.controlRows.find((current) => Number(current.version) === item.entrada.version);
+                if (!row || row.archivo !== item.entrada.archivo || row.checksum_sha256 !== item.entrada.checksumSha256) throw errorSeguro('POST_RECORD_VERIFICATION_FAILED', 'POST_VERIFICATION');
+                validarPostcondicion(verified, item.contrato);
+                continue;
+            }
             for (const [index, statement] of item.statements.entries()) {
                 try {
                     await connection.execute(statement.sql);

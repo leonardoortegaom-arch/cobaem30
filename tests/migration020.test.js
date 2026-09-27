@@ -151,10 +151,14 @@ test('29 estructura existente no registrada se rechaza', () => {
     assert.throws(() => apply.construirPlan(manifest, snapshot), (error) => error.code === 'UNREGISTERED_PARTIAL_STRUCTURE');
 });
 test('30 aplicada y registrada deja únicamente 021 pendiente', () => {
+    const fixture = structuredClone(manifest);
+    const siguiente = fixture.migraciones.find((item) => item.version === 22);
+    Object.assign(siguiente, { estado: 'PLANNED', archivo: null, checksumSha256: null, razonEstado: 'Fixture previa a 022.' });
+    delete siguiente.execution;
     const snapshot = snapshotBefore020();
     snapshot.tablas.clases_programadas = tableFromContract(contract.tablas.clases_programadas);
     snapshot.controlRows.push(appliedRow(entry));
-    assert.deepEqual(apply.construirPlan(manifest, snapshot).map((item) => item.entrada.version), [21]);
+    assert.deepEqual(apply.construirPlan(fixture, snapshot).map((item) => item.entrada.version), [21]);
 });
 test('31 el contrato rechaza grupo_id o periodo_academico_id añadidos', () => {
     for (const forbidden of ['grupo_id', 'periodo_academico_id']) {

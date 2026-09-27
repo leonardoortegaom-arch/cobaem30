@@ -323,6 +323,30 @@
         "postconditionContract": "database/migration-contracts/021_teacher_non_teaching_activities.json",
         "postconditionChecksumSha256": "6f76f4866a1b2086cd0ea8fb8938e2c6a7e6fcadf72ca2c1909be2ab6b2e8d2d"
       }
+    },
+    {
+      "version": 22,
+      "identificador": "022",
+      "estado": "ACTIVE",
+      "archivo": "022_add_rejected_orientation_activity_state.sql",
+      "checksumSha256": "9e4cbcead4763090c7cbf7573d220c535bb86cbcd3f94e853ccc52168bcb18d4",
+      "descripcion": "Agregar el estado semántico RECHAZADA al catálogo de actividades de orientación.",
+      "execution": {
+        "dependsOn": [21],
+        "statementCount": 1,
+        "statements": [
+          {"operation": "INSERT_CATALOG_ROW", "target": "estados_actividad_orientacion"}
+        ],
+        "preconditions": [
+          {"type": "MIGRATION_APPLIED", "version": 21},
+          {"type": "TABLE_PRESENT", "target": "estados_actividad_orientacion"},
+          {"type": "CATALOG_VALUE_ABSENT", "table": "estados_actividad_orientacion", "column": "clave", "value": "RECHAZADA"},
+          {"type": "CATALOG_VALUE_ABSENT", "table": "estados_actividad_orientacion", "column": "nombre", "value": "Rechazada"},
+          {"type": "CATALOG_VALUE_ABSENT", "table": "estados_actividad_orientacion", "column": "orden", "value": 6}
+        ],
+        "postconditionContract": "database/migration-contracts/022_rejected_orientation_activity_state.json",
+        "postconditionChecksumSha256": "ab4fcafe49338f4b70f5f37310c2a262dfe9073bcd614ea5725ebcaa6eb7e383"
+      }
     }
   ]
 }

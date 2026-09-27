@@ -1,0 +1,25 @@
+{
+  "versionContrato": 1,
+  "migracion": 22,
+  "identificador": "022",
+  "algoritmoChecksum": "sha256-utf8-lf-v1",
+  "tablas": {},
+  "filasCatalogo": {
+    "estados_actividad_orientacion": [
+      {
+        "clave": "RECHAZADA",
+        "nombre": "Rechazada",
+        "descripcion": "La evidencia requiere correcciones antes de considerarse realizada.",
+        "orden": 6,
+        "activo": 1
+      }
+    ]
+  },
+  "cardinalidadExacta": {
+    "estados_actividad_orientacion": 1
+  },
+  "invariantesDatos": [
+    "ONLY_REJECTED_ORIENTATION_ACTIVITY_STATE_INSERTED",
+    "EXISTING_ORIENTATION_ACTIVITY_STATES_UNCHANGED"
+  ]
+}
