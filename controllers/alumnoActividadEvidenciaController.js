@@ -2,11 +2,13 @@ const fs = require('fs');
 const pool = require('../config/database');
 const actividadOrientacionModel = require('../models/actividadOrientacionModel');
 const adjuntoModel = require('../models/adjuntoActividadOrientacionModel');
+const estadoActividadOrientacionModel = require('../models/estadoActividadOrientacionModel');
 const storageService = require('../services/adjuntoActividadStorageService');
-const { cleanupRequestFiles, MAX_FILES } = require('../middlewares/actividadEvidenceUploadMiddleware');
+const { cleanupRequestFiles, MAX_FILES, MAX_FILE_SIZE } = require('../middlewares/actividadEvidenceUploadMiddleware');
 
-const OPEN_STATES = new Set(['PENDIENTE', 'EN_PROCESO']);
+const OPEN_STATES = new Set(['PENDIENTE', 'EN_PROCESO', 'RECHAZADA']);
 const MAX_TOTAL_BYTES = 100 * 1024 * 1024;
+const CLIENT_STATE_FIELDS = new Set(['estado', 'estado_id', 'estado_clave', 'fecha_realizacion']);
 
 const positiveId = (value) => {
     if (typeof value !== 'string' || !/^\d+$/.test(value)) return null;
@@ -15,89 +17,103 @@ const positiveId = (value) => {
 };
 
 const jsonError = (res, status, message) => res.status(status).json({ resultado: 'error', mensaje: message });
+const controlledError = (status, code) => Object.assign(new Error(code), { status, code });
 
 const uploadEvidence = async (req, res) => {
     const activityId = positiveId(req.params.actividadId);
     const studentId = Number(req.session.usuario.id);
     if (!activityId) {
         await cleanupRequestFiles(req);
-        jsonError(res, 404, 'Actividad no encontrada.');
-        return;
+        return jsonError(res, 404, 'Actividad no encontrada.');
     }
     if (!Array.isArray(req.files) || req.files.length === 0) {
-        jsonError(res, 422, 'Selecciona al menos un archivo.');
-        return;
+        await cleanupRequestFiles(req);
+        return jsonError(res, 422, 'Selecciona al menos un archivo.');
+    }
+    if (Object.keys(req.body || {}).some((field) => CLIENT_STATE_FIELDS.has(field))) {
+        await cleanupRequestFiles(req);
+        return jsonError(res, 422, 'La solicitud contiene campos no permitidos.');
     }
 
     let connection;
+    let committed = false;
     const finalPaths = [];
     try {
         const inspections = await Promise.allSettled(req.files.map(storageService.inspectFile));
         const rejected = inspections.find((result) => result.status === 'rejected');
         if (rejected) {
-            await cleanupRequestFiles(req);
-            const status = rejected.reason?.status === 415 ? 415 : 500;
-            jsonError(res, status, status === 415
-                ? 'Uno o más archivos no tienen un formato permitido o su firma no es válida.'
-                : 'No fue posible validar los archivos seleccionados.');
-            return;
+            const error = controlledError(rejected.reason?.status === 415 ? 415 : 500, 'FILE_INSPECTION_FAILED');
+            throw error;
         }
         const validated = inspections.map((result) => result.value);
+        if (validated.some((file) => !Number.isFinite(file.size) || file.size <= 0 || file.size > MAX_FILE_SIZE)) {
+            throw controlledError(413, 'FILE_SIZE_LIMIT');
+        }
         const newBytes = validated.reduce((total, file) => total + file.size, 0);
 
         connection = await pool.getConnection();
         await connection.beginTransaction();
-        const usage = await adjuntoModel.obtenerUsoPorActividad(activityId, studentId, connection, { bloquear: true });
-        if (!usage) {
-            await connection.rollback();
-            await cleanupRequestFiles(req);
-            jsonError(res, 404, 'Actividad no encontrada.');
-            return;
-        }
-        if (!OPEN_STATES.has(usage.estadoClave)) {
-            await connection.rollback();
-            await cleanupRequestFiles(req);
-            jsonError(res, 409, 'La actividad está cerrada y no admite nuevas evidencias.');
-            return;
-        }
+        const activity = await actividadOrientacionModel.bloquearParaEntregaAlumno(connection, activityId, studentId);
+        if (!activity) throw controlledError(404, 'ACTIVITY_NOT_FOUND');
+        if (!OPEN_STATES.has(activity.estado_clave)) throw controlledError(409, 'ACTIVITY_STATE_CLOSED');
+        const completedState = await estadoActividadOrientacionModel.buscarPorClave('REALIZADA', connection);
+        if (!completedState) throw controlledError(503, 'COMPLETED_STATE_UNAVAILABLE');
+        const usage = await adjuntoModel.obtenerUsoPorActividad(activityId, studentId, connection);
+        if (!usage) throw controlledError(404, 'ACTIVITY_NOT_FOUND');
         if (usage.cantidad + validated.length > MAX_FILES || usage.bytes + newBytes > MAX_TOTAL_BYTES) {
-            await connection.rollback();
-            await cleanupRequestFiles(req);
-            jsonError(res, 413, 'La carga supera el máximo de 5 archivos o 100 MB por actividad.');
-            return;
+            throw controlledError(413, 'ACTIVITY_EVIDENCE_LIMIT');
         }
 
         for (const file of validated) {
             finalPaths.push(await storageService.moveToFinal(file));
+            const inserted = await adjuntoModel.insertarUno(connection, {
+                actividadId: activityId,
+                subidoPorUsuarioId: studentId,
+                nombreOriginal: file.originalName,
+                claveAlmacenamiento: file.storageKey,
+                extension: file.extension,
+                mimeType: file.mimeType,
+                tamanoBytes: file.size,
+                hashSha256: file.hashSha256
+            });
+            if (inserted.affectedRows !== 1) throw controlledError(503, 'INCOMPLETE_ATTACHMENT_INSERT');
         }
-        const result = await adjuntoModel.insertarVarios(connection, validated.map((file) => ({
+        const updated = await actividadOrientacionModel.actualizarARealizadaCondicional(connection, {
             actividadId: activityId,
-            subidoPorUsuarioId: studentId,
-            nombreOriginal: file.originalName,
-            claveAlmacenamiento: file.storageKey,
-            extension: file.extension,
-            mimeType: file.mimeType,
-            tamanoBytes: file.size,
-            hashSha256: file.hashSha256
-        })));
-        if (result.affectedRows !== validated.length) throw new Error('INCOMPLETE_ATTACHMENT_INSERT');
+            alumnoUsuarioId: studentId,
+            estadoIdAnterior: activity.estado_id,
+            estadoIdRealizada: completedState.id
+        });
+        if (updated.affectedRows !== 1) throw controlledError(409, 'CONCURRENT_ACTIVITY_CHANGE');
+        const finalState = await actividadOrientacionModel.confirmarEstadoAlumno(connection, activityId, studentId);
+        if (!finalState || finalState.estado_clave !== 'REALIZADA' || !finalState.fecha_realizacion) {
+            throw controlledError(503, 'FINAL_STATE_VERIFICATION_FAILED');
+        }
         await connection.commit();
-        res.status(201).json({
+        committed = true;
+        return res.status(201).json({
             resultado: 'ok',
             cantidadCargada: validated.length,
-            mensaje: 'Las evidencias se adjuntaron correctamente.'
+            mensaje: 'La evidencia se envió correctamente.'
         });
     } catch (error) {
-        if (connection) await connection.rollback().catch(() => {});
-        await Promise.all([
-            storageService.cleanupFiles(finalPaths),
-            cleanupRequestFiles(req)
-        ]);
-        if (error.code && (error.code.startsWith('ER_') || error.code === 'PROTOCOL_CONNECTION_LOST')) {
-            jsonError(res, 503, 'No fue posible guardar las evidencias. Inténtalo nuevamente.');
-            return;
+        if (connection && !committed) await connection.rollback().catch(() => {});
+        if (!committed) {
+            await Promise.all([storageService.cleanupFiles(finalPaths), cleanupRequestFiles(req)]);
         }
-        jsonError(res, 500, 'No fue posible almacenar las evidencias.');
+        if (committed) {
+            if (!res.headersSent) return jsonError(res, 500, 'La evidencia fue guardada; recarga la actividad.');
+            return undefined;
+        }
+        if (error.status === 404) return jsonError(res, 404, 'Actividad no encontrada.');
+        if (error.status === 409) return jsonError(res, 409, 'La actividad cambió o ya no admite evidencias.');
+        if (error.status === 413) return jsonError(res, 413, 'La carga supera el máximo de 5 archivos, 50 MB por archivo o 100 MB por actividad.');
+        if (error.status === 415) return jsonError(res, 415, 'Uno o más archivos no tienen un formato permitido o su firma no es válida.');
+        if (error.status === 503) return jsonError(res, 503, 'No fue posible guardar las evidencias. Inténtalo nuevamente.');
+        if (error.code && (error.code.startsWith('ER_') || error.code === 'PROTOCOL_CONNECTION_LOST')) {
+            return jsonError(res, 503, 'No fue posible guardar las evidencias. Inténtalo nuevamente.');
+        }
+        return jsonError(res, 500, 'No fue posible almacenar las evidencias.');
     } finally {
         if (connection) connection.release();
     }

@@ -40,12 +40,13 @@ const esFechaReal = (valor) => {
 const TRANSICIONES_PERMITIDAS = Object.freeze({
     PENDIENTE: Object.freeze(['EN_PROCESO', 'NO_REALIZADA', 'CANCELADA']),
     EN_PROCESO: Object.freeze(['REALIZADA', 'NO_REALIZADA', 'CANCELADA']),
-    REALIZADA: Object.freeze([]),
+    REALIZADA: Object.freeze(['RECHAZADA']),
+    RECHAZADA: Object.freeze([]),
     NO_REALIZADA: Object.freeze([]),
     CANCELADA: Object.freeze([])
 });
 
-const ESTADOS_TERMINALES = new Set(['REALIZADA', 'NO_REALIZADA', 'CANCELADA']);
+const ESTADOS_TERMINALES = new Set(['NO_REALIZADA', 'CANCELADA', 'RECHAZADA']);
 
 const crearMenuOrientadorAlumnos = () => crearMenuPorRol(
     'ORIENTADOR',
@@ -67,6 +68,7 @@ const EXPLICACIONES_ESTADO = Object.freeze({
     PENDIENTE: 'La actividad está programada y todavía no ha comenzado.',
     EN_PROCESO: 'La actividad se encuentra actualmente en seguimiento.',
     REALIZADA: 'La actividad fue completada.',
+    RECHAZADA: 'La evidencia requiere correcciones y puede volver a enviarse.',
     NO_REALIZADA: 'La actividad no pudo realizarse.',
     CANCELADA: 'La actividad fue cancelada.'
 });
@@ -459,20 +461,28 @@ const actualizarEstado = async (req, res) => {
             return;
         }
 
-        const estadoDestino = await estadoActividadOrientacionModel.buscarPorClave(estadoDestinoClave);
-        if (!estadoDestino) {
-            res.status(503).send('No fue posible determinar el nuevo estado de la actividad.');
-            return;
+        let resultado;
+        if (estadoDestinoClave === 'RECHAZADA') {
+            resultado = await actividadOrientacionModel.rechazarRealizadaAutorizada({
+                actividadId: contexto.actividadId,
+                alumnoUsuarioId: contexto.alumnoId,
+                orientadorUsuarioId: req.session.usuario.id
+            });
+        } else {
+            const estadoDestino = await estadoActividadOrientacionModel.buscarPorClave(estadoDestinoClave);
+            if (!estadoDestino) {
+                res.status(503).send('No fue posible determinar el nuevo estado de la actividad.');
+                return;
+            }
+            resultado = await actividadOrientacionModel.actualizarEstadoCondicional({
+                actividadId: contexto.actividadId,
+                alumnoUsuarioId: contexto.alumnoId,
+                orientadorUsuarioId: req.session.usuario.id,
+                estadoIdAnterior: contexto.actividad.estado_id,
+                estadoIdNuevo: estadoDestino.id,
+                fechaRealizacion: estadoDestinoClave === 'REALIZADA' ? fechaActual : null
+            });
         }
-
-        const resultado = await actividadOrientacionModel.actualizarEstadoCondicional({
-            actividadId: contexto.actividadId,
-            alumnoUsuarioId: contexto.alumnoId,
-            orientadorUsuarioId: req.session.usuario.id,
-            estadoIdAnterior: contexto.actividad.estado_id,
-            estadoIdNuevo: estadoDestino.id,
-            fechaRealizacion: estadoDestinoClave === 'REALIZADA' ? fechaActual : null
-        });
 
         if (resultado.affectedRows === 0) {
             const conservaAlcance = await orientadorAlcanceModel.puedeAccederAlumno(

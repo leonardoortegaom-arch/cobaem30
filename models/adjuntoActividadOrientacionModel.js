@@ -44,24 +44,15 @@ const obtenerUsoPorActividad = async (actividadId, alumnoUsuarioId, executor = p
     };
 };
 
-const insertarVarios = async (connection, adjuntos) => {
-    const placeholders = adjuntos.map(() => '(?, ?, ?, ?, ?, ?, ?, ?)').join(', ');
-    const values = adjuntos.flatMap((adjunto) => [
-        adjunto.actividadId,
-        adjunto.subidoPorUsuarioId,
-        adjunto.nombreOriginal,
-        adjunto.claveAlmacenamiento,
-        adjunto.extension,
-        adjunto.mimeType,
-        adjunto.tamanoBytes,
-        adjunto.hashSha256
-    ]);
+const insertarUno = async (connection, adjunto) => {
     const [result] = await connection.execute(
         `INSERT INTO adjuntos_actividad_orientacion (
             actividad_orientacion_id, subido_por_usuario_id, nombre_original,
             clave_almacenamiento, extension, mime_type, tamano_bytes, hash_sha256
-         ) VALUES ${placeholders}`,
-        values
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [adjunto.actividadId, adjunto.subidoPorUsuarioId, adjunto.nombreOriginal,
+            adjunto.claveAlmacenamiento, adjunto.extension, adjunto.mimeType,
+            adjunto.tamanoBytes, adjunto.hashSha256]
     );
     return result;
 };
@@ -167,8 +158,8 @@ const eliminarCondicional = async (connection, { adjuntoId, actividadId, alumnoU
            AND adjuntos.actividad_orientacion_id = ?
            AND actividades.alumno_usuario_id = ?
            AND adjuntos.subido_por_usuario_id = ?
-           AND estados.clave IN (?, ?)`,
-        [adjuntoId, actividadId, alumnoUsuarioId, subidoPorUsuarioId, 'PENDIENTE', 'EN_PROCESO']
+           AND estados.clave IN (?, ?, ?)`,
+        [adjuntoId, actividadId, alumnoUsuarioId, subidoPorUsuarioId, 'PENDIENTE', 'EN_PROCESO', 'RECHAZADA']
     );
     return result;
 };
@@ -176,7 +167,7 @@ const eliminarCondicional = async (connection, { adjuntoId, actividadId, alumnoU
 module.exports = {
     listarPorActividadYAlumno,
     obtenerUsoPorActividad,
-    insertarVarios,
+    insertarUno,
     buscarParaDescarga,
     listarPorActividadYOrientador,
     buscarParaDescargaPorOrientador,

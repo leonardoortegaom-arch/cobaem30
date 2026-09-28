@@ -46,7 +46,7 @@
           <div class="panel-header orientation-dashboard-panel-header">
             <div>
               <h2 id="prioridades-titulo">Prioridades de atención</h2>
-              <p>Actividades pendientes o vencidas que requieren seguimiento.</p>
+              <p>Actividades pendientes, vencidas o con evidencia rechazada que requieren seguimiento.</p>
             </div>
             <a href="/orientador/seguimientos">Ver todas <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
           </div>
@@ -70,7 +70,7 @@
                     <time><i class="fa-regular fa-calendar" aria-hidden="true"></i> <%= new Date(actividad.fecha_asignacion).toLocaleDateString('es-MX', { timeZone: 'UTC' }) %></time>
                   </div>
                   <div class="orientation-dashboard-row-actions">
-                    <a class="orientation-dashboard-primary-action" href="/orientador/alumnos/<%= actividad.alumno_usuario_id %>/actividades/<%= actividad.actividad_id %>/estado">Actualizar estado</a>
+                    <a class="orientation-dashboard-primary-action" href="/orientador/alumnos/<%= actividad.alumno_usuario_id %>/actividades/<%= actividad.actividad_id %><%= actividad.estado_clave === 'RECHAZADA' ? '' : '/estado' %>"><%= actividad.estado_clave === 'RECHAZADA' ? 'Ver actividad' : 'Actualizar estado' %></a>
                     <a class="orientation-dashboard-secondary-action" href="/orientador/alumnos/<%= actividad.alumno_usuario_id %>">Ver alumno</a>
                   </div>
                 </article>

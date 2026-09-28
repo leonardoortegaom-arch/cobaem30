@@ -2,12 +2,14 @@ const actividadOrientacionModel = require('../models/actividadOrientacionModel')
 const adjuntoActividadOrientacionModel = require('../models/adjuntoActividadOrientacionModel');
 const crearMenuPorRol = require('../config/roleMenus');
 
-const ESTADOS = new Set(['PENDIENTE', 'EN_PROCESO', 'REALIZADA', 'NO_REALIZADA', 'CANCELADA']);
-const ESTADOS_ABIERTOS = new Set(['PENDIENTE', 'EN_PROCESO']);
+const ESTADOS = new Set(['PENDIENTE', 'EN_PROCESO', 'REALIZADA', 'NO_REALIZADA', 'CANCELADA', 'RECHAZADA']);
+const ESTADOS_CON_ENTREGA = new Set(['PENDIENTE', 'EN_PROCESO', 'RECHAZADA']);
+const ESTADOS_ABIERTOS = new Set(['PENDIENTE', 'EN_PROCESO', 'RECHAZADA']);
 const EXPLICACIONES = {
     PENDIENTE: 'La actividad está programada y todavía no ha comenzado.',
     EN_PROCESO: 'La actividad se encuentra actualmente en seguimiento.',
     REALIZADA: 'La actividad fue completada.',
+    RECHAZADA: 'La evidencia requiere correcciones antes de volver a enviarse.',
     NO_REALIZADA: 'La actividad no pudo realizarse.',
     CANCELADA: 'La actividad fue cancelada.'
 };
@@ -127,7 +129,7 @@ const mostrarDetalle = async (req, res) => {
             actividadId,
             Number(req.session.usuario.id)
         );
-        const estadoAbierto = ESTADOS_ABIERTOS.has(actividad.estadoClave);
+        const permiteEntrega = ESTADOS_CON_ENTREGA.has(actividad.estadoClave);
         const adjuntos = adjuntosResultado.map((adjunto) => ({
             id: adjunto.id,
             nombreOriginal: adjunto.nombre_original,
@@ -135,7 +137,7 @@ const mostrarDetalle = async (req, res) => {
             mimeType: adjunto.mime_type,
             tamanoBytes: Number(adjunto.tamano_bytes),
             creadoEn: adjunto.creado_en,
-            puedeEliminar: estadoAbierto && Boolean(adjunto.puede_eliminar)
+            puedeEliminar: permiteEntrega && Boolean(adjunto.puede_eliminar)
         }));
         const bytesUtilizados = adjuntos.reduce((total, adjunto) => total + adjunto.tamanoBytes, 0);
         res.render('alumno/actividades/detalle', {
@@ -148,7 +150,7 @@ const mostrarDetalle = async (req, res) => {
                 bytesUtilizados,
                 maximoArchivos: 5,
                 maximoBytes: 100 * 1024 * 1024,
-                puedeAdjuntar: estadoAbierto && adjuntos.length < 5 && bytesUtilizados < 100 * 1024 * 1024,
+                puedeAdjuntar: permiteEntrega && adjuntos.length < 5 && bytesUtilizados < 100 * 1024 * 1024,
                 mensaje: req.query.evidencia === 'eliminada'
                     ? 'La evidencia se eliminó correctamente.'
                     : null

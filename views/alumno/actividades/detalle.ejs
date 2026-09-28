@@ -33,6 +33,12 @@
             <span><%= evidencia.cantidadActual %> de <%= evidencia.maximoArchivos %> archivos</span>
           </div>
 
+          <% if (actividad.estadoClave === 'RECHAZADA') { %>
+            <div class="student-activity-evidence-readonly student-activity-evidence-correction" role="status"><i class="fa-solid fa-rotate" aria-hidden="true"></i><p>La evidencia requiere correcciones. Puedes eliminar o adjuntar archivos y volver a enviarla.</p></div>
+          <% } else if (actividad.estadoClave === 'REALIZADA') { %>
+            <div class="student-activity-evidence-readonly student-activity-evidence-reviewed" role="status"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><p>Evidencia enviada. Está pendiente de revisión.</p></div>
+          <% } %>
+
           <% if (evidencia.puedeAdjuntar) { %>
             <div id="student-activity-evidence-uploader" class="student-activity-evidence-uploader" data-upload-url="/alumno/actividades/<%= actividad.id %>/evidencias" data-csrf-token="<%= csrfToken %>" data-current-count="<%= evidencia.cantidadActual %>" data-current-bytes="<%= evidencia.bytesUtilizados %>">
               <div id="student-activity-evidence-dropzone" class="student-activity-evidence-dropzone" tabindex="0" role="button" aria-controls="student-activity-evidence-input">
@@ -45,7 +51,7 @@
               <ul id="student-activity-evidence-selection" class="student-activity-evidence-selection" aria-label="Archivos seleccionados"></ul>
               <div id="student-activity-evidence-progress" class="student-activity-evidence-progress" hidden><div></div></div>
               <p id="student-activity-evidence-message" class="student-activity-evidence-message" aria-live="polite"></p>
-              <button id="student-activity-evidence-submit" type="button" class="student-activity-evidence-submit" disabled>Adjuntar evidencias</button>
+              <button id="student-activity-evidence-submit" type="button" class="student-activity-evidence-submit" disabled>Enviar evidencia</button>
             </div>
           <% } else if (['REALIZADA', 'NO_REALIZADA', 'CANCELADA'].includes(actividad.estadoClave)) { %>
             <div class="student-activity-evidence-readonly"><i class="fa-solid fa-lock" aria-hidden="true"></i><p>La actividad está cerrada. Las evidencias permanecen disponibles para consulta y descarga.</p></div>

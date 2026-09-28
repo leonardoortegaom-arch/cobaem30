@@ -92,7 +92,8 @@ document.addEventListener('DOMContentLoaded', () => {
         submit.disabled = true;
         progress.hidden = false;
         progressBar.style.width = '0%';
-        setMessage('Cargando evidencias…');
+        submit.textContent = 'Enviando…';
+        setMessage('Enviando evidencia…');
         request.open('POST', uploader.dataset.uploadUrl);
         request.setRequestHeader('x-csrf-token', uploader.dataset.csrfToken);
         request.upload.addEventListener('progress', (event) => {
@@ -105,12 +106,20 @@ document.addEventListener('DOMContentLoaded', () => {
             uploading = false;
             progress.hidden = true;
             submit.disabled = false;
-            setMessage(response.mensaje || 'No fue posible adjuntar las evidencias.', true);
+            submit.textContent = 'Enviar evidencia';
+            const messages = {
+                404: 'La actividad no está disponible.',
+                409: 'La actividad cambió. Recarga la página antes de intentarlo nuevamente.',
+                422: 'Revisa los archivos seleccionados.',
+                503: 'El servicio no está disponible temporalmente.'
+            };
+            setMessage(messages[request.status] || response.mensaje || 'No fue posible enviar la evidencia.', true);
         });
         request.addEventListener('error', () => {
             uploading = false;
             progress.hidden = true;
             submit.disabled = false;
+            submit.textContent = 'Enviar evidencia';
             setMessage('No fue posible completar la carga.', true);
         });
         request.send(body);

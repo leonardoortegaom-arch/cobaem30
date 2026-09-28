@@ -19,7 +19,7 @@
     <header class="orientation-activity-detail-header">
       <div class="orientation-activity-detail-heading">
         <div class="orientation-activity-detail-badges">
-          <span class="badge-custom success"><%= actividad.estadoNombre %></span>
+          <span class="badge-custom <%= actividad.estadoClave === 'RECHAZADA' ? 'warning' : 'success' %>"><%= actividad.estadoNombre %></span>
           <span class="orientation-activity-detail-temporal"><%= indicadorTemporal %></span>
         </div>
         <h1><%= actividad.titulo %></h1>

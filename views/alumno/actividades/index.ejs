@@ -18,6 +18,7 @@
       <article class="student-activity-metric is-pending"><i class="fa-regular fa-clock" aria-hidden="true"></i><div><strong><%= resumen.pendientes %></strong><span>Pendientes</span></div></article>
       <article class="student-activity-metric is-progress"><i class="fa-solid fa-spinner" aria-hidden="true"></i><div><strong><%= resumen.enProceso %></strong><span>En proceso</span></div></article>
       <article class="student-activity-metric is-completed"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><div><strong><%= resumen.realizadas %></strong><span>Realizadas</span></div></article>
+      <article class="student-activity-metric is-rejected"><i class="fa-solid fa-rotate" aria-hidden="true"></i><div><strong><%= resumen.rechazadas %></strong><span>Rechazadas</span></div></article>
       <article class="student-activity-metric is-missed"><i class="fa-solid fa-circle-minus" aria-hidden="true"></i><div><strong><%= resumen.noRealizadas %></strong><span>Sin realizar</span></div></article>
       <article class="student-activity-metric is-cancelled"><i class="fa-solid fa-ban" aria-hidden="true"></i><div><strong><%= resumen.canceladas %></strong><span>Canceladas</span></div></article>
     </section>
@@ -39,6 +40,7 @@
             <option value="PENDIENTE" <%= filtros.estado === 'PENDIENTE' ? 'selected' : '' %>>Pendientes</option>
             <option value="EN_PROCESO" <%= filtros.estado === 'EN_PROCESO' ? 'selected' : '' %>>En proceso</option>
             <option value="REALIZADA" <%= filtros.estado === 'REALIZADA' ? 'selected' : '' %>>Realizadas</option>
+            <option value="RECHAZADA" <%= filtros.estado === 'RECHAZADA' ? 'selected' : '' %>>Rechazadas</option>
             <option value="NO_REALIZADA" <%= filtros.estado === 'NO_REALIZADA' ? 'selected' : '' %>>No realizadas</option>
             <option value="CANCELADA" <%= filtros.estado === 'CANCELADA' ? 'selected' : '' %>>Canceladas</option>
           </select>

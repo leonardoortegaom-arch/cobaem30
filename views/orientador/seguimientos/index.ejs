@@ -34,6 +34,10 @@
         <div><h3><%= resumen.totalActividadesEnProceso %></h3><p>Actividades en proceso</p></div>
       </div>
       <div class="dashboard-card">
+        <i class="fa-solid fa-rotate"></i>
+        <div><h3><%= resumen.totalActividadesRechazadas %></h3><p>Evidencias rechazadas</p></div>
+      </div>
+      <div class="dashboard-card">
         <i class="fa-solid fa-triangle-exclamation"></i>
         <div><h3><%= resumen.totalActividadesVencidas %></h3><p>Actividades vencidas</p></div>
       </div>
@@ -42,7 +46,7 @@
     <section class="panel-card tracking-panel-section">
       <div class="panel-header"><h2>Actividades que requieren atención</h2></div>
       <% if (actividades.length === 0) { %>
-        <p class="text-center">No hay actividades pendientes o en proceso.</p>
+        <p class="text-center">No hay actividades pendientes, en proceso o rechazadas.</p>
       <% } else { %>
         <div class="table-responsive">
           <table class="custom-table">
@@ -55,12 +59,12 @@
                   <td><%= actividad.grupo_clave %></td>
                   <td><%= actividad.titulo %></td>
                   <td><%= new Date(actividad.fecha_asignacion).toLocaleDateString('es-MX', { timeZone: 'UTC' }) %></td>
-                  <td><span class="badge-custom <%= actividad.vencida ? 'warning' : 'success' %>"><%= actividad.estado_nombre %><%= actividad.vencida ? ' · Vencida' : '' %></span></td>
+                  <td><span class="badge-custom <%= actividad.vencida || actividad.estado_clave === 'RECHAZADA' ? 'warning' : 'success' %>"><%= actividad.estado_nombre %><%= actividad.vencida ? ' · Vencida' : '' %></span></td>
                   <td>
                     <div class="admin-table-actions">
                       <a href="/orientador/alumnos/<%= actividad.alumno_usuario_id %>" class="btn-admin-edit">Ver alumno</a>
                       <% if (actividad.esPropia) { %>
-                        <a href="/orientador/alumnos/<%= actividad.alumno_usuario_id %>/actividades/<%= actividad.id %>/estado" class="btn-admin-edit">Actualizar estado</a>
+                        <a href="/orientador/alumnos/<%= actividad.alumno_usuario_id %>/actividades/<%= actividad.id %><%= actividad.estado_clave === 'RECHAZADA' ? '' : '/estado' %>" class="btn-admin-edit"><%= actividad.estado_clave === 'RECHAZADA' ? 'Ver actividad' : 'Actualizar estado' %></a>
                       <% } %>
                     </div>
                   </td>

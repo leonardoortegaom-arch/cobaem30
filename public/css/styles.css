@@ -2076,7 +2076,7 @@ DASHBOARD BASE
 
 .student-activities-metrics{
     display:grid;
-    grid-template-columns:repeat(5, minmax(0, 1fr));
+    grid-template-columns:repeat(6, minmax(0, 1fr));
     gap:12px;
     margin-bottom:22px;
 }
@@ -2106,6 +2106,7 @@ DASHBOARD BASE
 .student-activity-metric.is-pending > i{background:#FFF7E6;color:#B45309}
 .student-activity-metric.is-progress > i{background:#E8F1FF;color:#1D4ED8}
 .student-activity-metric.is-completed > i{background:#ECFDF3;color:#15803D}
+.student-activity-metric.is-rejected > i{background:#FFF7ED;color:#C2410C}
 .student-activity-metric.is-missed > i{background:#FEF2F2;color:#B91C1C}
 .student-activity-metric.is-cancelled > i{background:#F1F5F9;color:#64748B}
 
@@ -2270,6 +2271,7 @@ DASHBOARD BASE
 .student-activity-badge.state-pendiente{background:#FEF3C7;color:#92400E}
 .student-activity-badge.state-en_proceso{background:#DBEAFE;color:#1D4ED8}
 .student-activity-badge.state-realizada{background:#DCFCE7;color:#166534}
+.student-activity-badge.state-rechazada{background:#FFEDD5;color:#9A3412}
 .student-activity-badge.state-no_realizada{background:#FEE2E2;color:#991B1B}
 .student-activity-badge.state-cancelada{background:#E2E8F0;color:#475569}
 .student-activity-temporal{background:#F1F5F9;color:#475569}
@@ -2433,6 +2435,8 @@ DASHBOARD BASE
 .student-activity-evidence-readonly,
 .student-activity-evidence-empty{display:flex;align-items:center;gap:11px;padding:13px 15px;border-radius:12px;background:#F8FAFC;color:#475569}
 .student-activity-evidence-readonly{margin-bottom:14px;background:#FFF7ED;color:#92400E}
+.student-activity-evidence-reviewed{background:#ECFDF3;color:#166534}
+.student-activity-evidence-correction{background:#FFF7ED;color:#9A3412}
 .student-activity-evidence-readonly p,.student-activity-evidence-empty p{color:inherit;font-size:.78rem}
 
 .student-activity-evidence-list{margin-top:17px;border-top:1px solid var(--border)}
