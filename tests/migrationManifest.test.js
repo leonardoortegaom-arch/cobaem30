@@ -75,7 +75,8 @@ test('2. todos los SQL físicos están manifestados', () => {
         '019_create_schedule_imports_and_versions.sql',
         '020_create_scheduled_classes.sql',
         '021_create_teacher_non_teaching_activities.sql',
-        '022_add_rejected_orientation_activity_state.sql'
+        '022_add_rejected_orientation_activity_state.sql',
+        '023_allow_early_orientation_evidence_submission.sql'
     ].sort();
     assert.deepEqual(fisicos, declarados);
     assert.deepEqual(fisicos, esperados);
@@ -85,7 +86,7 @@ test('2. todos los SQL físicos están manifestados', () => {
 
 test('3. los checksums reales coinciden', () => {
     const resultado = manifestModule.validarArchivosYChecksums(manifestModule.cargarManifiesto());
-    assert.equal(resultado.totalArchivosSql, 22);
+    assert.equal(resultado.totalArchivosSql, 23);
 });
 
 test('4. LF y CRLF producen el mismo checksum', () => {
@@ -211,7 +212,7 @@ test('21. 009 y 011–014 permanecen superseded', () => {
     }
 });
 
-test('22. 015 a 022 están active y no existen migraciones posteriores', () => {
+test('22. 015 a 023 están active y no existen migraciones posteriores', () => {
     const migraciones = manifestModule.cargarManifiesto().migraciones;
     const activa = migraciones.find((item) => item.version === 15);
     assert.equal(activa.estado, 'ACTIVE');
@@ -249,8 +250,12 @@ test('22. 015 a 022 están active y no existen migraciones posteriores', () => {
     const activa022 = migraciones.find((item) => item.version === 22);
     assert.equal(activa022.estado, 'ACTIVE');
     assert.equal(activa022.execution.dependsOn[0], 21);
-    assert.equal(migraciones.at(-1).version, 22);
-    assert.equal(migraciones.some((item) => item.version > 22), false);
+    const activa023 = migraciones.find((item) => item.version === 23);
+    assert.equal(activa023.estado, 'ACTIVE');
+    assert.deepEqual(activa023.execution.dependsOn, [22]);
+    assert.equal(activa023.execution.statements[0].operation, 'DROP_CHECK');
+    assert.equal(migraciones.at(-1).version, 23);
+    assert.equal(migraciones.some((item) => item.version > 23), false);
 });
 
 test('23. el módulo no importa mysql2, dotenv ni database.js', () => {
@@ -280,7 +285,7 @@ test('25. plan es estático y no presenta migraciones como aplicadas', () => {
     assert.match(texto, /Plan estático del manifiesto/);
     assert.match(texto, /no hubo acceso a base de datos/);
     assert.doesNotMatch(texto, /aplicada en MySQL|conectado a DB/i);
-    assert.equal(salida.filter((linea) => /^\d{3} \|/.test(linea)).length, 23);
+    assert.equal(salida.filter((linea) => /^\d{3} \|/.test(linea)).length, 24);
 });
 
 test('26. formato 2 declara el límite del baseline legado', () => {

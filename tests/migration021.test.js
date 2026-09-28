@@ -160,13 +160,15 @@ test('24 checksums SQL y contrato coinciden', () => {
     assert.equal(manifestApi.calcularChecksumCanonico(sqlPath), entry.checksumSha256);
     assert.equal(manifestApi.calcularChecksumCanonico(path.join(manifestApi.PROJECT_ROOT, entry.execution.postconditionContract)), entry.execution.postconditionChecksumSha256);
 });
-test('25 021 está ACTIVE, depende exactamente de 020 y 022 depende de 021', () => {
+test('25 021 está ACTIVE y las dependencias posteriores son lineales', () => {
     assert.equal(entry.estado, 'ACTIVE');
     assert.deepEqual(entry.execution.dependsOn, [20]);
     const siguiente = manifest.migraciones.find((item) => item.version === 22);
     assert.equal(siguiente.estado, 'ACTIVE');
     assert.deepEqual(siguiente.execution.dependsOn, [21]);
-    assert.equal(manifest.migraciones.some((item) => item.version > 22), false);
+    const posterior = manifest.migraciones.find((item) => item.version === 23);
+    assert.deepEqual(posterior.execution.dependsOn, [22]);
+    assert.equal(manifest.migraciones.some((item) => item.version > 23), false);
 });
 test('26 precondición es válida cuando ambas tablas están ausentes', () => assert.equal(apply.validarPrecondiciones(snapshotBefore021(), entry), true));
 test('27 una sola tabla existente se rechaza como estado parcial', () => {
@@ -176,11 +178,11 @@ test('27 una sola tabla existente se rechaza como estado parcial', () => {
         assert.throws(() => apply.construirPlan(manifest, snapshot), (error) => error.code === 'UNREGISTERED_PARTIAL_STRUCTURE');
     }
 });
-test('28 aplicada y registrada deja únicamente 022 pendiente', () => {
+test('28 aplicada y registrada deja 022 y 023 pendientes', () => {
     const snapshot = snapshotBefore021();
     for (const [name, spec] of Object.entries(contract.tablas)) snapshot.tablas[name] = tableFromContract(spec);
     snapshot.controlRows.push(appliedRow(entry));
-    assert.deepEqual(apply.construirPlan(manifest, snapshot).map((item) => item.entrada.version), [22]);
+    assert.deepEqual(apply.validarRegistrosAplicados(manifest, snapshot.controlRows).pending.map((item) => item.version), [22, 23]);
 });
 test('29 estructura completa no registrada se rechaza', () => {
     const snapshot = snapshotBefore021();

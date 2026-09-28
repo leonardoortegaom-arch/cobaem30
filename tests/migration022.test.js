@@ -11,6 +11,8 @@ const manifestApi = require('../scripts/migrationManifest');
 const preflight = require('../scripts/migrationPreflight');
 
 const manifest = manifestApi.cargarManifiesto();
+const manifestThrough022 = structuredClone(manifest);
+manifestThrough022.migraciones = manifestThrough022.migraciones.filter((item) => item.version <= 22);
 const entry = manifest.migraciones.find((item) => item.version === 22);
 const contract = apply.cargarContrato(entry);
 const sqlPath = path.join(manifestApi.MIGRATIONS_DIR, entry.archivo);
@@ -121,7 +123,7 @@ test('16 dry-run selecciona solo 022 y no escribe', async () => {
     const calls = []; const output = [];
     const connection = { async execute(sqlText) { calls.push(sqlText); return [[]]; }, release() {} };
     const pool = { async getConnection() { return connection; }, async end() {} };
-    const plan = await apply.ejecutarDryRun({ log: (line) => output.push(line) }, { pool, manifest, snapshot: async () => snapshot() });
+    const plan = await apply.ejecutarDryRun({ log: (line) => output.push(line) }, { pool, manifest: manifestThrough022, snapshot: async () => snapshot() });
     assert.deepEqual(plan.map((item) => item.entrada.version), [22]);
     assert.match(output.join('\n'), /INSERT_CATALOG_ROW estados_actividad_orientacion/);
     assert.match(output.join('\n'), /se aplicará transaccionalmente junto con su registro/);
@@ -148,7 +150,7 @@ async function simulate({ fail = '' } = {}) {
     const afterRows = () => [...existingStates, rejected];
     try {
         await apply.ejecutarAdministrativo(options('--execute', b.file, b.hash), true, { log() {} }, {
-            env, pool, manifest, privileges: async (c, required) => { calls.push({ query: `PRIVILEGES:${required.join(',')}` }); return { estado: 'PRESENT' }; },
+            env, pool, manifest: manifestThrough022, privileges: async (c, required) => { calls.push({ query: `PRIVILEGES:${required.join(',')}` }); return { estado: 'PRESENT' }; },
             snapshot: async () => snapshot(),
             snapshotAfter: async () => { if (fail === 'postcondition') return snapshot(); return snapshot({ rows: afterRows() }); },
             snapshotBeforeCommit: async () => snapshot({ applied: true, rows: afterRows() }),
@@ -164,7 +166,7 @@ test('17 execute-preflight simulado no escribe y solo exige SELECT e INSERT', as
     const connection = { async execute(query) { calls.push(query); if (/GET_LOCK/.test(query)) return [[{ lock_obtenido: 1 }]]; return [[]]; }, release() {} };
     const pool = { async getConnection() { return connection; }, async end() {} };
     try {
-        await apply.ejecutarAdministrativo(options('--execute-preflight', b.file, b.hash), false, { log() {} }, { env, pool, manifest, snapshot: async () => snapshot(), privileges: async (c, required) => { assert.deepEqual(required, ['SELECT', 'INSERT']); return { estado: 'PRESENT' }; } });
+        await apply.ejecutarAdministrativo(options('--execute-preflight', b.file, b.hash), false, { log() {} }, { env, pool, manifest: manifestThrough022, snapshot: async () => snapshot(), privileges: async (c, required) => { assert.deepEqual(required, ['SELECT', 'INSERT']); return { estado: 'PRESENT' }; } });
     } finally { fs.rmSync(b.dir, { recursive: true }); }
     assert.equal(calls.some((query) => /^INSERT|^UPDATE|^DELETE|^CREATE|^ALTER|^DROP/i.test(query)), false);
 });

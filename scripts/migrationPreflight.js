@@ -279,10 +279,17 @@ function construirSnapshotDesdeFilas(datos) {
     const indices = agruparIndices(datos.indexes || []);
     const foreignKeys = agruparForeignKeys(datos.foreignKeys || []);
     const checks = {};
+    const checkConstraints = {};
     for (const fila of datos.checks || []) {
         const tabla = normalizarNombre(campo(fila, 'TABLE_NAME'));
         if (!checks[tabla]) checks[tabla] = [];
-        checks[tabla].push(normalizarClausula(campo(fila, 'CHECK_CLAUSE')));
+        if (!checkConstraints[tabla]) checkConstraints[tabla] = [];
+        const clausula = normalizarClausula(campo(fila, 'CHECK_CLAUSE'));
+        checks[tabla].push(clausula);
+        checkConstraints[tabla].push({
+            nombre: normalizarNombre(campo(fila, 'CONSTRAINT_NAME')),
+            clausula
+        });
     }
 
     const tablas = {};
@@ -294,7 +301,8 @@ function construirSnapshotDesdeFilas(datos) {
             collation,
             charset: collation.split('_').slice(0, 1).join('_'),
             columnas: {}, indices: indices[nombre] || [],
-            foreignKeys: foreignKeys[nombre] || [], checks: checks[nombre] || []
+            foreignKeys: foreignKeys[nombre] || [], checks: checks[nombre] || [],
+            checkConstraints: checkConstraints[nombre] || []
         };
     }
     for (const fila of datos.columns || []) {
@@ -341,7 +349,7 @@ function crearSnapshotCompatible(descriptor, opciones = {}) {
         tablas[nombre] = {
             engine: contrato.engine, charset: contrato.charset, collation: contrato.collation,
             columnas, indices, foreignKeys: JSON.parse(JSON.stringify(contrato.foreignKeys)),
-            checks: contrato.checks.map((item) => item.fragmentos.join(' '))
+            checks: contrato.checks.map((item) => item.fragmentos.join(' ')), checkConstraints: []
         };
     }
     if (opciones.control === 'empty' || opciones.control === 'complete') {
@@ -524,6 +532,43 @@ function compararFilasCatalogo(contrato, snapshot, resultado) {
     }
 }
 
+function compararRestriccionesCheck(contrato, snapshot, resultado) {
+    for (const esperado of contrato.restriccionesCheckPresentes || []) {
+        const checks = snapshot.tablas[esperado.tabla]?.checkConstraints || [];
+        const coincide = checks.some((check) => check.nombre === normalizarNombre(esperado.nombre)
+            && normalizarClausula(check.clausula) === normalizarClausula(esperado.clausula));
+        agregarRegla(resultado, `CHECK_NAMED_${esperado.nombre.toUpperCase()}_PRESENT`, 'integridad', coincide, 'CHECK nominal requerido.');
+    }
+    for (const esperado of contrato.restriccionesCheckAusentes || []) {
+        const checks = snapshot.tablas[esperado.tabla]?.checkConstraints || [];
+        const ausente = !checks.some((check) => check.nombre === normalizarNombre(esperado.nombre));
+        agregarRegla(resultado, `CHECK_NAMED_${esperado.nombre.toUpperCase()}_ABSENT`, 'integridad', ausente, 'CHECK nominal retirado.');
+    }
+    for (const [tabla, cantidades] of Object.entries(contrato.cardinalidadEstructural || {})) {
+        const actual = snapshot.tablas[tabla];
+        const coincide = Boolean(actual)
+            && Object.keys(actual.columnas).length === cantidades.columnas
+            && actual.indices.length === cantidades.indices
+            && actual.foreignKeys.length === cantidades.foreignKeys
+            && actual.checks.length === cantidades.checks;
+        agregarRegla(resultado, `STRUCTURAL_CARDINALITY_${tabla.toUpperCase()}`, 'integridad', coincide, 'Cardinalidad estructural preservada.');
+    }
+}
+
+function aplicarAjustesDescriptor(descriptor, contratos) {
+    const ajustado = structuredClone(descriptor);
+    for (const { contrato } of contratos) {
+        for (const removido of contrato.ajustesDescriptor?.checksRemovidos || []) {
+            const tabla = ajustado.tablas[removido.tabla];
+            if (!tabla) continue;
+            tabla.checks = tabla.checks.filter((check) => !removido.fragmentos.every((fragmento) => (
+                check.fragmentos.some((actual) => normalizarClausula(actual) === normalizarClausula(fragmento))
+            )));
+        }
+    }
+    return ajustado;
+}
+
 function cargarContratoAplicado(entrada) {
     if (!entrada.execution || typeof entrada.execution.postconditionContract !== 'string') {
         throw crearError('Migracion ACTIVE sin contrato de postcondicion.', 'ACTIVE_CONTRACT_INVALID');
@@ -609,6 +654,7 @@ function compararSnapshotConDescriptor(snapshot, descriptor, manifiesto) {
             for (const { entrada, contrato } of composicion.contratos) {
                 for (const [nombre, tabla] of Object.entries(contrato.tablas)) compararTabla(nombre, tabla, snapshot.tablas[nombre], resultado);
                 compararFilasCatalogo(contrato, snapshot, resultado);
+                compararRestriccionesCheck(contrato, snapshot, resultado);
                 agregarRegla(resultado, `ACTIVE_CONTRACT_${entrada.identificador}`, 'control', true, 'Contrato ACTIVE aplicado y validado.');
             }
         } catch {
@@ -616,7 +662,8 @@ function compararSnapshotConDescriptor(snapshot, descriptor, manifiesto) {
         }
     }
 
-    for (const [nombre, contrato] of Object.entries(descriptor.tablas)) {
+    const descriptorEfectivo = aplicarAjustesDescriptor(descriptor, composicion.contratos);
+    for (const [nombre, contrato] of Object.entries(descriptorEfectivo.tablas)) {
         compararTabla(nombre, contrato, snapshot.tablas[nombre], resultado);
     }
     for (const tabla of descriptor.tablasProhibidas) {

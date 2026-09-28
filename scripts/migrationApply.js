@@ -108,6 +108,15 @@ function clasificarSentenciaDeclarada(sql, declarada) {
         if (!patron.test(sql)) throw errorSeguro('SQL_OPERATION_FORBIDDEN', 'SQL_VALIDATION');
         return { operation, target: declarada.target, sql };
     }
+    if (operation === 'DROP_CHECK') {
+        if (declarada.target !== 'actividades_orientacion'
+            || declarada.constraint !== 'chk_actividades_fecha_realizacion') {
+            throw errorSeguro('STATEMENT_TARGET_OR_ORDER_MISMATCH', 'SQL_VALIDATION');
+        }
+        const patron = /^ALTER\s+TABLE\s+`?actividades_orientacion`?\s+DROP\s+CHECK\s+`?chk_actividades_fecha_realizacion`?$/i;
+        if (!patron.test(sql)) throw errorSeguro('SQL_OPERATION_FORBIDDEN', 'SQL_VALIDATION');
+        return { operation, target: declarada.target, constraint: declarada.constraint, sql };
+    }
     const pattern = operation === 'ALTER_TABLE'
         ? /^ALTER\s+TABLE\s+`?([a-zA-Z][a-zA-Z0-9_]*)`?\s+/i
         : /^CREATE\s+TABLE\s+`?([a-zA-Z][a-zA-Z0-9_]*)`?\s*\(/i;
@@ -164,6 +173,23 @@ function validarPrecondiciones(snapshot, entrada) {
         } else if (item.type === 'CATALOG_VALUE_ABSENT') {
             const filas = snapshot.filasCatalogo?.[item.table] || [];
             valida = !filas.some((fila) => String(fila[item.column]) === String(item.value));
+        } else if (item.type === 'CHECK_MATCH') {
+            valida = Boolean(tabla) && (tabla.checkConstraints || []).some((check) => (
+                String(check.nombre).toLowerCase() === String(item.target).toLowerCase()
+                && preflightApi.normalizarClausula(check.clausula) === preflightApi.normalizarClausula(item.clause)
+            ));
+        } else if (item.type === 'TABLE_MATCH_BASELINE') {
+            const descriptorTable = preflightApi.cargarDescriptor().tablas[item.target];
+            try {
+                validarPostcondicion(snapshot, { tablas: { [item.target]: descriptorTable } });
+                valida = Boolean(tabla)
+                    && Object.keys(tabla.columnas).length === descriptorTable.columnas.length
+                    && tabla.indices.length === 1 + descriptorTable.indicesUnicos.length + descriptorTable.indices.length
+                    && tabla.foreignKeys.length === descriptorTable.foreignKeys.length
+                    && tabla.checks.length === descriptorTable.checks.length;
+            } catch {
+                valida = false;
+            }
         }
         if (!valida) throw errorSeguro('UNREGISTERED_PARTIAL_STRUCTURE', 'PRECONDITIONS');
     }
@@ -198,6 +224,27 @@ function validarPostcondicion(snapshot, contrato) {
     for (const [tabla, columnas] of Object.entries(contrato.columnasProhibidas || {})) {
         const actual = snapshot.tablas[tabla];
         if (actual && columnas.some((columna) => actual.columnas[columna])) errores.push(`FORBIDDEN_COLUMNS_${tabla}`);
+    }
+    for (const esperado of contrato.restriccionesCheckPresentes || []) {
+        const checks = snapshot.tablas[esperado.tabla]?.checkConstraints || [];
+        if (!checks.some((check) => String(check.nombre).toLowerCase() === esperado.nombre.toLowerCase()
+            && preflightApi.normalizarClausula(check.clausula) === preflightApi.normalizarClausula(esperado.clausula))) {
+            errores.push(`CHECK_PRESENT_${esperado.tabla}_${esperado.nombre}`);
+        }
+    }
+    for (const esperado of contrato.restriccionesCheckAusentes || []) {
+        const checks = snapshot.tablas[esperado.tabla]?.checkConstraints || [];
+        if (checks.some((check) => String(check.nombre).toLowerCase() === esperado.nombre.toLowerCase())) {
+            errores.push(`CHECK_ABSENT_${esperado.tabla}_${esperado.nombre}`);
+        }
+    }
+    for (const [tabla, cantidades] of Object.entries(contrato.cardinalidadEstructural || {})) {
+        const actual = snapshot.tablas[tabla];
+        if (!actual
+            || Object.keys(actual.columnas).length !== cantidades.columnas
+            || actual.indices.length !== cantidades.indices
+            || actual.foreignKeys.length !== cantidades.foreignKeys
+            || actual.checks.length !== cantidades.checks) errores.push(`STRUCTURAL_CARDINALITY_${tabla}`);
     }
     for (const [tabla, esperadas] of Object.entries(contrato.filasCatalogo || {})) {
         const reales = snapshot.filasCatalogo?.[tabla] || [];
@@ -403,8 +450,10 @@ async function ejecutarAdministrativo(opciones, execute, output = {}, deps = {})
         const snapshot = deps.snapshot ? await deps.snapshot(connection) : await obtenerEstado(connection);
         const plan = construirPlan(manifiesto, snapshot); log('MIGRATION_STATE_VALID'); log('MIGRATION_PRECONDITIONS_VALID'); log('MIGRATION_SQL_VALID');
         const soloCatalogo = plan.length > 0 && plan.every((item) => item.statements.every((statement) => statement.operation === 'INSERT_CATALOG_ROW'));
-        const privileges = deps.privileges ? await deps.privileges(connection, soloCatalogo ? ['SELECT', 'INSERT'] : ['SELECT', 'CREATE', 'INSERT'])
-            : await baselineApi.verificarPrivilegiosAdministrativos(connection, soloCatalogo ? ['SELECT', 'INSERT'] : ['SELECT', 'CREATE', 'INSERT']);
+        const soloDropCheck = plan.length > 0 && plan.every((item) => item.statements.every((statement) => statement.operation === 'DROP_CHECK'));
+        const privilegiosRequeridos = soloCatalogo ? ['SELECT', 'INSERT'] : soloDropCheck ? ['SELECT', 'ALTER', 'INSERT'] : ['SELECT', 'CREATE', 'INSERT'];
+        const privileges = deps.privileges ? await deps.privileges(connection, privilegiosRequeridos)
+            : await baselineApi.verificarPrivilegiosAdministrativos(connection, privilegiosRequeridos);
         if (privileges.estado !== 'PRESENT') throw errorSeguro(privileges.estado === 'INSUFFICIENT' ? 'PRIVILEGES_INSUFFICIENT' : 'PRIVILEGES_UNKNOWN', 'PRIVILEGES');
         log('MIGRATION_PRIVILEGES_PRESENT');
         if (!execute) { log('MIGRATION_EXECUTE_PREFLIGHT_COMPLETE_NO_CHANGES'); return plan; }

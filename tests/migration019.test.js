@@ -26,6 +26,7 @@ delete entry021Fixture.execution;
 const entry022Fixture = manifestBefore020.migraciones.find((item) => item.version === 22);
 Object.assign(entry022Fixture, { estado: 'PLANNED', archivo: null, checksumSha256: null, razonEstado: 'Fixture previa a 022.' });
 delete entry022Fixture.execution;
+manifestBefore020.migraciones = manifestBefore020.migraciones.filter((item) => item.version <= 19);
 
 function tableFromContract(spec) {
     const columnas = Object.fromEntries(spec.columnas.map((column, index) => [column.nombre, {
@@ -223,11 +224,11 @@ test('29 checksums de SQL y contrato coinciden', () => {
     assert.equal(manifestApi.calcularChecksumCanonico(sqlPath), entry.checksumSha256);
     assert.equal(manifestApi.calcularChecksumCanonico(path.join(manifestApi.PROJECT_ROOT, entry.execution.postconditionContract)), entry.execution.postconditionChecksumSha256);
 });
-test('30 una 019 aplicada y registrada deja 020, 021 y 022 pendientes por orden', () => {
+test('30 una 019 aplicada y registrada deja las posteriores pendientes por orden', () => {
     const snapshot = snapshotBefore019();
     for (const [name, spec] of Object.entries(contract.tablas)) snapshot.tablas[name] = tableFromContract(spec);
     snapshot.controlRows.push(appliedRow(entry));
-    assert.deepEqual(apply.validarRegistrosAplicados(manifest, snapshot.controlRows).pending.map((item) => item.version), [20, 21, 22]);
+    assert.deepEqual(apply.validarRegistrosAplicados(manifest, snapshot.controlRows).pending.map((item) => item.version), [20, 21, 22, 23]);
 });
 test('31 fallo de la segunda sentencia no registra 019', async () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'migration019-'));

@@ -277,3 +277,27 @@ test('25 no se conceden permisos a DOCENTE ni se mezclan tareas académicas', ()
     assert.doesNotMatch(routes, /requireRole\('DOCENTE'\)/);
     assert.doesNotMatch(routes, /tareas|materias|clases_programadas/i);
 });
+
+test('26 diagnóstico seguro informa solo etapa y código técnico', () => {
+    const h = uploadHarness();
+    try {
+        const lines = [];
+        h.loaded.logSafeEvidenceFailure('EVIDENCE_STAGE_STATE_UPDATE', {
+            code: 'ER_CHECK_CONSTRAINT_VIOLATED', sql: 'UPDATE secreto',
+            message: 'ruta privada y credencial secreta', stack: 'dato sensible'
+        }, (line) => lines.push(line));
+        assert.deepEqual(lines, ['EVIDENCE_STAGE_STATE_UPDATE CODE=ER_CHECK_CONSTRAINT_VIOLATED']);
+        assert.doesNotMatch(lines[0], /ruta|credencial|sensible|\bsql\b/i);
+    } finally { h.restore(); }
+});
+
+test('27 una actividad futura no se rechaza en aplicación por fecha programada', async () => {
+    const h = uploadHarness({ state: 'PENDIENTE' });
+    h.req.fecha_asignacion = '2099-12-31';
+    try {
+        await h.loaded.uploadEvidence(h.req, h.res);
+        assert.equal(h.res.statusCode, 201);
+        assert.equal(h.calls.updated.length, 1);
+        assert.equal(h.calls.commit, 1);
+    } finally { h.restore(); }
+});

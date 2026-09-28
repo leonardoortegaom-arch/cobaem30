@@ -150,11 +150,9 @@ test('29 estructura existente no registrada se rechaza', () => {
     snapshot.tablas.clases_programadas = tableFromContract(contract.tablas.clases_programadas);
     assert.throws(() => apply.construirPlan(manifest, snapshot), (error) => error.code === 'UNREGISTERED_PARTIAL_STRUCTURE');
 });
-test('30 aplicada y registrada deja únicamente 021 pendiente', () => {
+test('30 aplicada y registrada deja únicamente 021 pendiente en el fixture histórico', () => {
     const fixture = structuredClone(manifest);
-    const siguiente = fixture.migraciones.find((item) => item.version === 22);
-    Object.assign(siguiente, { estado: 'PLANNED', archivo: null, checksumSha256: null, razonEstado: 'Fixture previa a 022.' });
-    delete siguiente.execution;
+    fixture.migraciones = fixture.migraciones.filter((item) => item.version <= 21);
     const snapshot = snapshotBefore020();
     snapshot.tablas.clases_programadas = tableFromContract(contract.tablas.clases_programadas);
     snapshot.controlRows.push(appliedRow(entry));

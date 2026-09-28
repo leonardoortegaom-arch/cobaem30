@@ -1,0 +1,75 @@
+{
+  "versionContrato": 1,
+  "migracion": 23,
+  "identificador": "023",
+  "algoritmoChecksum": "sha256-utf8-lf-v1",
+  "tablas": {
+    "actividades_orientacion": {
+      "engine": "innodb",
+      "charset": "utf8mb4",
+      "collation": "utf8mb4_0900_ai_ci",
+      "columnas": [
+        {"nombre":"id","tipo":"bigint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"alumno_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"orientador_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"estado_id","tipo":"tinyint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"titulo","tipo":"varchar(150)","unsigned":false,"nullable":false},
+        {"nombre":"instrucciones","tipo":"text","unsigned":false,"nullable":false},
+        {"nombre":"fecha_asignacion","tipo":"date","unsigned":false,"nullable":false},
+        {"nombre":"fecha_limite","tipo":"date","unsigned":false,"nullable":true},
+        {"nombre":"fecha_realizacion","tipo":"date","unsigned":false,"nullable":true},
+        {"nombre":"observacion_resultado","tipo":"text","unsigned":false,"nullable":true},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"},
+        {"nombre":"actualizado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP","extra":"on update CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey": ["id"],
+      "indicesUnicos": [],
+      "indices": [
+        {"columnas":["alumno_usuario_id","fecha_asignacion"]},
+        {"columnas":["orientador_usuario_id"]},
+        {"columnas":["estado_id"]}
+      ],
+      "foreignKeys": [
+        {"columnas":["alumno_usuario_id"],"tablaDestino":"alumnos","columnasDestino":["usuario_id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"},
+        {"columnas":["orientador_usuario_id"],"tablaDestino":"usuarios","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"},
+        {"columnas":["estado_id"],"tablaDestino":"estados_actividad_orientacion","columnasDestino":["id"],"onUpdate":"CASCADE","onDelete":"RESTRICT"}
+      ],
+      "checks": [
+        {"fragmentos":["fecha_limite is null","fecha_limite >= fecha_asignacion"]}
+      ]
+    }
+  },
+  "restriccionesCheckPresentes": [
+    {
+      "tabla": "actividades_orientacion",
+      "nombre": "chk_actividades_fecha_limite",
+      "clausula": "((fecha_limite IS NULL) OR (fecha_limite >= fecha_asignacion))"
+    }
+  ],
+  "restriccionesCheckAusentes": [
+    {
+      "tabla": "actividades_orientacion",
+      "nombre": "chk_actividades_fecha_realizacion"
+    }
+  ],
+  "cardinalidadEstructural": {
+    "actividades_orientacion": {
+      "columnas": 12,
+      "indices": 4,
+      "foreignKeys": 3,
+      "checks": 1
+    }
+  },
+  "ajustesDescriptor": {
+    "checksRemovidos": [
+      {
+        "tabla": "actividades_orientacion",
+        "fragmentos": ["fecha_realizacion is null", "fecha_realizacion >= fecha_asignacion"]
+      }
+    ]
+  },
+  "invariantesDatos": [
+    "ORIENTATION_ACTIVITIES_UNCHANGED",
+    "ORIENTATION_ACTIVITY_DEADLINE_CHECK_PRESERVED"
+  ]
+}

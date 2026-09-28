@@ -347,6 +347,44 @@
         "postconditionContract": "database/migration-contracts/022_rejected_orientation_activity_state.json",
         "postconditionChecksumSha256": "ab4fcafe49338f4b70f5f37310c2a262dfe9073bcd614ea5725ebcaa6eb7e383"
       }
+    },
+    {
+      "version": 23,
+      "identificador": "023",
+      "estado": "ACTIVE",
+      "archivo": "023_allow_early_orientation_evidence_submission.sql",
+      "checksumSha256": "f07a9e28ba4bf9bec3007c5f435c8d7992e66e546c512c142171532286c8ff50",
+      "descripcion": "Permitir entregas anticipadas conservando la fecha real de realización.",
+      "execution": {
+        "dependsOn": [22],
+        "statementCount": 1,
+        "statements": [
+          {
+            "operation": "DROP_CHECK",
+            "target": "actividades_orientacion",
+            "constraint": "chk_actividades_fecha_realizacion"
+          }
+        ],
+        "preconditions": [
+          {"type":"MIGRATION_APPLIED","version":22},
+          {"type":"TABLE_PRESENT","target":"actividades_orientacion"},
+          {"type":"TABLE_MATCH_BASELINE","target":"actividades_orientacion"},
+          {
+            "type":"CHECK_MATCH",
+            "table":"actividades_orientacion",
+            "target":"chk_actividades_fecha_realizacion",
+            "clause":"((fecha_realizacion IS NULL) OR (fecha_realizacion >= fecha_asignacion))"
+          },
+          {
+            "type":"CHECK_MATCH",
+            "table":"actividades_orientacion",
+            "target":"chk_actividades_fecha_limite",
+            "clause":"((fecha_limite IS NULL) OR (fecha_limite >= fecha_asignacion))"
+          }
+        ],
+        "postconditionContract": "database/migration-contracts/023_early_orientation_evidence_submission.json",
+        "postconditionChecksumSha256": "76af71f903b4c8fc9f1ac659daa19be561b51e82c459787f309a65172c7a9f08"
+      }
     }
   ]
 }

@@ -178,11 +178,15 @@ function validarEstructuraManifiesto(manifiesto) {
                 const operacionCatalogoValida = entrada.version === 22
                     && statement.operation === 'INSERT_CATALOG_ROW'
                     && statement.target === 'estados_actividad_orientacion';
-                if (!statement || (!['CREATE_TABLE', 'ALTER_TABLE'].includes(statement.operation) && !operacionCatalogoValida) || !/^[a-z][a-z0-9_]*$/.test(statement.target || '')
+                const eliminacionCheckValida = entrada.version === 23
+                    && statement.operation === 'DROP_CHECK'
+                    && statement.target === 'actividades_orientacion'
+                    && statement.constraint === 'chk_actividades_fecha_realizacion';
+                if (!statement || (!['CREATE_TABLE', 'ALTER_TABLE'].includes(statement.operation) && !operacionCatalogoValida && !eliminacionCheckValida) || !/^[a-z][a-z0-9_]*$/.test(statement.target || '')
                     || targets.has(statement.target)) throw crearError(`Operación o target inválido en ${entrada.identificador}.`);
                 targets.add(statement.target);
             }
-            const tiposPrecondicion = new Set(['MIGRATION_APPLIED', 'TABLE_ABSENT', 'TABLE_PRESENT', 'COLUMN_ABSENT', 'INDEX_ABSENT', 'FOREIGN_KEY_ABSENT', 'COLUMN_MATCH', 'CATALOG_VALUE_ABSENT']);
+            const tiposPrecondicion = new Set(['MIGRATION_APPLIED', 'TABLE_ABSENT', 'TABLE_PRESENT', 'COLUMN_ABSENT', 'INDEX_ABSENT', 'FOREIGN_KEY_ABSENT', 'COLUMN_MATCH', 'CATALOG_VALUE_ABSENT', 'CHECK_MATCH', 'TABLE_MATCH_BASELINE']);
             if (!Array.isArray(ejecucion.preconditions) || !ejecucion.preconditions.length
                 || ejecucion.preconditions.some((item) => !item || !tiposPrecondicion.has(item.type))) {
                 throw crearError(`Precondiciones incoherentes en ${entrada.identificador}.`);
@@ -205,6 +209,17 @@ function validarEstructuraManifiesto(manifiesto) {
                         throw crearError(`Precondición de catálogo inválida en ${entrada.identificador}.`);
                     }
                     continue;
+                }
+                if (item.type === 'CHECK_MATCH') {
+                    if (entrada.version !== 23 || item.table !== 'actividades_orientacion'
+                        || !/^[a-z][a-z0-9_]*$/.test(item.target || '')
+                        || typeof item.clause !== 'string' || !item.clause.trim()) {
+                        throw crearError(`Precondición CHECK inválida en ${entrada.identificador}.`);
+                    }
+                    continue;
+                }
+                if (item.type === 'TABLE_MATCH_BASELINE' && (entrada.version !== 23 || item.target !== 'actividades_orientacion')) {
+                    throw crearError(`Precondición estructural inválida en ${entrada.identificador}.`);
                 }
                 if (!/^[a-z][a-z0-9_]*$/.test(item.target || '') || (item.table !== undefined && !/^[a-z][a-z0-9_]*$/.test(item.table))) {
                     throw crearError(`Target de precondicion invalido en ${entrada.identificador}.`);

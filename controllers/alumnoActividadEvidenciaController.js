@@ -18,6 +18,11 @@ const positiveId = (value) => {
 
 const jsonError = (res, status, message) => res.status(status).json({ resultado: 'error', mensaje: message });
 const controlledError = (status, code) => Object.assign(new Error(code), { status, code });
+const safeTechnicalCode = (error) => (/^[A-Z][A-Z0-9_]*$/.test(error?.code || '') ? error.code : 'TECHNICAL_ERROR');
+const logSafeEvidenceFailure = (stage, error, logger = console.error) => {
+    const safeStage = /^EVIDENCE_STAGE_[A-Z_]+$/.test(stage || '') ? stage : 'EVIDENCE_STAGE_UNKNOWN';
+    logger(`${safeStage} CODE=${safeTechnicalCode(error)}`);
+};
 
 const uploadEvidence = async (req, res) => {
     const activityId = positiveId(req.params.actividadId);
@@ -37,6 +42,7 @@ const uploadEvidence = async (req, res) => {
 
     let connection;
     let committed = false;
+    let stage = 'EVIDENCE_STAGE_VALIDATION';
     const finalPaths = [];
     try {
         const inspections = await Promise.allSettled(req.files.map(storageService.inspectFile));
@@ -51,13 +57,18 @@ const uploadEvidence = async (req, res) => {
         }
         const newBytes = validated.reduce((total, file) => total + file.size, 0);
 
+        stage = 'EVIDENCE_STAGE_CONNECTION';
         connection = await pool.getConnection();
+        stage = 'EVIDENCE_STAGE_TRANSACTION';
         await connection.beginTransaction();
+        stage = 'EVIDENCE_STAGE_LOCK';
         const activity = await actividadOrientacionModel.bloquearParaEntregaAlumno(connection, activityId, studentId);
         if (!activity) throw controlledError(404, 'ACTIVITY_NOT_FOUND');
         if (!OPEN_STATES.has(activity.estado_clave)) throw controlledError(409, 'ACTIVITY_STATE_CLOSED');
+        stage = 'EVIDENCE_STAGE_STATE_LOOKUP';
         const completedState = await estadoActividadOrientacionModel.buscarPorClave('REALIZADA', connection);
         if (!completedState) throw controlledError(503, 'COMPLETED_STATE_UNAVAILABLE');
+        stage = 'EVIDENCE_STAGE_USAGE';
         const usage = await adjuntoModel.obtenerUsoPorActividad(activityId, studentId, connection);
         if (!usage) throw controlledError(404, 'ACTIVITY_NOT_FOUND');
         if (usage.cantidad + validated.length > MAX_FILES || usage.bytes + newBytes > MAX_TOTAL_BYTES) {
@@ -65,7 +76,9 @@ const uploadEvidence = async (req, res) => {
         }
 
         for (const file of validated) {
+            stage = 'EVIDENCE_STAGE_MOVE';
             finalPaths.push(await storageService.moveToFinal(file));
+            stage = 'EVIDENCE_STAGE_INSERT';
             const inserted = await adjuntoModel.insertarUno(connection, {
                 actividadId: activityId,
                 subidoPorUsuarioId: studentId,
@@ -78,6 +91,7 @@ const uploadEvidence = async (req, res) => {
             });
             if (inserted.affectedRows !== 1) throw controlledError(503, 'INCOMPLETE_ATTACHMENT_INSERT');
         }
+        stage = 'EVIDENCE_STAGE_STATE_UPDATE';
         const updated = await actividadOrientacionModel.actualizarARealizadaCondicional(connection, {
             actividadId: activityId,
             alumnoUsuarioId: studentId,
@@ -85,10 +99,12 @@ const uploadEvidence = async (req, res) => {
             estadoIdRealizada: completedState.id
         });
         if (updated.affectedRows !== 1) throw controlledError(409, 'CONCURRENT_ACTIVITY_CHANGE');
+        stage = 'EVIDENCE_STAGE_STATE_CONFIRMATION';
         const finalState = await actividadOrientacionModel.confirmarEstadoAlumno(connection, activityId, studentId);
         if (!finalState || finalState.estado_clave !== 'REALIZADA' || !finalState.fecha_realizacion) {
             throw controlledError(503, 'FINAL_STATE_VERIFICATION_FAILED');
         }
+        stage = 'EVIDENCE_STAGE_COMMIT';
         await connection.commit();
         committed = true;
         return res.status(201).json({
@@ -97,6 +113,7 @@ const uploadEvidence = async (req, res) => {
             mensaje: 'La evidencia se envió correctamente.'
         });
     } catch (error) {
+        logSafeEvidenceFailure(stage, error);
         if (connection && !committed) await connection.rollback().catch(() => {});
         if (!committed) {
             await Promise.all([storageService.cleanupFiles(finalPaths), cleanupRequestFiles(req)]);
@@ -234,4 +251,4 @@ const deleteEvidence = async (req, res) => {
     }
 };
 
-module.exports = { uploadEvidence, downloadEvidence, deleteEvidence, MAX_TOTAL_BYTES };
+module.exports = { uploadEvidence, downloadEvidence, deleteEvidence, MAX_TOTAL_BYTES, logSafeEvidenceFailure };
