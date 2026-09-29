@@ -9,6 +9,8 @@ const manifestApi = require('../scripts/migrationManifest');
 const preflight = require('../scripts/migrationPreflight');
 
 const manifest = manifestApi.cargarManifiesto();
+const manifestThrough023 = structuredClone(manifest);
+manifestThrough023.migraciones = manifestThrough023.migraciones.filter((item) => item.version <= 23);
 const entry = manifest.migraciones.find((item) => item.version === 23);
 const contract = apply.cargarContrato(entry);
 const descriptor = preflight.cargarDescriptor();
@@ -97,8 +99,8 @@ test('03 solo elimina el CHECK de realización y no contiene otras operaciones',
 
 test('04 023 depende exclusivamente de 022 y es la última ACTIVE', () => {
     assert.deepEqual(entry.execution.dependsOn, [22]);
-    assert.equal(manifest.migraciones.at(-1).version, 23);
-    assert.equal(manifest.migraciones.slice(15).every((item) => item.estado === 'ACTIVE'), true);
+    assert.deepEqual(manifest.migraciones.find((item) => item.version === 24).execution.dependsOn, [23]);
+    assert.equal(manifest.migraciones.filter((item) => item.version >= 25).every((item) => item.estado === 'PLANNED'), true);
 });
 
 test('05 precondición acepta exclusivamente la estructura heredada exacta', () => {
@@ -139,7 +141,7 @@ test('11 postcondición exige ausencia de realización y preserva límite', () =
 test('12 composición exige el CHECK antes de 023 y su ausencia después', () => {
     const before = preflight.compararSnapshotConDescriptor(snapshot(), descriptor, manifest);
     assert.equal(before.clasificacion, 'BASELINE_V008_COMPLETE', JSON.stringify(before.reglas.filter((rule) => !rule.ok)));
-    const after = preflight.compararSnapshotConDescriptor(snapshot({ applied: true }), descriptor, manifest);
+    const after = preflight.compararSnapshotConDescriptor(snapshot({ applied: true }), descriptor, manifestThrough023);
     assert.equal(after.clasificacion, 'MIGRATIONS_CURRENT');
     assert.equal(after.fallidas, 0);
 });
@@ -149,7 +151,7 @@ test('13 estructura no registrada después del ALTER se rechaza', () => {
 });
 
 test('14 aplicada y registrada deja de estar pendiente', () => {
-    assert.deepEqual(apply.construirPlan(manifest, snapshot({ applied: true })), []);
+    assert.deepEqual(apply.construirPlan(manifestThrough023, snapshot({ applied: true })), []);
 });
 
 test('15 CURRENT_DATE se conserva y no se sustituye por la fecha programada', () => {
@@ -173,7 +175,7 @@ test('17 dry-run selecciona únicamente 023 y no escribe', async () => {
     const calls = []; const output = [];
     const connection = { async execute(query) { calls.push(query); return [[]]; }, release() {} };
     const pool = { async getConnection() { return connection; }, async end() {} };
-    const plan = await apply.ejecutarDryRun({ log: (line) => output.push(line) }, { pool, manifest, snapshot: async () => snapshot() });
+    const plan = await apply.ejecutarDryRun({ log: (line) => output.push(line) }, { pool, manifest: manifestThrough023, snapshot: async () => snapshot() });
     assert.deepEqual(plan.map((item) => item.entrada.version), [23]);
     assert.match(output.join('\n'), /DROP_CHECK actividades_orientacion/);
     assert.equal(calls.some((query) => /\b(ALTER|INSERT|UPDATE|DELETE|CREATE|DROP)\b/i.test(query)), false);

@@ -76,7 +76,8 @@ test('2. todos los SQL físicos están manifestados', () => {
         '020_create_scheduled_classes.sql',
         '021_create_teacher_non_teaching_activities.sql',
         '022_add_rejected_orientation_activity_state.sql',
-        '023_allow_early_orientation_evidence_submission.sql'
+        '023_allow_early_orientation_evidence_submission.sql',
+        '024_create_academic_tasks_core.sql'
     ].sort();
     assert.deepEqual(fisicos, declarados);
     assert.deepEqual(fisicos, esperados);
@@ -86,7 +87,7 @@ test('2. todos los SQL físicos están manifestados', () => {
 
 test('3. los checksums reales coinciden', () => {
     const resultado = manifestModule.validarArchivosYChecksums(manifestModule.cargarManifiesto());
-    assert.equal(resultado.totalArchivosSql, 23);
+    assert.equal(resultado.totalArchivosSql, 24);
 });
 
 test('4. LF y CRLF producen el mismo checksum', () => {
@@ -254,8 +255,11 @@ test('22. 015 a 023 están active y no existen migraciones posteriores', () => {
     assert.equal(activa023.estado, 'ACTIVE');
     assert.deepEqual(activa023.execution.dependsOn, [22]);
     assert.equal(activa023.execution.statements[0].operation, 'DROP_CHECK');
-    assert.equal(migraciones.at(-1).version, 23);
-    assert.equal(migraciones.some((item) => item.version > 23), false);
+    const activa024 = migraciones.find((item) => item.version === 24);
+    assert.equal(activa024.estado, 'ACTIVE');
+    assert.deepEqual(activa024.execution.dependsOn, [23]);
+    assert.equal(migraciones.filter((item) => item.version >= 25).every((item) => item.estado === 'PLANNED' && item.archivo === null), true);
+    assert.equal(migraciones.at(-1).version, 27);
 });
 
 test('23. el módulo no importa mysql2, dotenv ni database.js', () => {
@@ -285,7 +289,7 @@ test('25. plan es estático y no presenta migraciones como aplicadas', () => {
     assert.match(texto, /Plan estático del manifiesto/);
     assert.match(texto, /no hubo acceso a base de datos/);
     assert.doesNotMatch(texto, /aplicada en MySQL|conectado a DB/i);
-    assert.equal(salida.filter((linea) => /^\d{3} \|/.test(linea)).length, 24);
+    assert.equal(salida.filter((linea) => /^\d{3} \|/.test(linea)).length, 28);
 });
 
 test('26. formato 2 declara el límite del baseline legado', () => {

@@ -173,7 +173,7 @@ function validarEstructuraManifiesto(manifiesto) {
                 || !Array.isArray(ejecucion.statements) || ejecucion.statements.length !== ejecucion.statementCount) {
                 throw crearError(`Metadatos de ejecución inválidos en ${entrada.identificador}.`);
             }
-            const targets = new Set();
+            const operacionesTargets = new Set();
             for (const statement of ejecucion.statements) {
                 const operacionCatalogoValida = entrada.version === 22
                     && statement.operation === 'INSERT_CATALOG_ROW'
@@ -182,9 +182,30 @@ function validarEstructuraManifiesto(manifiesto) {
                     && statement.operation === 'DROP_CHECK'
                     && statement.target === 'actividades_orientacion'
                     && statement.constraint === 'chk_actividades_fecha_realizacion';
-                if (!statement || (!['CREATE_TABLE', 'ALTER_TABLE'].includes(statement.operation) && !operacionCatalogoValida && !eliminacionCheckValida) || !/^[a-z][a-z0-9_]*$/.test(statement.target || '')
-                    || targets.has(statement.target)) throw crearError(`Operación o target inválido en ${entrada.identificador}.`);
-                targets.add(statement.target);
+                const insercionCatalogoMultipleValida = entrada.version === 24
+                    && statement.operation === 'INSERT_CATALOG_ROWS'
+                    && ['estados_tarea_academica', 'estados_entrega_tarea'].includes(statement.target)
+                    && Array.isArray(statement.rows)
+                    && statement.rows.length === (statement.target === 'estados_tarea_academica' ? 4 : 3)
+                    && statement.rows.every((row) => row && typeof row.clave === 'string'
+                        && typeof row.nombre === 'string' && row.descripcion === null
+                        && Number.isInteger(row.orden) && row.activo === 1)
+                    && JSON.stringify(statement.rows) === JSON.stringify(statement.target === 'estados_tarea_academica'
+                        ? [
+                            { clave: 'BORRADOR', nombre: 'Borrador', descripcion: null, orden: 1, activo: 1 },
+                            { clave: 'PUBLICADA', nombre: 'Publicada', descripcion: null, orden: 2, activo: 1 },
+                            { clave: 'CERRADA', nombre: 'Cerrada', descripcion: null, orden: 3, activo: 1 },
+                            { clave: 'CANCELADA', nombre: 'Cancelada', descripcion: null, orden: 4, activo: 1 }
+                        ]
+                        : [
+                            { clave: 'ENVIADA', nombre: 'Enviada', descripcion: null, orden: 1, activo: 1 },
+                            { clave: 'APROBADA', nombre: 'Aprobada', descripcion: null, orden: 2, activo: 1 },
+                            { clave: 'RECHAZADA', nombre: 'Rechazada', descripcion: null, orden: 3, activo: 1 }
+                        ]);
+                const operationTarget = `${statement.operation}:${statement.target}`;
+                if (!statement || (!['CREATE_TABLE', 'ALTER_TABLE'].includes(statement.operation) && !operacionCatalogoValida && !eliminacionCheckValida && !insercionCatalogoMultipleValida) || !/^[a-z][a-z0-9_]*$/.test(statement.target || '')
+                    || operacionesTargets.has(operationTarget)) throw crearError(`Operación o target inválido en ${entrada.identificador}.`);
+                operacionesTargets.add(operationTarget);
             }
             const tiposPrecondicion = new Set(['MIGRATION_APPLIED', 'TABLE_ABSENT', 'TABLE_PRESENT', 'COLUMN_ABSENT', 'INDEX_ABSENT', 'FOREIGN_KEY_ABSENT', 'COLUMN_MATCH', 'CATALOG_VALUE_ABSENT', 'CHECK_MATCH', 'TABLE_MATCH_BASELINE']);
             if (!Array.isArray(ejecucion.preconditions) || !ejecucion.preconditions.length
@@ -192,7 +213,8 @@ function validarEstructuraManifiesto(manifiesto) {
                 throw crearError(`Precondiciones incoherentes en ${entrada.identificador}.`);
             }
             for (const statement of ejecucion.statements) {
-                const tipo = statement.operation === 'CREATE_TABLE' ? 'TABLE_ABSENT' : 'TABLE_PRESENT';
+                const tipo = statement.operation === 'CREATE_TABLE' || statement.operation === 'INSERT_CATALOG_ROWS'
+                    ? 'TABLE_ABSENT' : 'TABLE_PRESENT';
                 if (!ejecucion.preconditions.some((item) => item.type === tipo && item.target === statement.target)) {
                     throw crearError(`Falta precondicion estructural en ${entrada.identificador}.`);
                 }
@@ -203,8 +225,13 @@ function validarEstructuraManifiesto(manifiesto) {
                     continue;
                 }
                 if (item.type === 'CATALOG_VALUE_ABSENT') {
-                    if (entrada.version !== 22 || item.table !== 'estados_actividad_orientacion'
-                        || !['clave', 'nombre', 'orden'].includes(item.column)
+                    const catalogo022 = entrada.version === 22 && item.table === 'estados_actividad_orientacion';
+                    const statement024 = entrada.version === 24
+                        ? ejecucion.statements.find((statement) => statement.operation === 'INSERT_CATALOG_ROWS' && statement.target === item.table)
+                        : null;
+                    const catalogo024 = Boolean(statement024)
+                        && statement024.rows.some((row) => String(row[item.column]) === String(item.value));
+                    if ((!catalogo022 && !catalogo024) || !['clave', 'nombre', 'orden'].includes(item.column)
                         || !['string', 'number'].includes(typeof item.value)) {
                         throw crearError(`Precondición de catálogo inválida en ${entrada.identificador}.`);
                     }

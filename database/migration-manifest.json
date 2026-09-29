@@ -385,6 +385,98 @@
         "postconditionContract": "database/migration-contracts/023_early_orientation_evidence_submission.json",
         "postconditionChecksumSha256": "76af71f903b4c8fc9f1ac659daa19be561b51e82c459787f309a65172c7a9f08"
       }
+    },
+    {
+      "version": 24,
+      "identificador": "024",
+      "estado": "ACTIVE",
+      "archivo": "024_create_academic_tasks_core.sql",
+      "checksumSha256": "76e45e73de5adb2afb833c80ba6dedb6b23c83c03fac6f88f0b7f828e297e344",
+      "descripcion": "Crear catálogos de estados y núcleo de tareas académicas del docente.",
+      "execution": {
+        "dependsOn": [23],
+        "statementCount": 5,
+        "statements": [
+          {"operation":"CREATE_TABLE","target":"estados_tarea_academica"},
+          {"operation":"INSERT_CATALOG_ROWS","target":"estados_tarea_academica","rows":[
+            {"clave":"BORRADOR","nombre":"Borrador","descripcion":null,"orden":1,"activo":1},
+            {"clave":"PUBLICADA","nombre":"Publicada","descripcion":null,"orden":2,"activo":1},
+            {"clave":"CERRADA","nombre":"Cerrada","descripcion":null,"orden":3,"activo":1},
+            {"clave":"CANCELADA","nombre":"Cancelada","descripcion":null,"orden":4,"activo":1}
+          ]},
+          {"operation":"CREATE_TABLE","target":"estados_entrega_tarea"},
+          {"operation":"INSERT_CATALOG_ROWS","target":"estados_entrega_tarea","rows":[
+            {"clave":"ENVIADA","nombre":"Enviada","descripcion":null,"orden":1,"activo":1},
+            {"clave":"APROBADA","nombre":"Aprobada","descripcion":null,"orden":2,"activo":1},
+            {"clave":"RECHAZADA","nombre":"Rechazada","descripcion":null,"orden":3,"activo":1}
+          ]},
+          {"operation":"CREATE_TABLE","target":"tareas_academicas"}
+        ],
+        "preconditions": [
+          {"type":"MIGRATION_APPLIED","version":23},
+          {"type":"TABLE_ABSENT","target":"estados_tarea_academica"},
+          {"type":"TABLE_ABSENT","target":"estados_entrega_tarea"},
+          {"type":"TABLE_ABSENT","target":"tareas_academicas"},
+          {"type":"CATALOG_VALUE_ABSENT","table":"estados_tarea_academica","column":"clave","value":"BORRADOR"},
+          {"type":"CATALOG_VALUE_ABSENT","table":"estados_tarea_academica","column":"clave","value":"PUBLICADA"},
+          {"type":"CATALOG_VALUE_ABSENT","table":"estados_tarea_academica","column":"clave","value":"CERRADA"},
+          {"type":"CATALOG_VALUE_ABSENT","table":"estados_tarea_academica","column":"clave","value":"CANCELADA"},
+          {"type":"CATALOG_VALUE_ABSENT","table":"estados_tarea_academica","column":"nombre","value":"Borrador"},
+          {"type":"CATALOG_VALUE_ABSENT","table":"estados_tarea_academica","column":"nombre","value":"Publicada"},
+          {"type":"CATALOG_VALUE_ABSENT","table":"estados_tarea_academica","column":"nombre","value":"Cerrada"},
+          {"type":"CATALOG_VALUE_ABSENT","table":"estados_tarea_academica","column":"nombre","value":"Cancelada"},
+          {"type":"CATALOG_VALUE_ABSENT","table":"estados_tarea_academica","column":"orden","value":1},
+          {"type":"CATALOG_VALUE_ABSENT","table":"estados_tarea_academica","column":"orden","value":2},
+          {"type":"CATALOG_VALUE_ABSENT","table":"estados_tarea_academica","column":"orden","value":3},
+          {"type":"CATALOG_VALUE_ABSENT","table":"estados_tarea_academica","column":"orden","value":4},
+          {"type":"CATALOG_VALUE_ABSENT","table":"estados_entrega_tarea","column":"clave","value":"ENVIADA"},
+          {"type":"CATALOG_VALUE_ABSENT","table":"estados_entrega_tarea","column":"clave","value":"APROBADA"},
+          {"type":"CATALOG_VALUE_ABSENT","table":"estados_entrega_tarea","column":"clave","value":"RECHAZADA"},
+          {"type":"CATALOG_VALUE_ABSENT","table":"estados_entrega_tarea","column":"nombre","value":"Enviada"},
+          {"type":"CATALOG_VALUE_ABSENT","table":"estados_entrega_tarea","column":"nombre","value":"Aprobada"},
+          {"type":"CATALOG_VALUE_ABSENT","table":"estados_entrega_tarea","column":"nombre","value":"Rechazada"},
+          {"type":"CATALOG_VALUE_ABSENT","table":"estados_entrega_tarea","column":"orden","value":1},
+          {"type":"CATALOG_VALUE_ABSENT","table":"estados_entrega_tarea","column":"orden","value":2},
+          {"type":"CATALOG_VALUE_ABSENT","table":"estados_entrega_tarea","column":"orden","value":3},
+          {"type":"TABLE_PRESENT","target":"usuarios"},
+          {"type":"TABLE_PRESENT","target":"grupos"},
+          {"type":"TABLE_PRESENT","target":"periodos_academicos"},
+          {"type":"TABLE_PRESENT","target":"materias"},
+          {"type":"COLUMN_MATCH","table":"usuarios","target":"id","columnType":"bigint unsigned","nullable":false},
+          {"type":"COLUMN_MATCH","table":"grupos","target":"id","columnType":"int unsigned","nullable":false},
+          {"type":"COLUMN_MATCH","table":"periodos_academicos","target":"id","columnType":"int unsigned","nullable":false},
+          {"type":"COLUMN_MATCH","table":"materias","target":"id","columnType":"int unsigned","nullable":false}
+        ],
+        "postconditionContract": "database/migration-contracts/024_academic_tasks_core.json",
+        "postconditionChecksumSha256": "3d96b00b8193c2ba0775f274d2254835052bcde9d8649e97fb78644071b3f188"
+      }
+    },
+    {
+      "version": 25,
+      "identificador": "025",
+      "estado": "PLANNED",
+      "archivo": null,
+      "checksumSha256": null,
+      "descripcion": "Destinatarios y adjuntos versionados de tareas académicas.",
+      "razonEstado": "Diseño contractual pendiente; no existe SQL ejecutable."
+    },
+    {
+      "version": 26,
+      "identificador": "026",
+      "estado": "PLANNED",
+      "archivo": null,
+      "checksumSha256": null,
+      "descripcion": "Intentos y adjuntos de entregas académicas.",
+      "razonEstado": "Diseño contractual pendiente; no existe SQL ejecutable."
+    },
+    {
+      "version": 27,
+      "identificador": "027",
+      "estado": "PLANNED",
+      "archivo": null,
+      "checksumSha256": null,
+      "descripcion": "Revisiones e historial académico de entregas.",
+      "razonEstado": "Diseño contractual pendiente; no existe SQL ejecutable."
     }
   ]
 }

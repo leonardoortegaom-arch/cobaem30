@@ -47,6 +47,10 @@ const QUERIES = Object.freeze({
     estadosActividad: `SELECT clave FROM estados_actividad_orientacion WHERE clave IN (?, ?, ?, ?, ?)`,
     estadosActividadFilas: `SELECT clave, nombre, descripcion, orden, activo
         FROM estados_actividad_orientacion ORDER BY orden, clave`,
+    estadosTareaFilas: `SELECT clave, nombre, descripcion, orden, activo
+        FROM estados_tarea_academica ORDER BY orden, clave`,
+    estadosEntregaTareaFilas: `SELECT clave, nombre, descripcion, orden, activo
+        FROM estados_entrega_tarea ORDER BY orden, clave`,
     tiposReporte: `SELECT clave FROM tipos_reporte_orientacion WHERE clave IN (?, ?)`,
     estadosReporte: `SELECT clave FROM estados_reporte_orientacion WHERE clave IN (?, ?)`,
     controlRows: `SELECT version, archivo, checksum_sha256, tipo_registro, aplicada_en
@@ -529,6 +533,11 @@ function compararFilasCatalogo(contrato, snapshot, resultado) {
             agregarRegla(resultado, `CATALOG_CARDINALITY_${tabla.toUpperCase()}`, 'catalogos',
                 relevantes.length === cardinalidad, 'Cardinalidad contractual de catálogo.');
         }
+        const cardinalidadTotal = contrato.cardinalidadTotalExacta?.[tabla];
+        if (Number.isInteger(cardinalidadTotal)) {
+            agregarRegla(resultado, `CATALOG_TOTAL_CARDINALITY_${tabla.toUpperCase()}`, 'catalogos',
+                reales.length === cardinalidadTotal, 'Cardinalidad total contractual de catálogo.');
+        }
     }
 }
 
@@ -718,6 +727,12 @@ async function consultarSnapshot(adaptador, descriptor) {
     }
     datos.filasCatalogo.estados_actividad_orientacion = nombresTablas.has('estados_actividad_orientacion')
         ? await ejecutarConsultaLectura(adaptador, 'estadosActividadFilas')
+        : [];
+    datos.filasCatalogo.estados_tarea_academica = nombresTablas.has('estados_tarea_academica')
+        ? await ejecutarConsultaLectura(adaptador, 'estadosTareaFilas')
+        : [];
+    datos.filasCatalogo.estados_entrega_tarea = nombresTablas.has('estados_entrega_tarea')
+        ? await ejecutarConsultaLectura(adaptador, 'estadosEntregaTareaFilas')
         : [];
     if (nombresTablas.has('schema_migrations')) {
         datos.controlRows = await ejecutarConsultaLectura(adaptador, 'controlRows');

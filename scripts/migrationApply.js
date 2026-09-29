@@ -108,6 +108,17 @@ function clasificarSentenciaDeclarada(sql, declarada) {
         if (!patron.test(sql)) throw errorSeguro('SQL_OPERATION_FORBIDDEN', 'SQL_VALIDATION');
         return { operation, target: declarada.target, sql };
     }
+    if (operation === 'INSERT_CATALOG_ROWS') {
+        if (!['estados_tarea_academica', 'estados_entrega_tarea'].includes(declarada.target)
+            || !Array.isArray(declarada.rows)) {
+            throw errorSeguro('STATEMENT_TARGET_OR_ORDER_MISMATCH', 'SQL_VALIDATION');
+        }
+        const escapar = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const tuples = declarada.rows.map((row) => `\\(\\s*'${escapar(row.clave)}'\\s*,\\s*'${escapar(row.nombre)}'\\s*,\\s*NULL\\s*,\\s*${row.orden}\\s*,\\s*${row.activo}\\s*\\)`);
+        const patron = new RegExp(`^INSERT\\s+INTO\\s+${declarada.target}\\s*\\(\\s*clave\\s*,\\s*nombre\\s*,\\s*descripcion\\s*,\\s*orden\\s*,\\s*activo\\s*\\)\\s*VALUES\\s*${tuples.join('\\s*,\\s*')}$`, 'i');
+        if (!patron.test(sql)) throw errorSeguro('SQL_OPERATION_FORBIDDEN', 'SQL_VALIDATION');
+        return { operation, target: declarada.target, rows: declarada.rows, sql };
+    }
     if (operation === 'DROP_CHECK') {
         if (declarada.target !== 'actividades_orientacion'
             || declarada.constraint !== 'chk_actividades_fecha_realizacion') {
@@ -132,7 +143,7 @@ function validarSqlMigracion(entrada, directorio = path.join(manifestApi.PROJECT
     const ruta = path.resolve(directorio, entrada.archivo);
     if (manifestApi.calcularChecksumCanonico(ruta) !== entrada.checksumSha256) throw errorSeguro('SQL_CHECKSUM_MISMATCH', 'SQL_VALIDATION');
     const contenido = fs.readFileSync(ruta, 'utf8');
-    if (entrada.execution.statements.some((item) => item.operation === 'INSERT_CATALOG_ROW')
+    if (entrada.execution.statements.some((item) => ['INSERT_CATALOG_ROW', 'INSERT_CATALOG_ROWS'].includes(item.operation))
         && /--|#|\/\*/.test(contenido)) throw errorSeguro('SQL_COMMENT_FORBIDDEN', 'SQL_VALIDATION');
     const sentencias = separarSentenciasSql(contenido);
     if (sentencias.length !== entrada.execution.statementCount) throw errorSeguro('STATEMENT_COUNT_MISMATCH', 'SQL_VALIDATION');
@@ -259,6 +270,8 @@ function validarPostcondicion(snapshot, contrato) {
             const claves = new Set(esperadas.map((fila) => fila.clave));
             if (reales.filter((fila) => claves.has(String(fila.clave))).length !== cardinalidad) errores.push(`CATALOG_CARDINALITY_${tabla}`);
         }
+        const cardinalidadTotal = contrato.cardinalidadTotalExacta?.[tabla];
+        if (Number.isInteger(cardinalidadTotal) && reales.length !== cardinalidadTotal) errores.push(`CATALOG_TOTAL_CARDINALITY_${tabla}`);
     }
     if (errores.length) throw errorSeguro('POSTCONDITION_MISMATCH', 'POSTCONDITION');
     return true;
@@ -433,7 +446,7 @@ async function ejecutarDryRun(output = {}, deps = {}) {
         const plan = construirPlan(manifiesto, snapshot);
         log(`Migraciones ACTIVE pendientes: ${plan.map((p) => p.entrada.identificador).join(', ') || 'ninguna'}.`);
         for (const item of plan) { log(`${item.entrada.identificador}: ${item.statements.length} sentencias.`); item.statements.forEach((s) => log(`  ${s.operation} ${s.target}`)); }
-        if (plan.some((item) => item.statements.some((statement) => statement.operation !== 'INSERT_CATALOG_ROW'))) {
+        if (plan.some((item) => item.statements.some((statement) => !['INSERT_CATALOG_ROW', 'INSERT_CATALOG_ROWS'].includes(statement.operation)))) {
             log('Advertencia: el DDL de MySQL puede producir autocommit y estructura parcial.');
         } else if (plan.length > 0) {
             log('La operación de catálogo se aplicará transaccionalmente junto con su registro.');
@@ -503,7 +516,10 @@ async function ejecutarAdministrativo(opciones, execute, output = {}, deps = {})
             }
             for (const [index, statement] of item.statements.entries()) {
                 try {
-                    await connection.execute(statement.sql);
+                    const [result] = await connection.execute(statement.sql);
+                    if (statement.operation === 'INSERT_CATALOG_ROWS' && result?.affectedRows !== statement.rows.length) {
+                        throw errorSeguro('CATALOG_INSERT_FAILED', 'STATEMENT_APPLICATION');
+                    }
                 } catch (cause) {
                     const error = errorSeguro(
                         /^[A-Z0-9_]+$/.test(cause?.code || '') ? cause.code : 'STATEMENT_EXECUTION_FAILED',

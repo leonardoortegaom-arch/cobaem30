@@ -1,0 +1,105 @@
+{
+  "versionContrato": 1,
+  "migracion": 24,
+  "identificador": "024",
+  "algoritmoChecksum": "sha256-utf8-lf-v1",
+  "tablasPreservadas": ["usuarios", "grupos", "periodos_academicos", "materias", "clases_programadas"],
+  "columnasProhibidas": {
+    "tareas_academicas": ["alumno_id", "orientador_id", "clase_programada_id", "entrega_id", "calificacion", "revision", "activo", "eliminado_en"]
+  },
+  "tablas": {
+    "estados_tarea_academica": {
+      "engine":"innodb","charset":"utf8mb4","collation":"utf8mb4_0900_ai_ci",
+      "columnas":[
+        {"nombre":"id","tipo":"tinyint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"clave","tipo":"varchar(30)","unsigned":false,"nullable":false},
+        {"nombre":"nombre","tipo":"varchar(100)","unsigned":false,"nullable":false},
+        {"nombre":"descripcion","tipo":"varchar(255)","unsigned":false,"nullable":true,"default":null},
+        {"nombre":"orden","tipo":"smallint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"activo","tipo":"tinyint(1)","unsigned":false,"nullable":false,"default":"1"},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"},
+        {"nombre":"actualizado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP","extra":"on update CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey":["id"],
+      "indicesUnicos":[{"columnas":["clave"]},{"columnas":["nombre"]},{"columnas":["orden"]}],
+      "indices":[{"columnas":["activo","orden","id"]}],
+      "foreignKeys":[],
+      "checks":[{"fragmentos":["char_length(trim(clave))",">","0"]},{"fragmentos":["char_length(trim(nombre))",">","0"]},{"fragmentos":["activo","in (0, 1)"]}]
+    },
+    "estados_entrega_tarea": {
+      "engine":"innodb","charset":"utf8mb4","collation":"utf8mb4_0900_ai_ci",
+      "columnas":[
+        {"nombre":"id","tipo":"tinyint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"clave","tipo":"varchar(30)","unsigned":false,"nullable":false},
+        {"nombre":"nombre","tipo":"varchar(100)","unsigned":false,"nullable":false},
+        {"nombre":"descripcion","tipo":"varchar(255)","unsigned":false,"nullable":true,"default":null},
+        {"nombre":"orden","tipo":"smallint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"activo","tipo":"tinyint(1)","unsigned":false,"nullable":false,"default":"1"},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"},
+        {"nombre":"actualizado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP","extra":"on update CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey":["id"],
+      "indicesUnicos":[{"columnas":["clave"]},{"columnas":["nombre"]},{"columnas":["orden"]}],
+      "indices":[{"columnas":["activo","orden","id"]}],
+      "foreignKeys":[],
+      "checks":[{"fragmentos":["char_length(trim(clave))",">","0"]},{"fragmentos":["char_length(trim(nombre))",">","0"]},{"fragmentos":["activo","in (0, 1)"]}]
+    },
+    "tareas_academicas": {
+      "engine":"innodb","charset":"utf8mb4","collation":"utf8mb4_0900_ai_ci",
+      "columnas":[
+        {"nombre":"id","tipo":"bigint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"docente_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"grupo_id","tipo":"int unsigned","unsigned":true,"nullable":false},
+        {"nombre":"periodo_academico_id","tipo":"int unsigned","unsigned":true,"nullable":false},
+        {"nombre":"materia_id","tipo":"int unsigned","unsigned":true,"nullable":false},
+        {"nombre":"estado_tarea_id","tipo":"tinyint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"titulo","tipo":"varchar(150)","unsigned":false,"nullable":false},
+        {"nombre":"instrucciones","tipo":"text","unsigned":false,"nullable":false},
+        {"nombre":"puntaje_maximo","tipo":"decimal(8,2)","unsigned":false,"nullable":false},
+        {"nombre":"fecha_publicacion","tipo":"timestamp","unsigned":false,"nullable":true,"default":null},
+        {"nombre":"fecha_limite","tipo":"timestamp","unsigned":false,"nullable":false},
+        {"nombre":"version","tipo":"int unsigned","unsigned":true,"nullable":false,"default":"1"},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"},
+        {"nombre":"actualizado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP","extra":"on update CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey":["id"],"indicesUnicos":[],
+      "indices":[
+        {"columnas":["docente_usuario_id","periodo_academico_id","estado_tarea_id","fecha_limite","id"]},
+        {"columnas":["grupo_id","periodo_academico_id","estado_tarea_id","fecha_limite","id"]},
+        {"columnas":["periodo_academico_id","estado_tarea_id","fecha_limite","id"]},
+        {"columnas":["materia_id","periodo_academico_id","id"]},
+        {"columnas":["estado_tarea_id","fecha_limite","id"]},
+        {"columnas":["fecha_limite","id"]}
+      ],
+      "foreignKeys":[
+        {"columnas":["docente_usuario_id"],"tablaDestino":"usuarios","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["grupo_id"],"tablaDestino":"grupos","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["periodo_academico_id"],"tablaDestino":"periodos_academicos","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["materia_id"],"tablaDestino":"materias","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["estado_tarea_id"],"tablaDestino":"estados_tarea_academica","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"}
+      ],
+      "checks":[
+        {"fragmentos":["char_length(trim(titulo))",">","0"]},
+        {"fragmentos":["char_length(trim(instrucciones))",">","0"]},
+        {"fragmentos":["puntaje_maximo",">","0"]},
+        {"fragmentos":["fecha_publicacion is null","or","fecha_limite > fecha_publicacion"]},
+        {"fragmentos":["version",">=","1"]}
+      ]
+    }
+  },
+  "filasCatalogo": {
+    "estados_tarea_academica": [
+      {"clave":"BORRADOR","nombre":"Borrador","descripcion":null,"orden":1,"activo":1},
+      {"clave":"PUBLICADA","nombre":"Publicada","descripcion":null,"orden":2,"activo":1},
+      {"clave":"CERRADA","nombre":"Cerrada","descripcion":null,"orden":3,"activo":1},
+      {"clave":"CANCELADA","nombre":"Cancelada","descripcion":null,"orden":4,"activo":1}
+    ],
+    "estados_entrega_tarea": [
+      {"clave":"ENVIADA","nombre":"Enviada","descripcion":null,"orden":1,"activo":1},
+      {"clave":"APROBADA","nombre":"Aprobada","descripcion":null,"orden":2,"activo":1},
+      {"clave":"RECHAZADA","nombre":"Rechazada","descripcion":null,"orden":3,"activo":1}
+    ]
+  },
+  "cardinalidadExacta":{"estados_tarea_academica":4,"estados_entrega_tarea":3},
+  "cardinalidadTotalExacta":{"estados_tarea_academica":4,"estados_entrega_tarea":3}
+}

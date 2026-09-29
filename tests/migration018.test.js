@@ -89,7 +89,7 @@ test('24 018 aplicada y registrada deja las migraciones posteriores pendientes',
         version: x.version, archivo: x.archivo, checksum_sha256: x.checksumSha256,
         tipo_registro: x.version === 0 ? 'EJECUTADA' : x.version <= 8 ? 'BASELINE' : 'EJECUTADA'
     }));
-    assert.deepEqual(apply.validarRegistrosAplicados(manifest, rows).pending.map((item) => item.version), [20, 21, 22, 23]);
+    assert.deepEqual(apply.validarRegistrosAplicados(manifest, rows).pending.map((item) => item.version), [20, 21, 22, 23, 24]);
 });
 test('25 fallo en segunda sentencia ocurre antes del registro', () => {
     const source = fs.readFileSync(path.join(root, 'scripts/migrationApply.js'), 'utf8');
