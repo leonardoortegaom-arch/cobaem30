@@ -487,11 +487,35 @@
     {
       "version": 26,
       "identificador": "026",
-      "estado": "PLANNED",
-      "archivo": null,
-      "checksumSha256": null,
+      "estado": "ACTIVE",
+      "archivo": "026_create_task_submission_attempts.sql",
+      "checksumSha256": "d42694bbfd69cc49bc7d8dc976720e811dbee07722c6f7639cc6b3c7d1696d2a",
       "descripcion": "Intentos y adjuntos de entregas académicas.",
-      "razonEstado": "Diseño contractual pendiente; no existe SQL ejecutable."
+      "execution": {
+        "dependsOn": [25],
+        "statementCount": 3,
+        "statements": [
+          {"operation":"CREATE_TABLE","target":"intentos_entrega_tarea"},
+          {"operation":"CREATE_TABLE","target":"adjuntos_intento_entrega"},
+          {"operation":"CREATE_TABLE","target":"contexto_adjuntos_intento_tarea"}
+        ],
+        "preconditions": [
+          {"type":"MIGRATION_APPLIED","version":25},
+          {"type":"TABLE_ABSENT","target":"intentos_entrega_tarea"},
+          {"type":"TABLE_ABSENT","target":"adjuntos_intento_entrega"},
+          {"type":"TABLE_ABSENT","target":"contexto_adjuntos_intento_tarea"},
+          {"type":"TABLE_PRESENT","target":"destinatarios_tarea_academica"},
+          {"type":"TABLE_PRESENT","target":"versiones_adjunto_tarea_academica"},
+          {"type":"TABLE_PRESENT","target":"estados_entrega_tarea"},
+          {"type":"TABLE_PRESENT","target":"usuarios"},
+          {"type":"COLUMN_MATCH","table":"destinatarios_tarea_academica","target":"id","columnType":"bigint unsigned","nullable":false},
+          {"type":"COLUMN_MATCH","table":"versiones_adjunto_tarea_academica","target":"id","columnType":"bigint unsigned","nullable":false},
+          {"type":"COLUMN_MATCH","table":"estados_entrega_tarea","target":"id","columnType":"tinyint unsigned","nullable":false},
+          {"type":"COLUMN_MATCH","table":"usuarios","target":"id","columnType":"bigint unsigned","nullable":false}
+        ],
+        "postconditionContract": "database/migration-contracts/026_task_submission_attempts.json",
+        "postconditionChecksumSha256": "2c8d19240fcb4f6724b18c554cf48607d9db065a0b4ed5d526836955c1eb3270"
+      }
     },
     {
       "version": 27,

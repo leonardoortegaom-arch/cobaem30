@@ -20,6 +20,9 @@ const manifestBefore025 = structuredClone(manifest);
 const entry025Fixture = manifestBefore025.migraciones.find((item) => item.version === 25);
 Object.assign(entry025Fixture, { estado: 'PLANNED', archivo: null, checksumSha256: null, razonEstado: 'Fixture previa a 025.' });
 delete entry025Fixture.execution;
+const entry026Fixture = manifestBefore025.migraciones.find((item) => item.version === 26);
+Object.assign(entry026Fixture, { estado: 'PLANNED', archivo: null, checksumSha256: null, razonEstado: 'Fixture previa a 026.' });
+delete entry026Fixture.execution;
 
 function controlRows(through = 23) {
     return manifest.migraciones
@@ -127,10 +130,10 @@ test('08 024 depende de 023; 025 a 027 están PLANNED sin SQL', () => {
     assert.equal(entry.estado, 'ACTIVE'); assert.deepEqual(entry.execution.dependsOn, [23]);
     const active = manifest.migraciones.find((item) => item.version === 25);
     assert.equal(active.estado, 'ACTIVE'); assert.deepEqual(active.execution.dependsOn, [24]);
-    for (const version of [26, 27]) {
-        const planned = manifest.migraciones.find((item) => item.version === version);
-        assert.deepEqual([planned.estado, planned.archivo, planned.checksumSha256], ['PLANNED', null, null]);
-    }
+    const active026 = manifest.migraciones.find((item) => item.version === 26);
+    assert.equal(active026.estado, 'ACTIVE'); assert.deepEqual(active026.execution.dependsOn, [25]);
+    const planned = manifest.migraciones.find((item) => item.version === 27);
+    assert.deepEqual([planned.estado, planned.archivo, planned.checksumSha256], ['PLANNED', null, null]);
 });
 
 test('09 precondición acepta las tres tablas ausentes', () => assert.equal(apply.validarPrecondiciones(snapshot(), entry), true));

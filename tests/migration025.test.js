@@ -21,6 +21,10 @@ const tableNames = [
     'adjuntos_tarea_academica',
     'versiones_adjunto_tarea_academica'
 ];
+const manifestBefore026 = structuredClone(manifest);
+const entry026Fixture = manifestBefore026.migraciones.find((item) => item.version === 26);
+Object.assign(entry026Fixture, { estado: 'PLANNED', archivo: null, checksumSha256: null, razonEstado: 'Fixture previa a 026.' });
+delete entry026Fixture.execution;
 
 function controlRows(through = 24) {
     return manifest.migraciones
@@ -202,7 +206,7 @@ test('19 postcondición rechaza diferencias de FK, CHECK e índice', () => {
 });
 
 test('20 aplicada y registrada deja de estar pendiente', () => {
-    assert.deepEqual(apply.construirPlan(manifest, snapshot({ applied: true })), []);
+    assert.deepEqual(apply.construirPlan(manifestBefore026, snapshot({ applied: true })), []);
 });
 
 test('21 estructura existente sin registro se rechaza', () => {
@@ -220,7 +224,7 @@ test('23 dry-run selecciona solo 025 y no escribe', async () => {
     const calls = []; const output = [];
     const connection = { async execute(query) { calls.push(query); return [[]]; }, release() {} };
     const pool = { async getConnection() { return connection; }, async end() {} };
-    const plan = await apply.ejecutarDryRun({ log: (line) => output.push(line) }, { pool, manifest, snapshot: async () => snapshot() });
+    const plan = await apply.ejecutarDryRun({ log: (line) => output.push(line) }, { pool, manifest: manifestBefore026, snapshot: async () => snapshot() });
     assert.deepEqual(plan.map((item) => item.entrada.version), [25]);
     for (const name of tableNames) assert.match(output.join('\n'), new RegExp(`CREATE_TABLE ${name}`));
     assert.equal(calls.some((query) => /\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)\b/i.test(query)), false);
@@ -247,7 +251,7 @@ test('24 aplicación simulada ejecuta cuatro CREATE antes de registrar exactamen
     const deps = {
         env: { MIGRATION_DB_ALLOW_WRITES: 'ACTIVE_MIGRATIONS_ONLY', MIGRATION_DB_HOST: 'x', MIGRATION_DB_PORT: '3306', MIGRATION_DB_NAME: 'x', MIGRATION_DB_USER: 'x', MIGRATION_DB_PASSWORD: 'x' },
         pool,
-        manifest,
+        manifest: manifestBefore026,
         privileges: async (unused, required) => { assert.deepEqual(required, ['SELECT', 'CREATE', 'INSERT']); return { estado: 'PRESENT' }; },
         snapshot: async () => snapshot(),
         snapshotAfter: async () => snapshot({ applied: true }),
@@ -262,9 +266,9 @@ test('24 aplicación simulada ejecuta cuatro CREATE antes de registrar exactamen
 
 test('25 026 y 027 permanecen PLANNED y sin SQL físico', () => {
     assert.deepEqual(entry.execution.dependsOn, [24]);
-    for (const version of [26, 27]) {
-        const planned = manifest.migraciones.find((item) => item.version === version);
-        assert.deepEqual([planned.estado, planned.archivo, planned.checksumSha256], ['PLANNED', null, null]);
-        assert.equal(fs.readdirSync(manifestApi.MIGRATIONS_DIR).some((name) => name.startsWith(String(version).padStart(3, '0'))), false);
-    }
+    const active = manifest.migraciones.find((item) => item.version === 26);
+    assert.equal(active.estado, 'ACTIVE'); assert.deepEqual(active.execution.dependsOn, [25]);
+    const planned = manifest.migraciones.find((item) => item.version === 27);
+    assert.deepEqual([planned.estado, planned.archivo, planned.checksumSha256], ['PLANNED', null, null]);
+    assert.equal(fs.readdirSync(manifestApi.MIGRATIONS_DIR).some((name) => name.startsWith('027_')), false);
 });

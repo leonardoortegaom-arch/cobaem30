@@ -101,7 +101,8 @@ test('04 023 depende exclusivamente de 022 y es la última ACTIVE', () => {
     assert.deepEqual(entry.execution.dependsOn, [22]);
     assert.deepEqual(manifest.migraciones.find((item) => item.version === 24).execution.dependsOn, [23]);
     assert.equal(manifest.migraciones.find((item) => item.version === 25).estado, 'ACTIVE');
-    assert.equal(manifest.migraciones.filter((item) => item.version >= 26).every((item) => item.estado === 'PLANNED'), true);
+    assert.equal(manifest.migraciones.find((item) => item.version === 26).estado, 'ACTIVE');
+    assert.equal(manifest.migraciones.find((item) => item.version === 27).estado, 'PLANNED');
 });
 
 test('05 precondición acepta exclusivamente la estructura heredada exacta', () => {
