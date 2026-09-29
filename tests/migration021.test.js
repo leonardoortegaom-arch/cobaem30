@@ -169,7 +169,8 @@ test('25 021 está ACTIVE y las dependencias posteriores son lineales', () => {
     const posterior = manifest.migraciones.find((item) => item.version === 23);
     assert.deepEqual(posterior.execution.dependsOn, [22]);
     assert.deepEqual(manifest.migraciones.find((item) => item.version === 24).execution.dependsOn, [23]);
-    assert.equal(manifest.migraciones.filter((item) => item.version >= 25).every((item) => item.estado === 'PLANNED'), true);
+    assert.equal(manifest.migraciones.find((item) => item.version === 25).estado, 'ACTIVE');
+    assert.equal(manifest.migraciones.filter((item) => item.version >= 26).every((item) => item.estado === 'PLANNED'), true);
 });
 test('26 precondición es válida cuando ambas tablas están ausentes', () => assert.equal(apply.validarPrecondiciones(snapshotBefore021(), entry), true));
 test('27 una sola tabla existente se rechaza como estado parcial', () => {
@@ -183,7 +184,7 @@ test('28 aplicada y registrada deja 022 y 023 pendientes', () => {
     const snapshot = snapshotBefore021();
     for (const [name, spec] of Object.entries(contract.tablas)) snapshot.tablas[name] = tableFromContract(spec);
     snapshot.controlRows.push(appliedRow(entry));
-    assert.deepEqual(apply.validarRegistrosAplicados(manifest, snapshot.controlRows).pending.map((item) => item.version), [22, 23, 24]);
+    assert.deepEqual(apply.validarRegistrosAplicados(manifest, snapshot.controlRows).pending.map((item) => item.version), [22, 23, 24, 25]);
 });
 test('29 estructura completa no registrada se rechaza', () => {
     const snapshot = snapshotBefore021();

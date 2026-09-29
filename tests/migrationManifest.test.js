@@ -77,7 +77,8 @@ test('2. todos los SQL físicos están manifestados', () => {
         '021_create_teacher_non_teaching_activities.sql',
         '022_add_rejected_orientation_activity_state.sql',
         '023_allow_early_orientation_evidence_submission.sql',
-        '024_create_academic_tasks_core.sql'
+        '024_create_academic_tasks_core.sql',
+        '025_create_task_recipients_and_attachments.sql'
     ].sort();
     assert.deepEqual(fisicos, declarados);
     assert.deepEqual(fisicos, esperados);
@@ -87,7 +88,7 @@ test('2. todos los SQL físicos están manifestados', () => {
 
 test('3. los checksums reales coinciden', () => {
     const resultado = manifestModule.validarArchivosYChecksums(manifestModule.cargarManifiesto());
-    assert.equal(resultado.totalArchivosSql, 24);
+    assert.equal(resultado.totalArchivosSql, 25);
 });
 
 test('4. LF y CRLF producen el mismo checksum', () => {
@@ -258,7 +259,10 @@ test('22. 015 a 023 están active y no existen migraciones posteriores', () => {
     const activa024 = migraciones.find((item) => item.version === 24);
     assert.equal(activa024.estado, 'ACTIVE');
     assert.deepEqual(activa024.execution.dependsOn, [23]);
-    assert.equal(migraciones.filter((item) => item.version >= 25).every((item) => item.estado === 'PLANNED' && item.archivo === null), true);
+    const activa025 = migraciones.find((item) => item.version === 25);
+    assert.equal(activa025.estado, 'ACTIVE');
+    assert.deepEqual(activa025.execution.dependsOn, [24]);
+    assert.equal(migraciones.filter((item) => item.version >= 26).every((item) => item.estado === 'PLANNED' && item.archivo === null), true);
     assert.equal(migraciones.at(-1).version, 27);
 });
 

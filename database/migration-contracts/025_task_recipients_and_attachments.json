@@ -1,0 +1,127 @@
+{
+  "versionContrato": 1,
+  "migracion": 25,
+  "identificador": "025",
+  "algoritmoChecksum": "sha256-utf8-lf-v1",
+  "tablasPreservadas": ["alumnos", "usuarios", "tareas_academicas", "estados_tarea_academica", "estados_entrega_tarea"],
+  "columnasProhibidas": {
+    "destinatarios_tarea_academica": ["alumno_id", "grupo_id", "periodo_academico_id", "materia_id", "docente_usuario_id", "estado_entrega_id", "activo", "eliminado_en"],
+    "historial_plazos_destinatario_tarea": ["actualizado_en", "activo", "eliminado_en"],
+    "adjuntos_tarea_academica": ["nombre_original", "nombre_interno", "ruta", "contenido", "activo", "vigente", "eliminado_en"],
+    "versiones_adjunto_tarea_academica": ["ruta", "ruta_absoluta", "contenido", "blob", "base64", "activo", "vigente", "eliminado_en", "actualizado_en"]
+  },
+  "tablas": {
+    "destinatarios_tarea_academica": {
+      "engine":"innodb","charset":"utf8mb4","collation":"utf8mb4_0900_ai_ci",
+      "columnas":[
+        {"nombre":"id","tipo":"bigint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"tarea_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"alumno_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"asignado_por_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"es_incorporacion_posterior","tipo":"tinyint(1)","unsigned":false,"nullable":false},
+        {"nombre":"fecha_limite_individual","tipo":"datetime","unsigned":false,"nullable":true,"default":null},
+        {"nombre":"asignado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey":["id"],
+      "indicesUnicos":[{"columnas":["tarea_id","alumno_usuario_id"]}],
+      "indices":[
+        {"columnas":["alumno_usuario_id","tarea_id","id"]},
+        {"columnas":["es_incorporacion_posterior","tarea_id","id"]},
+        {"columnas":["asignado_por_usuario_id","asignado_en","id"]},
+        {"columnas":["fecha_limite_individual","id"]}
+      ],
+      "foreignKeys":[
+        {"columnas":["tarea_id"],"tablaDestino":"tareas_academicas","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["alumno_usuario_id"],"tablaDestino":"alumnos","columnasDestino":["usuario_id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["asignado_por_usuario_id"],"tablaDestino":"usuarios","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"}
+      ],
+      "checks":[
+        {"fragmentos":["es_incorporacion_posterior","in (0, 1)"]},
+        {"fragmentos":["es_incorporacion_posterior = 0","fecha_limite_individual is null","or","es_incorporacion_posterior = 1","fecha_limite_individual is not null"]}
+      ]
+    },
+    "historial_plazos_destinatario_tarea": {
+      "engine":"innodb","charset":"utf8mb4","collation":"utf8mb4_0900_ai_ci",
+      "columnas":[
+        {"nombre":"id","tipo":"bigint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"destinatario_tarea_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"fecha_limite_anterior","tipo":"datetime","unsigned":false,"nullable":true,"default":null},
+        {"nombre":"fecha_limite_nueva","tipo":"datetime","unsigned":false,"nullable":false},
+        {"nombre":"cambiado_por_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"motivo","tipo":"varchar(500)","unsigned":false,"nullable":false},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey":["id"],"indicesUnicos":[],
+      "indices":[
+        {"columnas":["destinatario_tarea_id","creado_en","id"]},
+        {"columnas":["cambiado_por_usuario_id","creado_en","id"]}
+      ],
+      "foreignKeys":[
+        {"columnas":["destinatario_tarea_id"],"tablaDestino":"destinatarios_tarea_academica","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["cambiado_por_usuario_id"],"tablaDestino":"usuarios","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"}
+      ],
+      "checks":[
+        {"fragmentos":["fecha_limite_anterior is null","or","fecha_limite_nueva <> fecha_limite_anterior"]},
+        {"fragmentos":["char_length(trim(motivo))",">","0"]}
+      ]
+    },
+    "adjuntos_tarea_academica": {
+      "engine":"innodb","charset":"utf8mb4","collation":"utf8mb4_0900_ai_ci",
+      "columnas":[
+        {"nombre":"id","tipo":"bigint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"tarea_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"orden","tipo":"tinyint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"creado_por_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey":["id"],
+      "indicesUnicos":[{"columnas":["tarea_id","orden"]}],
+      "indices":[{"columnas":["creado_por_usuario_id","creado_en","id"]}],
+      "foreignKeys":[
+        {"columnas":["tarea_id"],"tablaDestino":"tareas_academicas","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["creado_por_usuario_id"],"tablaDestino":"usuarios","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"}
+      ],
+      "checks":[{"fragmentos":["orden","between 1 and 5"]}]
+    },
+    "versiones_adjunto_tarea_academica": {
+      "engine":"innodb","charset":"utf8mb4","collation":"utf8mb4_0900_ai_ci",
+      "columnas":[
+        {"nombre":"id","tipo":"bigint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"adjunto_tarea_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"numero_version","tipo":"int unsigned","unsigned":true,"nullable":false},
+        {"nombre":"nombre_original","tipo":"varchar(255)","unsigned":false,"nullable":false},
+        {"nombre":"nombre_interno","tipo":"varchar(255)","unsigned":false,"nullable":false},
+        {"nombre":"extension","tipo":"varchar(20)","unsigned":false,"nullable":false},
+        {"nombre":"mime_detectado","tipo":"varchar(150)","unsigned":false,"nullable":false},
+        {"nombre":"tamano_bytes","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"sha256","tipo":"char(64)","unsigned":false,"nullable":false,"collation":"ascii_bin"},
+        {"nombre":"motivo_cambio","tipo":"varchar(500)","unsigned":false,"nullable":true,"default":null},
+        {"nombre":"creado_por_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"creado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey":["id"],
+      "indicesUnicos":[
+        {"columnas":["adjunto_tarea_id","numero_version"]},
+        {"columnas":["nombre_interno"]}
+      ],
+      "indices":[
+        {"columnas":["sha256"]},
+        {"columnas":["creado_por_usuario_id","creado_en","id"]}
+      ],
+      "foreignKeys":[
+        {"columnas":["adjunto_tarea_id"],"tablaDestino":"adjuntos_tarea_academica","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["creado_por_usuario_id"],"tablaDestino":"usuarios","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"}
+      ],
+      "checks":[
+        {"fragmentos":["numero_version",">=","1"]},
+        {"fragmentos":["char_length(trim(nombre_original))",">","0"]},
+        {"fragmentos":["char_length(trim(nombre_interno))",">","0"]},
+        {"fragmentos":["char_length(trim(extension))",">","0"]},
+        {"fragmentos":["char_length(trim(mime_detectado))",">","0"]},
+        {"fragmentos":["tamano_bytes > 0","and","tamano_bytes <= 52428800"]},
+        {"fragmentos":["sha256","regexp","^[0-9A-Fa-f]{64}$"]},
+        {"fragmentos":["numero_version = 1","motivo_cambio is null","or","char_length(trim(motivo_cambio)) > 0","or","numero_version > 1","motivo_cambio is not null"]}
+      ]
+    }
+  }
+}

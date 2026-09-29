@@ -454,11 +454,35 @@
     {
       "version": 25,
       "identificador": "025",
-      "estado": "PLANNED",
-      "archivo": null,
-      "checksumSha256": null,
+      "estado": "ACTIVE",
+      "archivo": "025_create_task_recipients_and_attachments.sql",
+      "checksumSha256": "86fd93244b002f1f964c742e096cee908f5de3f16de955aa0685b6fb29d0cdac",
       "descripcion": "Destinatarios y adjuntos versionados de tareas académicas.",
-      "razonEstado": "Diseño contractual pendiente; no existe SQL ejecutable."
+      "execution": {
+        "dependsOn": [24],
+        "statementCount": 4,
+        "statements": [
+          {"operation":"CREATE_TABLE","target":"destinatarios_tarea_academica"},
+          {"operation":"CREATE_TABLE","target":"historial_plazos_destinatario_tarea"},
+          {"operation":"CREATE_TABLE","target":"adjuntos_tarea_academica"},
+          {"operation":"CREATE_TABLE","target":"versiones_adjunto_tarea_academica"}
+        ],
+        "preconditions": [
+          {"type":"MIGRATION_APPLIED","version":24},
+          {"type":"TABLE_ABSENT","target":"destinatarios_tarea_academica"},
+          {"type":"TABLE_ABSENT","target":"historial_plazos_destinatario_tarea"},
+          {"type":"TABLE_ABSENT","target":"adjuntos_tarea_academica"},
+          {"type":"TABLE_ABSENT","target":"versiones_adjunto_tarea_academica"},
+          {"type":"TABLE_PRESENT","target":"tareas_academicas"},
+          {"type":"TABLE_PRESENT","target":"alumnos"},
+          {"type":"TABLE_PRESENT","target":"usuarios"},
+          {"type":"COLUMN_MATCH","table":"tareas_academicas","target":"id","columnType":"bigint unsigned","nullable":false},
+          {"type":"COLUMN_MATCH","table":"alumnos","target":"usuario_id","columnType":"bigint unsigned","nullable":false},
+          {"type":"COLUMN_MATCH","table":"usuarios","target":"id","columnType":"bigint unsigned","nullable":false}
+        ],
+        "postconditionContract": "database/migration-contracts/025_task_recipients_and_attachments.json",
+        "postconditionChecksumSha256": "71a9c14a8f2c0a4173a97c15289e93fa2eac79d32d79d531ce252381bc375653"
+      }
     },
     {
       "version": 26,

@@ -228,7 +228,7 @@ test('30 una 019 aplicada y registrada deja las posteriores pendientes por orden
     const snapshot = snapshotBefore019();
     for (const [name, spec] of Object.entries(contract.tablas)) snapshot.tablas[name] = tableFromContract(spec);
     snapshot.controlRows.push(appliedRow(entry));
-    assert.deepEqual(apply.validarRegistrosAplicados(manifest, snapshot.controlRows).pending.map((item) => item.version), [20, 21, 22, 23, 24]);
+    assert.deepEqual(apply.validarRegistrosAplicados(manifest, snapshot.controlRows).pending.map((item) => item.version), [20, 21, 22, 23, 24, 25]);
 });
 test('31 fallo de la segunda sentencia no registra 019', async () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'migration019-'));

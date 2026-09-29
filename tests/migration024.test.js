@@ -16,6 +16,10 @@ const sqlPath = path.join(manifestApi.MIGRATIONS_DIR, entry.archivo);
 const sql = fs.readFileSync(sqlPath, 'utf8');
 const taskRows = contract.filasCatalogo.estados_tarea_academica;
 const deliveryRows = contract.filasCatalogo.estados_entrega_tarea;
+const manifestBefore025 = structuredClone(manifest);
+const entry025Fixture = manifestBefore025.migraciones.find((item) => item.version === 25);
+Object.assign(entry025Fixture, { estado: 'PLANNED', archivo: null, checksumSha256: null, razonEstado: 'Fixture previa a 025.' });
+delete entry025Fixture.execution;
 
 function controlRows(through = 23) {
     return manifest.migraciones
@@ -121,7 +125,9 @@ test('07 todas las FK son RESTRICT/RESTRICT y los índices cubren sus prefijos',
 
 test('08 024 depende de 023; 025 a 027 están PLANNED sin SQL', () => {
     assert.equal(entry.estado, 'ACTIVE'); assert.deepEqual(entry.execution.dependsOn, [23]);
-    for (const version of [25, 26, 27]) {
+    const active = manifest.migraciones.find((item) => item.version === 25);
+    assert.equal(active.estado, 'ACTIVE'); assert.deepEqual(active.execution.dependsOn, [24]);
+    for (const version of [26, 27]) {
         const planned = manifest.migraciones.find((item) => item.version === version);
         assert.deepEqual([planned.estado, planned.archivo, planned.checksumSha256], ['PLANNED', null, null]);
     }
@@ -155,7 +161,7 @@ test('16 estructura existente sin registro es rechazada por el plan', () => {
     current.controlRows = current.controlRows.filter((row) => Number(row.version) !== 24);
     assert.throws(() => apply.construirPlan(manifest, current));
 });
-test('17 aplicada y registrada deja de estar pendiente', () => assert.deepEqual(apply.construirPlan(manifest, snapshot({ applied: true })), []));
+test('17 aplicada y registrada deja de estar pendiente en el fixture previo a 025', () => assert.deepEqual(apply.construirPlan(manifestBefore025, snapshot({ applied: true })), []));
 test('18 checksum distinto es rechazado', () => {
     const changed = structuredClone(entry); changed.checksumSha256 = '0'.repeat(64);
     assert.throws(() => apply.validarSqlMigracion(changed));
@@ -173,7 +179,7 @@ test('20 dry-run selecciona solo 024 y no escribe', async () => {
     const calls = []; const output = [];
     const connection = { async execute(query) { calls.push(query); return [[]]; }, release() {} };
     const pool = { async getConnection() { return connection; }, async end() {} };
-    const plan = await apply.ejecutarDryRun({ log: (line) => output.push(line) }, { pool, manifest, snapshot: async () => snapshot() });
+    const plan = await apply.ejecutarDryRun({ log: (line) => output.push(line) }, { pool, manifest: manifestBefore025, snapshot: async () => snapshot() });
     assert.deepEqual(plan.map((item) => item.entrada.version), [24]);
     assert.match(output.join('\n'), /CREATE_TABLE estados_tarea_academica[\s\S]+INSERT_CATALOG_ROWS estados_tarea_academica[\s\S]+CREATE_TABLE estados_entrega_tarea[\s\S]+INSERT_CATALOG_ROWS estados_entrega_tarea[\s\S]+CREATE_TABLE tareas_academicas/);
     assert.equal(calls.some((query) => /\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)\b/i.test(query)), false);
@@ -200,7 +206,7 @@ test('21 aplicación simulada ejecuta cinco sentencias antes de registrar exacta
     const options = apply.parsearArgumentos(['up', '--execute', '--confirm=APPLY-ACTIVE-MIGRATIONS', '--acknowledge-ddl-autocommit', `--backup-file=${__filename}`, `--backup-sha256=${backupHash}`]);
     const deps = {
         env: { MIGRATION_DB_ALLOW_WRITES: 'ACTIVE_MIGRATIONS_ONLY', MIGRATION_DB_HOST: 'x', MIGRATION_DB_PORT: '3306', MIGRATION_DB_NAME: 'x', MIGRATION_DB_USER: 'x', MIGRATION_DB_PASSWORD: 'x' },
-        pool, manifest, privileges: async (unused, required) => { assert.deepEqual(required, ['SELECT', 'CREATE', 'INSERT']); return { estado: 'PRESENT' }; },
+        pool, manifest: manifestBefore025, privileges: async (unused, required) => { assert.deepEqual(required, ['SELECT', 'CREATE', 'INSERT']); return { estado: 'PRESENT' }; },
         snapshot: async () => snapshot(), snapshotAfter: async () => snapshot({ applied: true }),
         snapshotVerified: async () => snapshot({ applied: true }), randomUUID: () => '00000000-0000-4000-8000-000000000024',
     };
