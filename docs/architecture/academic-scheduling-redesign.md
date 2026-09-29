@@ -210,6 +210,14 @@ La vista previa no aplica cambios. La operación no borra primero el horario vig
 
 Una reversión debe ser una operación nueva y auditable que active el contenido de una versión anterior como una nueva versión vigente; nunca debe borrar el historial. El horario docente de clases se deriva de esas mismas filas y no se importa por segunda vez. Las actividades no lectivas no forman parte de la plantilla de grupos; una plantilla propia futura tendrá formato y versión independientes.
 
+### Tareas académicas del docente
+
+Las tareas académicas constituyen un dominio independiente de las actividades de orientación. Se asignan por grupo y materia, y un docente solo puede crearlas o publicarlas cuando una clase de la versión activa demuestra que imparte simultáneamente esa materia a ese grupo dentro del periodo correspondiente.
+
+Una tarea publicada conserva explícitamente docente, grupo, periodo y materia como contexto histórico; no referencia un bloque semanal individual y no cambia cuando se sustituye el horario. La publicación congela una instantánea de alumnos destinatarios. Cada entrega del alumno constituye un intento nuevo, los intentos tardíos se aceptan y marcan, y las revisiones docentes forman un historial separado con estado, calificacion opcional y retroalimentación.
+
+Este módulo no reutiliza tablas, catálogos, adjuntos, rutas ni permisos de `actividades_orientacion`. `ORIENTADOR` no administra tareas académicas y `ADMINISTRADOR` no suplanta al docente autor. El contrato normativo previo a migraciones se encuentra en [teacher-academic-tasks-contract.md](teacher-academic-tasks-contract.md).
+
 ## 11. Estrategia de migración desde 008
 
 La transición debe dividirse en etapas controladas:
@@ -380,11 +388,11 @@ Los nombres son provisionales y siguen las convenciones en español del proyecto
 ### `clases_programadas`
 
 - **Responsabilidad:** ser la única fuente de verdad para los horarios de grupo y docente.
-- **Campos conceptuales:** identificador, versión de horario, periodo, grupo, docente, materia, día, hora inicial, hora final, aula opcional, estado y timestamps.
-- **Claves y relaciones:** referencia una versión, periodo, grupo, usuario docente, materia y opcionalmente aula.
-- **Cardinalidad:** cada clase pertenece a un grupo y docente; grupo y docente obtienen sus horarios consultando estas mismas filas.
+- **Campos conceptuales:** identificador, versión de horario, docente, materia, día, hora inicial, hora final, aula opcional y fecha de creación.
+- **Claves y relaciones:** referencia una versión, usuario docente, materia y opcionalmente aula. Grupo y periodo se obtienen exclusivamente mediante `versiones_horario`; no se duplican en la clase.
+- **Cardinalidad:** cada clase pertenece a una versión y un docente; grupo y docente obtienen sus horarios consultando estas mismas filas y uniendo la versión cuando necesitan el alcance.
 - **Historial:** las clases quedan asociadas a su versión; una versión anterior no se sobrescribe.
-- **Integridad:** `hora_inicio < hora_fin`; ausencia de duplicados y solapamientos de grupo, docente y aula; entidades activas; periodo igual al del grupo. La duración es flexible y no se fija en 50 minutos.
+- **Integridad:** `hora_inicio < hora_fin`; ausencia de duplicados y solapamientos de grupo, docente y aula; entidades activas; periodo derivado de la versión igual al periodo actual del grupo. La duración es flexible y no se fija en 50 minutos.
 - **Fase:** N6 para estructura y N7 para consultas derivadas.
 
 ### `actividades_docente_no_lectivas`
