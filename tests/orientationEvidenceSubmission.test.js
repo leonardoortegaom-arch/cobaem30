@@ -4,9 +4,37 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
 const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
+
+function runEvidenceBrowserScript(href) {
+    let onReady;
+    const calls = [];
+    const window = {
+        location: { href },
+        history: {
+            state: { preserved: true },
+            replaceState(state, title, url) { calls.push({ state, title, url }); }
+        },
+        confirm: () => true
+    };
+    const document = {
+        addEventListener(name, callback) {
+            if (name === 'DOMContentLoaded') onReady = callback;
+        },
+        getElementById() { return null; },
+        querySelectorAll() { return []; }
+    };
+    vm.runInNewContext(read('public/js/alumnoActivityEvidence.js'), {
+        document,
+        window,
+        URL
+    });
+    onReady();
+    return calls;
+}
 
 function loadWithMocks(target, mocks) {
     const saved = new Map();
@@ -300,4 +328,41 @@ test('27 una actividad futura no se rechaza en aplicación por fecha programada'
         assert.equal(h.calls.updated.length, 1);
         assert.equal(h.calls.commit, 1);
     } finally { h.restore(); }
+});
+
+test('28 el aviso de eliminación se consume sin una navegación adicional', () => {
+    const calls = runEvidenceBrowserScript('https://example.test/alumno/actividades/4?evidencia=eliminada#evidencias-titulo');
+    assert.deepEqual(calls, [{
+        state: { preserved: true },
+        title: '',
+        url: '/alumno/actividades/4#evidencias-titulo'
+    }]);
+});
+
+test('29 la URL canónica conserva parámetros ajenos y el fragmento', () => {
+    const calls = runEvidenceBrowserScript('https://example.test/alumno/actividades/4?origen=panel&evidencia=eliminada&vista=compacta#archivos');
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0].url, '/alumno/actividades/4?origen=panel&vista=compacta#archivos');
+});
+
+test('30 una URL sin el indicador de evidencia no se altera', () => {
+    assert.deepEqual(
+        runEvidenceBrowserScript('https://example.test/alumno/actividades/4?origen=panel#archivos'),
+        []
+    );
+});
+
+test('31 el reenvío exitoso recarga la URL ya canonicalizada y conserva su mensaje propio', () => {
+    const script = read('public/js/alumnoActivityEvidence.js');
+    assert.match(script, /request\.status === 201\) \{ window\.location\.reload\(\); return; \}/);
+    assert.match(read('controllers/alumnoActividadEvidenciaController.js'), /mensaje: 'La evidencia se envió correctamente\.'/);
+    assert.match(script, /searchParams\.delete\('evidencia'\)[\s\S]*history\.replaceState/);
+});
+
+test('32 la corrección no altera fecha, estado ni barreras transaccionales', () => {
+    const controller = read('controllers/alumnoActividadEvidenciaController.js');
+    const model = read('models/actividadOrientacionModel.js');
+    assert.match(model, /fecha_realizacion = CURRENT_DATE\(\)/);
+    assert.match(controller, /beginTransaction\(\)[\s\S]*actualizarARealizadaCondicional[\s\S]*confirmarEstadoAlumno[\s\S]*commit\(\)/);
+    assert.match(controller, /OPEN_STATES = new Set\(\['PENDIENTE', 'EN_PROCESO', 'RECHAZADA'\]\)/);
 });

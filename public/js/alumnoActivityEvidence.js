@@ -1,4 +1,14 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const currentUrl = new URL(window.location.href);
+    if (currentUrl.searchParams.has('evidencia')) {
+        currentUrl.searchParams.delete('evidencia');
+        window.history.replaceState(
+            window.history.state,
+            '',
+            `${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`
+        );
+    }
+
     const uploader = document.getElementById('student-activity-evidence-uploader');
     const deleteForms = document.querySelectorAll('.student-activity-evidence-delete-form');
     deleteForms.forEach((form) => {
