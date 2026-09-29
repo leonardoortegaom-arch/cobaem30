@@ -29,7 +29,7 @@
     "migrations:up-dry-run": "node scripts/migrationApply.js up --dry-run",
     "test:migrations:apply": "node --test tests/migrationApply.test.js",
     "templates:generate-group-schedule": "node scripts/generateGroupScheduleTemplate.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node scripts/runAllTests.js"
   },
   "keywords": [],
   "author": "",
