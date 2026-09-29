@@ -214,7 +214,11 @@ Una reversión debe ser una operación nueva y auditable que active el contenido
 
 Las tareas académicas constituyen un dominio independiente de las actividades de orientación. Se asignan por grupo y materia, y un docente solo puede crearlas o publicarlas cuando una clase de la versión activa demuestra que imparte simultáneamente esa materia a ese grupo dentro del periodo correspondiente.
 
-Una tarea publicada conserva explícitamente docente, grupo, periodo y materia como contexto histórico; no referencia un bloque semanal individual y no cambia cuando se sustituye el horario. La publicación congela una instantánea de alumnos destinatarios. Cada entrega del alumno constituye un intento nuevo, los intentos tardíos se aceptan y marcan, y las revisiones docentes forman un historial separado con estado, calificacion opcional y retroalimentación.
+Una tarea publicada conserva explícitamente docente, grupo, periodo y materia como contexto histórico; no referencia un bloque semanal individual y no cambia cuando se sustituye el horario. La publicación congela una instantánea de alumnos destinatarios. Cada entrega del alumno constituye un intento nuevo, los intentos tardíos se aceptan y marcan, y las revisiones docentes forman un historial separado con estado, calificación opcional y retroalimentación.
+
+Cada tarea define puntuación máxima decimal positiva y una revisión puede omitir calificación. Los destinatarios incorporados después de publicar reciben un plazo individual auditado; el plazo original de la tarea no cambia. Los intentos usan una clave de idempotencia, congelan el plazo efectivo y las versiones vigentes de adjuntos docentes, y no se reescriben ante correcciones posteriores.
+
+Los adjuntos publicados se conservan mediante versiones inmutables en almacenamiento privado. Al finalizar el periodo se bloquean nuevas tareas, publicaciones, incorporaciones, cambios de plazo, correcciones de adjuntos e intentos, pero el docente autor puede consultar y resolver revisiones pendientes sobre entregas anteriores.
 
 Este módulo no reutiliza tablas, catálogos, adjuntos, rutas ni permisos de `actividades_orientacion`. `ORIENTADOR` no administra tareas académicas y `ADMINISTRADOR` no suplanta al docente autor. El contrato normativo previo a migraciones se encuentra en [teacher-academic-tasks-contract.md](teacher-academic-tasks-contract.md).
 
