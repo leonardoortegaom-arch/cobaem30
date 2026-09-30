@@ -1,0 +1,21 @@
+CREATE TABLE revisiones_entrega_tarea (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    intento_entrega_tarea_id BIGINT UNSIGNED NOT NULL,
+    numero_revision INT UNSIGNED NOT NULL,
+    docente_revisor_usuario_id BIGINT UNSIGNED NOT NULL,
+    estado_entrega_id TINYINT UNSIGNED NOT NULL,
+    calificacion DECIMAL(8,2) NULL,
+    comentario VARCHAR(2000) NULL,
+    revisado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_revisiones_intento_numero (intento_entrega_tarea_id, numero_revision),
+    KEY idx_revisiones_intento_fecha (intento_entrega_tarea_id, revisado_en, id),
+    KEY idx_revisiones_docente_fecha (docente_revisor_usuario_id, revisado_en, id),
+    KEY idx_revisiones_estado_fecha (estado_entrega_id, revisado_en, id),
+    CONSTRAINT fk_revisiones_intento FOREIGN KEY (intento_entrega_tarea_id) REFERENCES intentos_entrega_tarea (id) ON UPDATE RESTRICT ON DELETE RESTRICT,
+    CONSTRAINT fk_revisiones_docente FOREIGN KEY (docente_revisor_usuario_id) REFERENCES usuarios (id) ON UPDATE RESTRICT ON DELETE RESTRICT,
+    CONSTRAINT fk_revisiones_estado FOREIGN KEY (estado_entrega_id) REFERENCES estados_entrega_tarea (id) ON UPDATE RESTRICT ON DELETE RESTRICT,
+    CONSTRAINT chk_revisiones_numero CHECK (numero_revision >= 1),
+    CONSTRAINT chk_revisiones_calificacion CHECK (calificacion IS NULL OR calificacion >= 0),
+    CONSTRAINT chk_revisiones_comentario CHECK (comentario IS NULL OR CHAR_LENGTH(TRIM(comentario)) > 0)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

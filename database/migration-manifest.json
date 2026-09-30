@@ -520,11 +520,29 @@
     {
       "version": 27,
       "identificador": "027",
-      "estado": "PLANNED",
-      "archivo": null,
-      "checksumSha256": null,
+      "estado": "ACTIVE",
+      "archivo": "027_create_task_delivery_reviews.sql",
+      "checksumSha256": "f693a576e7ff0df2d76299e64b21b1744d1e79b3aa506ca257141e103d3459e3",
       "descripcion": "Revisiones e historial académico de entregas.",
-      "razonEstado": "Diseño contractual pendiente; no existe SQL ejecutable."
+      "execution": {
+        "dependsOn": [26],
+        "statementCount": 1,
+        "statements": [
+          {"operation":"CREATE_TABLE","target":"revisiones_entrega_tarea"}
+        ],
+        "preconditions": [
+          {"type":"MIGRATION_APPLIED","version":26},
+          {"type":"TABLE_ABSENT","target":"revisiones_entrega_tarea"},
+          {"type":"TABLE_PRESENT","target":"intentos_entrega_tarea"},
+          {"type":"TABLE_PRESENT","target":"estados_entrega_tarea"},
+          {"type":"TABLE_PRESENT","target":"usuarios"},
+          {"type":"COLUMN_MATCH","table":"intentos_entrega_tarea","target":"id","columnType":"bigint unsigned","nullable":false},
+          {"type":"COLUMN_MATCH","table":"estados_entrega_tarea","target":"id","columnType":"tinyint unsigned","nullable":false},
+          {"type":"COLUMN_MATCH","table":"usuarios","target":"id","columnType":"bigint unsigned","nullable":false}
+        ],
+        "postconditionContract": "database/migration-contracts/027_task_delivery_reviews.json",
+        "postconditionChecksumSha256": "f40c6da8f63dbdb658cd25a0c1163d577e412f90a2fa68e3acf2d2a672318819"
+      }
     }
   ]
 }

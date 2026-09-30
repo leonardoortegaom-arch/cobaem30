@@ -1,0 +1,63 @@
+{
+  "versionContrato": 1,
+  "migracion": 27,
+  "identificador": "027",
+  "algoritmoChecksum": "sha256-utf8-lf-v1",
+  "tablasPreservadas": ["intentos_entrega_tarea", "estados_entrega_tarea", "usuarios", "tareas_academicas"],
+  "columnasProhibidas": {
+    "revisiones_entrega_tarea": ["actualizado_en", "eliminado_en", "activo", "alumno_usuario_id", "docente_id", "tarea_id", "puntaje_maximo"]
+  },
+  "invariantesAplicacion": [
+    {
+      "estadoClave": "RECHAZADA",
+      "reglas": ["comentario obligatorio y no vacío", "calificacion NULL"]
+    },
+    {
+      "estadoClave": "APROBADA",
+      "reglas": ["calificacion opcional", "calificacion no mayor que tareas_academicas.puntaje_maximo"]
+    },
+    {
+      "estadoClave": "ENVIADA",
+      "reglas": ["no se admite como resultado de una nueva revisión"]
+    },
+    {
+      "reglasTransaccionales": [
+        "resolver estados por clave semántica sin IDs fijos",
+        "validar que el revisor sea el docente autor autorizado",
+        "insertar la revisión y actualizar intentos_entrega_tarea.estado_entrega_actual_id en la misma transacción"
+      ]
+    }
+  ],
+  "tablas": {
+    "revisiones_entrega_tarea": {
+      "engine":"innodb","charset":"utf8mb4","collation":"utf8mb4_0900_ai_ci",
+      "columnas":[
+        {"nombre":"id","tipo":"bigint unsigned","unsigned":true,"nullable":false,"extra":"auto_increment"},
+        {"nombre":"intento_entrega_tarea_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"numero_revision","tipo":"int unsigned","unsigned":true,"nullable":false},
+        {"nombre":"docente_revisor_usuario_id","tipo":"bigint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"estado_entrega_id","tipo":"tinyint unsigned","unsigned":true,"nullable":false},
+        {"nombre":"calificacion","tipo":"decimal(8,2)","unsigned":false,"nullable":true,"default":null},
+        {"nombre":"comentario","tipo":"varchar(2000)","unsigned":false,"nullable":true,"default":null},
+        {"nombre":"revisado_en","tipo":"timestamp","unsigned":false,"nullable":false,"default":"CURRENT_TIMESTAMP"}
+      ],
+      "primaryKey":["id"],
+      "indicesUnicos":[{"columnas":["intento_entrega_tarea_id","numero_revision"]}],
+      "indices":[
+        {"columnas":["intento_entrega_tarea_id","revisado_en","id"]},
+        {"columnas":["docente_revisor_usuario_id","revisado_en","id"]},
+        {"columnas":["estado_entrega_id","revisado_en","id"]}
+      ],
+      "foreignKeys":[
+        {"columnas":["intento_entrega_tarea_id"],"tablaDestino":"intentos_entrega_tarea","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["docente_revisor_usuario_id"],"tablaDestino":"usuarios","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"},
+        {"columnas":["estado_entrega_id"],"tablaDestino":"estados_entrega_tarea","columnasDestino":["id"],"onUpdate":"RESTRICT","onDelete":"RESTRICT"}
+      ],
+      "checks":[
+        {"fragmentos":["numero_revision",">=","1"]},
+        {"fragmentos":["calificacion is null","or","calificacion >= 0"]},
+        {"fragmentos":["comentario is null","or","char_length(trim(comentario)) > 0"]}
+      ]
+    }
+  }
+}

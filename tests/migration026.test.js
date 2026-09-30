@@ -16,6 +16,10 @@ const descriptor = preflight.cargarDescriptor();
 const sqlPath = path.join(manifestApi.MIGRATIONS_DIR, entry.archivo);
 const sql = fs.readFileSync(sqlPath, 'utf8');
 const tableNames = ['intentos_entrega_tarea', 'adjuntos_intento_entrega', 'contexto_adjuntos_intento_tarea'];
+const manifestBefore027 = structuredClone(manifest);
+const entry027Fixture = manifestBefore027.migraciones.find((item) => item.version === 27);
+Object.assign(entry027Fixture, { estado: 'PLANNED', archivo: null, checksumSha256: null, razonEstado: 'Fixture previa a 027.' });
+delete entry027Fixture.execution;
 
 function controlRows(through = 25) {
     return manifest.migraciones
@@ -178,7 +182,7 @@ test('18 postcondición acepta estructura completa y rechaza diferencias', () =>
     assert.throws(() => apply.validarPostcondicion(snapshot({ applied: true, mutate(current) { current.tablas.contexto_adjuntos_intento_tarea.indices = []; } }), contract));
 });
 
-test('19 estructura aplicada y registrada deja de estar pendiente', () => assert.deepEqual(apply.construirPlan(manifest, snapshot({ applied: true })), []));
+test('19 estructura aplicada y registrada deja de estar pendiente en el fixture previo a 027', () => assert.deepEqual(apply.construirPlan(manifestBefore027, snapshot({ applied: true })), []));
 
 test('20 estructura aplicada sin registro se rechaza', () => {
     const current = snapshot({ applied: true }); current.controlRows = current.controlRows.filter((row) => Number(row.version) !== 26);
@@ -194,7 +198,7 @@ test('22 dry-run selecciona solo 026 y no escribe', async () => {
     const calls = []; const output = [];
     const connection = { async execute(query) { calls.push(query); return [[]]; }, release() {} };
     const pool = { async getConnection() { return connection; }, async end() {} };
-    const plan = await apply.ejecutarDryRun({ log: (line) => output.push(line) }, { pool, manifest, snapshot: async () => snapshot() });
+    const plan = await apply.ejecutarDryRun({ log: (line) => output.push(line) }, { pool, manifest: manifestBefore027, snapshot: async () => snapshot() });
     assert.deepEqual(plan.map((item) => item.entrada.version), [26]);
     for (const name of tableNames) assert.match(output.join('\n'), new RegExp(`CREATE_TABLE ${name}`));
     assert.equal(calls.some((query) => /\b(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP)\b/i.test(query)), false);
@@ -218,7 +222,7 @@ test('23 aplicación simulada ejecuta tres CREATE antes de registrar 026', async
     const options = apply.parsearArgumentos(['up', '--execute', '--confirm=APPLY-ACTIVE-MIGRATIONS', '--acknowledge-ddl-autocommit', `--backup-file=${__filename}`, `--backup-sha256=${backupHash}`]);
     await apply.ejecutarAdministrativo(options, true, { log() {} }, {
         env: { MIGRATION_DB_ALLOW_WRITES: 'ACTIVE_MIGRATIONS_ONLY', MIGRATION_DB_HOST: 'x', MIGRATION_DB_PORT: '3306', MIGRATION_DB_NAME: 'x', MIGRATION_DB_USER: 'x', MIGRATION_DB_PASSWORD: 'x' },
-        pool, manifest, privileges: async (unused, required) => { assert.deepEqual(required, ['SELECT', 'CREATE', 'INSERT']); return { estado: 'PRESENT' }; },
+        pool, manifest: manifestBefore027, privileges: async (unused, required) => { assert.deepEqual(required, ['SELECT', 'CREATE', 'INSERT']); return { estado: 'PRESENT' }; },
         snapshot: async () => snapshot(), snapshotAfter: async () => snapshot({ applied: true }), snapshotVerified: async () => snapshot({ applied: true }),
         randomUUID: () => '00000000-0000-4000-8000-000000000026'
     });
@@ -245,15 +249,14 @@ test('24 el fallo de cualquiera de los tres CREATE ocurre antes del registro', a
         const pool = { async getConnection() { return connection; }, async end() {} };
         await assert.rejects(() => apply.ejecutarAdministrativo(options, true, { log() {} }, {
             env: { MIGRATION_DB_ALLOW_WRITES: 'ACTIVE_MIGRATIONS_ONLY', MIGRATION_DB_HOST: 'x', MIGRATION_DB_PORT: '3306', MIGRATION_DB_NAME: 'x', MIGRATION_DB_USER: 'x', MIGRATION_DB_PASSWORD: 'x' },
-            pool, manifest, privileges: async () => ({ estado: 'PRESENT' }), snapshot: async () => snapshot()
+            pool, manifest: manifestBefore027, privileges: async () => ({ estado: 'PRESENT' }), snapshot: async () => snapshot()
         }));
         assert.equal(calls.some((call) => /^INSERT INTO schema_migrations/i.test(call.query)), false);
     }
 });
 
-test('25 026 depende de 025 y 027 permanece PLANNED sin SQL', () => {
+test('25 026 depende de 025 y 027 está ACTIVE', () => {
     assert.deepEqual(entry.execution.dependsOn, [25]);
-    const planned = manifest.migraciones.find((item) => item.version === 27);
-    assert.deepEqual([planned.estado, planned.archivo, planned.checksumSha256], ['PLANNED', null, null]);
-    assert.equal(fs.readdirSync(manifestApi.MIGRATIONS_DIR).some((name) => name.startsWith('027_')), false);
+    const active = manifest.migraciones.find((item) => item.version === 27);
+    assert.equal(active.estado, 'ACTIVE'); assert.deepEqual(active.execution.dependsOn, [26]);
 });

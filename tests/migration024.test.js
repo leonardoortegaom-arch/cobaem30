@@ -23,6 +23,9 @@ delete entry025Fixture.execution;
 const entry026Fixture = manifestBefore025.migraciones.find((item) => item.version === 26);
 Object.assign(entry026Fixture, { estado: 'PLANNED', archivo: null, checksumSha256: null, razonEstado: 'Fixture previa a 026.' });
 delete entry026Fixture.execution;
+const entry027Fixture = manifestBefore025.migraciones.find((item) => item.version === 27);
+Object.assign(entry027Fixture, { estado: 'PLANNED', archivo: null, checksumSha256: null, razonEstado: 'Fixture previa a 027.' });
+delete entry027Fixture.execution;
 
 function controlRows(through = 23) {
     return manifest.migraciones
@@ -132,8 +135,8 @@ test('08 024 depende de 023; 025 a 027 están PLANNED sin SQL', () => {
     assert.equal(active.estado, 'ACTIVE'); assert.deepEqual(active.execution.dependsOn, [24]);
     const active026 = manifest.migraciones.find((item) => item.version === 26);
     assert.equal(active026.estado, 'ACTIVE'); assert.deepEqual(active026.execution.dependsOn, [25]);
-    const planned = manifest.migraciones.find((item) => item.version === 27);
-    assert.deepEqual([planned.estado, planned.archivo, planned.checksumSha256], ['PLANNED', null, null]);
+    const active027 = manifest.migraciones.find((item) => item.version === 27);
+    assert.equal(active027.estado, 'ACTIVE'); assert.deepEqual(active027.execution.dependsOn, [26]);
 });
 
 test('09 precondición acepta las tres tablas ausentes', () => assert.equal(apply.validarPrecondiciones(snapshot(), entry), true));

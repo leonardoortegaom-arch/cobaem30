@@ -25,6 +25,9 @@ const manifestBefore026 = structuredClone(manifest);
 const entry026Fixture = manifestBefore026.migraciones.find((item) => item.version === 26);
 Object.assign(entry026Fixture, { estado: 'PLANNED', archivo: null, checksumSha256: null, razonEstado: 'Fixture previa a 026.' });
 delete entry026Fixture.execution;
+const entry027Fixture = manifestBefore026.migraciones.find((item) => item.version === 27);
+Object.assign(entry027Fixture, { estado: 'PLANNED', archivo: null, checksumSha256: null, razonEstado: 'Fixture previa a 027.' });
+delete entry027Fixture.execution;
 
 function controlRows(through = 24) {
     return manifest.migraciones
@@ -268,7 +271,6 @@ test('25 026 y 027 permanecen PLANNED y sin SQL físico', () => {
     assert.deepEqual(entry.execution.dependsOn, [24]);
     const active = manifest.migraciones.find((item) => item.version === 26);
     assert.equal(active.estado, 'ACTIVE'); assert.deepEqual(active.execution.dependsOn, [25]);
-    const planned = manifest.migraciones.find((item) => item.version === 27);
-    assert.deepEqual([planned.estado, planned.archivo, planned.checksumSha256], ['PLANNED', null, null]);
-    assert.equal(fs.readdirSync(manifestApi.MIGRATIONS_DIR).some((name) => name.startsWith('027_')), false);
+    const active027 = manifest.migraciones.find((item) => item.version === 27);
+    assert.equal(active027.estado, 'ACTIVE'); assert.deepEqual(active027.execution.dependsOn, [26]);
 });
